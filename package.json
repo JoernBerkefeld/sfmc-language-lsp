@@ -1,0 +1,58 @@
+{
+    "name": "sfmc-language-lsp",
+    "version": "0.1.0",
+    "type": "module",
+    "description": "Protocol-agnostic, browser-compatible language service for Salesforce Marketing Cloud — AMPscript, SSJS, and GTL. Provides validation, completions, hover, signature help, and code actions.",
+    "author": "Jörn Berkefeld",
+    "license": "MIT",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/JoernBerkefeld/sfmc-language-lsp.git"
+    },
+    "bugs": {
+        "url": "https://github.com/JoernBerkefeld/sfmc-language-lsp/issues"
+    },
+    "homepage": "https://github.com/JoernBerkefeld/sfmc-language-lsp#readme",
+    "keywords": [
+        "ampscript",
+        "ssjs",
+        "gtl",
+        "sfmc",
+        "salesforce",
+        "marketing-cloud",
+        "language-server",
+        "lsp",
+        "intellisense"
+    ],
+    "exports": {
+        ".": {
+            "import": "./dist/esm/index.js",
+            "require": "./dist/cjs/index.js",
+            "types": "./dist/types/index.d.ts"
+        }
+    },
+    "main": "./dist/cjs/index.js",
+    "module": "./dist/esm/index.js",
+    "types": "./dist/types/index.d.ts",
+    "files": [
+        "dist",
+        "README.md",
+        "LICENSE"
+    ],
+    "scripts": {
+        "build": "npm run build:cjs && npm run build:esm && npm run build:types",
+        "build:cjs": "tsc -p tsconfig.cjs.json",
+        "build:esm": "tsc -p tsconfig.esm.json",
+        "build:types": "tsc -p tsconfig.types.json",
+        "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
+        "test": "node --test tests/*.test.mjs"
+    },
+    "dependencies": {
+        "ampscript-data": "*",
+        "ssjs-data": "^0.2.1",
+        "vscode-languageserver-types": "^3.17.5"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}
