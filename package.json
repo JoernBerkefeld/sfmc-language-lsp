@@ -1,6 +1,6 @@
 {
     "name": "sfmc-language-lsp",
-    "version": "0.1.2",
+    "version": "0.1.3",
     "type": "module",
     "description": "Protocol-agnostic, browser-compatible language service for Salesforce Marketing Cloud — AMPscript, SSJS, and GTL. Provides validation, completions, hover, signature help, and code actions.",
     "author": "Jörn Berkefeld",
