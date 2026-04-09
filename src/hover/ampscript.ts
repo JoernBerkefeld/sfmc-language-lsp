@@ -4,7 +4,11 @@ import { getWordRangeAtPosition } from '../utils/text.js';
 import { buildFunctionMarkdown } from '../utils/markdown.js';
 import { functionLookup, ampscriptKeywords, personalizationStrings } from '../data/ampscript.js';
 
-/** Return hover documentation for an AMPscript document at the given line/position. */
+/**
+ * Return hover documentation for an AMPscript document at the given line/position.
+ * @param line
+ * @param position
+ */
 export function getAmpscriptHover(line: string, position: Position): Hover | null {
     const wordRange = getWordRangeAtPosition(line, position.character);
     if (!wordRange) return null;
@@ -25,7 +29,10 @@ export function getAmpscriptHover(line: string, position: Position): Hover | nul
     const kw = ampscriptKeywords.find((k) => k.name.toLowerCase() === word.toLowerCase());
     if (kw) {
         return {
-            contents: { kind: MarkupKind.Markdown, value: `**${kw.name}** *(keyword)*\n\n${kw.description}` },
+            contents: {
+                kind: MarkupKind.Markdown,
+                value: `**${kw.name}** *(keyword)*\n\n${kw.description}`,
+            },
             range: {
                 start: { line: position.line, character: wordRange.start },
                 end: { line: position.line, character: wordRange.end },
@@ -36,7 +43,10 @@ export function getAmpscriptHover(line: string, position: Position): Hover | nul
     const ps = personalizationStrings.find((p) => p.name.toLowerCase() === word.toLowerCase());
     if (ps) {
         return {
-            contents: { kind: MarkupKind.Markdown, value: `**${ps.name}** *(personalization string)*\n\n${ps.description}` },
+            contents: {
+                kind: MarkupKind.Markdown,
+                value: `**${ps.name}** *(personalization string)*\n\n${ps.description}`,
+            },
             range: {
                 start: { line: position.line, character: wordRange.start },
                 end: { line: position.line, character: wordRange.end },

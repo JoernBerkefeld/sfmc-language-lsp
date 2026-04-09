@@ -5,6 +5,7 @@ import { offsetToPosition } from '../utils/positions.js';
 /**
  * Parse all `function name(...)` declarations from SSJS document text,
  * extracting preceding JSDoc blocks for documentation and parameter info.
+ * @param text
  */
 export function extractLocalSsjsFunctions(text: string): LocalSsjsFunction[] {
     const results: LocalSsjsFunction[] = [];
@@ -30,10 +31,11 @@ export function extractLocalSsjsFunctions(text: string): LocalSsjsFunction[] {
 
             const descMatch = jsdoc.match(/\/\*\*\s*([\s\S]*?)(?=\s*@|\s*\*\/)/);
             if (descMatch) {
-                description = descMatch[1].replace(/^\s*\*\s?/gm, '').trim();
+                description = descMatch[1].replaceAll(/^\s*\*\s?/gm, '').trim();
             }
 
-            const paramPattern = /@param\s+(?:\{([^}]*)\}\s+)?(\w+)(?:\s+-\s*(.*?))?(?=\s*@|\s*\*\/)/gs;
+            const paramPattern =
+                /@param\s+(?:\{([^}]*)\}\s+)?(\w+)(?:\s+-\s*(.*?))?(?=\s*@|\s*\*\/)/gs;
             let pMatch: RegExpExecArray | null;
             while ((pMatch = paramPattern.exec(jsdoc)) !== null) {
                 paramDocs.set(pMatch[2], {
@@ -48,7 +50,14 @@ export function extractLocalSsjsFunctions(text: string): LocalSsjsFunction[] {
             }
         }
 
-        results.push({ name, params: rawParams, description, paramDocs, returnType, startOffset: match.index });
+        results.push({
+            name,
+            params: rawParams,
+            description,
+            paramDocs,
+            returnType,
+            startOffset: match.index,
+        });
     }
 
     return results;
@@ -57,6 +66,9 @@ export function extractLocalSsjsFunctions(text: string): LocalSsjsFunction[] {
 /**
  * Return an LSP Location for a file-local SSJS function declaration,
  * or null if the name is not found.
+ * @param text
+ * @param uri
+ * @param name
  */
 export function getSsjsDefinition(text: string, uri: string, name: string): Location | null {
     const fn = extractLocalSsjsFunctions(text).find((f) => f.name === name);

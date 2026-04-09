@@ -74,7 +74,7 @@ export const platformFunctions: SsjsFunction[] = PLATFORM_FUNCTIONS.map((f) => (
 }));
 
 export const platformFunctionLookup = new Map<string, SsjsFunction>(
-    platformFunctions.map((f) => [f.name.toLowerCase(), f]),
+    platformFunctions.map((f) => [f.name.toLowerCase(), f])
 );
 
 // ── Global functions ─────────────────────────────────────────────────────────
@@ -88,7 +88,7 @@ export const ssjsGlobals: SsjsFunction[] = SSJS_GLOBALS.filter((g) => g.type ===
         ...(g.params && { params: g.params }),
         ...(g.returnType && { returnType: g.returnType }),
         ...(g.syntax && { syntax: g.syntax }),
-    }),
+    })
 );
 
 // ── Variable/Response/Request objects ────────────────────────────────────────
@@ -136,7 +136,7 @@ export const platformClientBrowserMethods: SsjsFunction[] = PLATFORM_CLIENT_BROW
     (m) => ({
         ...m,
         prefix: 'Platform.ClientBrowser',
-    }),
+    })
 );
 
 // ── Platform.Recipient methods ────────────────────────────────────────────────

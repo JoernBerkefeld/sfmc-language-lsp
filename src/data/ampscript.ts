@@ -2432,7 +2432,12 @@ export const ampscriptFunctions: AmpscriptFunction[] = [
         params: [
             { name: 'inputString', description: 'Source string', type: 'string' },
             { name: 'startIndex', description: '1-based starting position', type: 'number' },
-            { name: 'length', description: 'Number of characters to extract', type: 'number', optional: true },
+            {
+                name: 'length',
+                description: 'Number of characters to extract',
+                type: 'number',
+                optional: true,
+            },
         ],
         returnType: 'string',
         example: '%%[\n  set @areaCode = Substring("5551234567", 1, 3)\n  /* result: "555" */\n]%%',

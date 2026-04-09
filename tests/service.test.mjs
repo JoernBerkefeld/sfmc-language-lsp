@@ -5,7 +5,7 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SfmcLanguageService, sfmcLanguageService, DEFAULT_SETTINGS } from '../dist/esm/index.js';
+import { SfmcLanguageService, sfmcLanguageService } from '../dist/esm/index.js';
 
 const service = new SfmcLanguageService();
 

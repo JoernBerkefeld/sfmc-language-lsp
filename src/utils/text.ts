@@ -2,7 +2,11 @@
  * General text-parsing utilities used across validators, completions, and hover providers.
  */
 
-/** Returns all start offsets of `search` within `text`. */
+/**
+ * Returns all start offsets of `search` within `text`.
+ * @param text
+ * @param search
+ */
 export function findAllOccurrences(text: string, search: string): number[] {
     const indices: number[] = [];
     let index = text.indexOf(search);
@@ -18,6 +22,8 @@ export function findAllOccurrences(text: string, search: string): number[] {
  * Runs on sanitized text so commas inside strings/comments don't produce false positives.
  *
  * Returns 0 for empty `()`, `commas + 1` otherwise, or -1 if no closing paren is found.
+ * @param text
+ * @param openParenPos
  */
 export function countFunctionArguments(text: string, openParenPos: number): number {
     let depth = 1;
@@ -52,8 +58,13 @@ export interface ArgumentSpan {
 /**
  * Extracts each top-level argument's text and absolute position from a function call.
  * Returns null when the argument list is not properly closed.
+ * @param text
+ * @param openParenPos
  */
-export function extractFunctionArguments(text: string, openParenPos: number): ArgumentSpan[] | null {
+export function extractFunctionArguments(
+    text: string,
+    openParenPos: number
+): ArgumentSpan[] | null {
     let depth = 1;
     let argStart = openParenPos + 1;
     const args: ArgumentSpan[] = [];
@@ -89,6 +100,7 @@ export function extractFunctionArguments(text: string, openParenPos: number): Ar
 /**
  * Infers the literal type of a trimmed argument string.
  * Returns null for variables, expressions, or nested calls.
+ * @param arg
  */
 export function inferLiteralType(arg: string): 'string' | 'number' | 'boolean' | null {
     if (arg.startsWith('"') || arg.startsWith("'")) return 'string';
@@ -97,10 +109,14 @@ export function inferLiteralType(arg: string): 'string' | 'number' | 'boolean' |
     return null;
 }
 
-/** Returns the word boundaries around a character position in a line. */
+/**
+ * Returns the word boundaries around a character position in a line.
+ * @param line
+ * @param character
+ */
 export function getWordRangeAtPosition(
     line: string,
-    character: number,
+    character: number
 ): { start: number; end: number } | null {
     const wordPattern = /[@]?[a-zA-Z_][a-zA-Z0-9_]*/g;
     let match: RegExpExecArray | null;
@@ -117,9 +133,10 @@ export function getWordRangeAtPosition(
 /**
  * Walk backward from the cursor to find the enclosing function call name
  * and the current parameter index (0-based comma count).
+ * @param textUpToCursor
  */
 export function findFunctionContext(
-    textUpToCursor: string,
+    textUpToCursor: string
 ): { functionName: string; paramIndex: number } | null {
     let depth = 0;
     let commaCount = 0;
