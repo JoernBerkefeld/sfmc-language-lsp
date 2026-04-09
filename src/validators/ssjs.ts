@@ -19,8 +19,15 @@ import {
     httpMethods,
 } from '../data/ssjs.js';
 
-/** Validate an SSJS document and return LSP Diagnostics. */
-export function validateSsjs(text: string, settings: SfmcSettings = DEFAULT_SETTINGS): Diagnostic[] {
+/**
+ * Validate an SSJS document and return LSP Diagnostics.
+ * @param text
+ * @param settings
+ */
+export function validateSsjs(
+    text: string,
+    settings: SfmcSettings = DEFAULT_SETTINGS
+): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     let problems = 0;
     const max = settings.maxNumberOfProblems;
@@ -70,11 +77,29 @@ export function validateSsjs(text: string, settings: SfmcSettings = DEFAULT_SETT
 
     // 3. ES6+ patterns not supported in SFMC SSJS
     const es6Patterns: { pattern: RegExp; message: string }[] = [
-        { pattern: /\b(let|const)\s+/g, message: "'let'/'const' declarations are not supported in SFMC SSJS. Use 'var' instead." },
-        { pattern: /=>\s*[{(]/g, message: 'Arrow functions are not supported in SFMC SSJS. Use a regular function expression.' },
-        { pattern: /`[^`]*`/g, message: 'Template literals are not supported in SFMC SSJS. Use string concatenation.' },
-        { pattern: /\bclass\s+\w+/g, message: 'Class declarations are not supported in SFMC SSJS. Use constructor functions.' },
-        { pattern: /\basync\s+function/g, message: 'Async functions are not supported in SFMC SSJS.' },
+        {
+            pattern: /\b(let|const)\s+/g,
+            message:
+                "'let'/'const' declarations are not supported in SFMC SSJS. Use 'var' instead.",
+        },
+        {
+            pattern: /=>\s*[{(]/g,
+            message:
+                'Arrow functions are not supported in SFMC SSJS. Use a regular function expression.',
+        },
+        {
+            pattern: /`[^`]*`/g,
+            message: 'Template literals are not supported in SFMC SSJS. Use string concatenation.',
+        },
+        {
+            pattern: /\bclass\s+\w+/g,
+            message:
+                'Class declarations are not supported in SFMC SSJS. Use constructor functions.',
+        },
+        {
+            pattern: /\basync\s+function/g,
+            message: 'Async functions are not supported in SFMC SSJS.',
+        },
         { pattern: /\bawait\s+/g, message: 'Await expressions are not supported in SFMC SSJS.' },
     ];
 
@@ -100,10 +125,16 @@ export function validateSsjs(text: string, settings: SfmcSettings = DEFAULT_SETT
     // 4. Type-check literal arguments for known SSJS function calls
     const ssjsFunctionLookup = new Map<string, SsjsFunction>();
     for (const fn of [
-        ...platformMethods, ...platformFunctions, ...ssjsGlobals,
-        ...platformVariableMethods, ...platformResponseMethods, ...platformRequestMethods,
-        ...platformClientBrowserMethods, ...platformRecipientMethods,
-        ...wsproxyMethods, ...httpMethods,
+        ...platformMethods,
+        ...platformFunctions,
+        ...ssjsGlobals,
+        ...platformVariableMethods,
+        ...platformResponseMethods,
+        ...platformRequestMethods,
+        ...platformClientBrowserMethods,
+        ...platformRecipientMethods,
+        ...wsproxyMethods,
+        ...httpMethods,
     ]) {
         ssjsFunctionLookup.set(fn.name.toLowerCase(), fn);
     }

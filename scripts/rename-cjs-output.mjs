@@ -18,7 +18,7 @@ function collectJsFiles(dir, out = []) {
 }
 
 function fixRequires(content) {
-    return content.replace(/require\((['"])(\.\.?\/[^'"]+)\.js\1\)/g, 'require($1$2.cjs$1)');
+    return content.replaceAll(/require\((['"])(\.\.?\/[^'"]+)\.js\1\)/g, 'require($1$2.cjs$1)');
 }
 
 const files = collectJsFiles(cjsRoot);

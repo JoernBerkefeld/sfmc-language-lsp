@@ -121,8 +121,12 @@ export function validateAmpscript(text: string, settings: SfmcSettings = DEFAULT
     for (const [lineIndex, line] of lines.entries()) {
         const lineLower = line.toLowerCase();
 
-        for (const _ of lineLower.matchAll(/\bif\b/g)) { ifStack.push(lineIndex); }
-        for (const _ of lineLower.matchAll(/\bendif\b/g)) {
+        const ifLineCount = [...lineLower.matchAll(/\bif\b/g)].length;
+        for (let i = 0; i < ifLineCount; i++) {
+            ifStack.push(lineIndex);
+        }
+        const endifOnLine = [...lineLower.matchAll(/\bendif\b/g)];
+        for (let ei = 0; ei < endifOnLine.length; ei++) {
             if (ifStack.length > 0) {
                 ifStack.pop();
             } else if (problems < max) {
@@ -136,8 +140,12 @@ export function validateAmpscript(text: string, settings: SfmcSettings = DEFAULT
             }
         }
 
-        for (const _ of lineLower.matchAll(/\bfor\b/g)) { forStack.push(lineIndex); }
-        for (const _ of lineLower.matchAll(/\bnext\b/g)) {
+        const forLineCount = [...lineLower.matchAll(/\bfor\b/g)].length;
+        for (let j = 0; j < forLineCount; j++) {
+            forStack.push(lineIndex);
+        }
+        const nextOnLine = [...lineLower.matchAll(/\bnext\b/g)];
+        for (let ni = 0; ni < nextOnLine.length; ni++) {
             if (forStack.length > 0) {
                 forStack.pop();
             } else if (problems < max) {

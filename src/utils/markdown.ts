@@ -15,7 +15,10 @@ export interface LocalSsjsFunction {
     startOffset: number;
 }
 
-/** Build typed-signature Markdown for an AMPscript function. */
+/**
+ * Build typed-signature Markdown for an AMPscript function.
+ * @param fn
+ */
 export function buildFunctionMarkdown(fn: AmpscriptFunction): string {
     const lines: string[] = [];
 
@@ -48,7 +51,10 @@ export function buildFunctionMarkdown(fn: AmpscriptFunction): string {
     return lines.join('\n');
 }
 
-/** Build typed-signature Markdown for an SSJS function or method. */
+/**
+ * Build typed-signature Markdown for an SSJS function or method.
+ * @param fn
+ */
 export function buildSsjsFunctionMarkdown(fn: SsjsFunction): string {
     const prefix = fn.prefix ? `${fn.prefix}.` : '';
     const lines: string[] = [];
@@ -88,7 +94,10 @@ export function buildSsjsFunctionMarkdown(fn: SsjsFunction): string {
     return lines.join('\n');
 }
 
-/** Build Markdown for an ECMAScript built-in method. */
+/**
+ * Build Markdown for an ECMAScript built-in method.
+ * @param builtin
+ */
 export function buildEcmascriptBuiltinMarkdown(builtin: EcmascriptBuiltin): string {
     const lines: string[] = [];
 
@@ -122,7 +131,10 @@ export function buildEcmascriptBuiltinMarkdown(builtin: EcmascriptBuiltin): stri
     return lines.join('\n');
 }
 
-/** Build Markdown documentation for a file-local SSJS function declaration. */
+/**
+ * Build Markdown documentation for a file-local SSJS function declaration.
+ * @param fn
+ */
 export function buildLocalFunctionMarkdown(fn: LocalSsjsFunction): string {
     const lines: string[] = [];
     if (fn.params.length > 0) {
@@ -148,7 +160,10 @@ export function buildLocalFunctionMarkdown(fn: LocalSsjsFunction): string {
     return lines.join('\n');
 }
 
-/** Build a snippet string for an AMPscript function with parameter placeholders. */
+/**
+ * Build a snippet string for an AMPscript function with parameter placeholders.
+ * @param fn
+ */
 export function buildFunctionSnippet(fn: AmpscriptFunction): string {
     if (!fn.params || fn.params.length === 0) {
         return `${fn.name}()`;
@@ -157,7 +172,10 @@ export function buildFunctionSnippet(fn: AmpscriptFunction): string {
     return `${fn.name}(${paramSnippets.join(', ')})`;
 }
 
-/** Build a snippet string for an SSJS function with parameter placeholders. */
+/**
+ * Build a snippet string for an SSJS function with parameter placeholders.
+ * @param fn
+ */
 export function buildSsjsFunctionSnippet(fn: SsjsFunction): string {
     const prefix = fn.prefix ? `${fn.prefix}.` : '';
     if (!fn.params || fn.params.length === 0) {

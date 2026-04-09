@@ -3,7 +3,10 @@
  * String literals are skipped so their content is never misidentified as a comment opener.
  */
 
-/** Returns [start, end) character ranges of every comment in the source. */
+/**
+ * Returns [start, end) character ranges of every comment in the source.
+ * @param source
+ */
 export function buildCommentRanges(source: string): Array<[number, number]> {
     const ranges: Array<[number, number]> = [];
     let i = 0;
@@ -53,7 +56,11 @@ export function buildCommentRanges(source: string): Array<[number, number]> {
     return ranges;
 }
 
-/** Returns true when `index` falls within any of the given comment ranges. */
+/**
+ * Returns true when `index` falls within any of the given comment ranges.
+ * @param index
+ * @param ranges
+ */
 export function isInCommentRange(index: number, ranges: Array<[number, number]>): boolean {
     for (const [start, end] of ranges) {
         if (start > index) break;

@@ -4,7 +4,6 @@ import { getWordRangeAtPosition } from '../utils/text.js';
 import { buildSsjsFunctionMarkdown, buildEcmascriptBuiltinMarkdown, buildLocalFunctionMarkdown } from '../utils/markdown.js';
 import type { LocalSsjsFunction } from '../utils/markdown.js';
 import {
-    platformFunctions,
     platformMethods,
     platformVariableMethods,
     platformResponseMethods,

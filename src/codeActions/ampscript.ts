@@ -10,11 +10,16 @@ import {
     DIAG_CODE_NESTED_DELIMITER,
 } from '../validators/ampscript.js';
 
-/** Return quick-fix code actions for the given diagnostics. */
+/**
+ * Return quick-fix code actions for the given diagnostics.
+ * @param text
+ * @param uri
+ * @param diagnostics
+ */
 export function getAmpscriptCodeActions(
     text: string,
     uri: string,
-    diagnostics: Diagnostic[],
+    diagnostics: Diagnostic[]
 ): CodeAction[] {
     const actions: CodeAction[] = [];
 
@@ -26,9 +31,10 @@ export function getAmpscriptCodeActions(
 
         switch (diagnostic.code) {
             case DIAG_CODE_HTML_WRAPPED_COMMENT: {
-                const inner = typeof diagnostic.data === 'string'
-                    ? diagnostic.data
-                    : originalText.replace(/^<!--/, '').replace(/-->$/, '').trim();
+                const inner =
+                    typeof diagnostic.data === 'string'
+                        ? diagnostic.data
+                        : originalText.replace(/^<!--/, '').replace(/-->$/, '').trim();
                 actions.push({
                     title: 'Remove HTML comment wrapper',
                     kind: CodeActionKind.QuickFix,
@@ -50,9 +56,10 @@ export function getAmpscriptCodeActions(
                 break;
             }
             case DIAG_CODE_JS_LINE_COMMENT: {
-                const commentText = typeof diagnostic.data === 'string'
-                    ? diagnostic.data
-                    : originalText.replace(/^\/\/\s*/, '').trim();
+                const commentText =
+                    typeof diagnostic.data === 'string'
+                        ? diagnostic.data
+                        : originalText.replace(/^\/\/\s*/, '').trim();
                 actions.push({
                     title: 'Convert to AMPscript block comment',
                     kind: CodeActionKind.QuickFix,
@@ -68,13 +75,23 @@ export function getAmpscriptCodeActions(
                     kind: CodeActionKind.QuickFix,
                     isPreferred: true,
                     diagnostics: [diagnostic],
-                    edit: { changes: { [uri]: [{ range: { start: range.start, end: range.start }, newText: '</script>\n' }] } },
+                    edit: {
+                        changes: {
+                            [uri]: [
+                                {
+                                    range: { start: range.start, end: range.start },
+                                    newText: '</script>\n',
+                                },
+                            ],
+                        },
+                    },
                 });
                 break;
             }
             case DIAG_CODE_NESTED_DELIMITER_IN_SCRIPT:
             case DIAG_CODE_NESTED_DELIMITER: {
-                const delimiter = typeof diagnostic.data === 'string' ? diagnostic.data : originalText;
+                const delimiter =
+                    typeof diagnostic.data === 'string' ? diagnostic.data : originalText;
                 const isBlock = delimiter === '%%[';
                 const actualCloseToken = isBlock ? ']%%' : '=%%';
                 const actualCloseLen = actualCloseToken.length;

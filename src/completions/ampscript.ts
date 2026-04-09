@@ -24,7 +24,9 @@ export const keywordCompletionItems: CompletionItem[] = ampscriptKeywords.map((k
     kind: CompletionItemKind.Keyword,
     detail: kw.description,
     insertText: (kw as { snippet?: string }).snippet ?? kw.name,
-    insertTextFormat: (kw as { snippet?: string }).snippet ? InsertTextFormat.Snippet : InsertTextFormat.PlainText,
+    insertTextFormat: (kw as { snippet?: string }).snippet
+        ? InsertTextFormat.Snippet
+        : InsertTextFormat.PlainText,
     data: { type: 'keyword', index },
 }));
 
@@ -34,7 +36,7 @@ export const personalizationCompletionItems: CompletionItem[] = personalizationS
         kind: CompletionItemKind.Variable,
         detail: ps.description,
         data: { type: 'personalization', index },
-    }),
+    })
 );
 
 function buildVariableCompletionItems(text: string): CompletionItem[] {
@@ -64,7 +66,11 @@ function buildVariableCompletionItems(text: string): CompletionItem[] {
     }));
 }
 
-/** Return AMPscript completions for the given document text and cursor position. */
+/**
+ * Return AMPscript completions for the given document text and cursor position.
+ * @param text
+ * @param position
+ */
 export function getAmpscriptCompletions(text: string, position: Position): CompletionItem[] {
     const offset = positionToOffset(text, position);
     const variableItems = buildVariableCompletionItems(text);
@@ -85,7 +91,10 @@ export function getAmpscriptCompletions(text: string, position: Position): Compl
     ];
 }
 
-/** Resolve documentation for an AMPscript completion item (lazy-loaded). */
+/**
+ * Resolve documentation for an AMPscript completion item (lazy-loaded).
+ * @param item
+ */
 export function resolveAmpscriptCompletion(item: CompletionItem): CompletionItem {
     const data = item.data as { type: string; index?: number } | undefined;
     if (!data) return item;
@@ -95,7 +104,10 @@ export function resolveAmpscriptCompletion(item: CompletionItem): CompletionItem
             if (data.index !== undefined) {
                 const fn = ampscriptFunctions[data.index];
                 if (fn) {
-                    item.documentation = { kind: MarkupKind.Markdown, value: buildFunctionMarkdown(fn) };
+                    item.documentation = {
+                        kind: MarkupKind.Markdown,
+                        value: buildFunctionMarkdown(fn),
+                    };
                 }
             }
             break;

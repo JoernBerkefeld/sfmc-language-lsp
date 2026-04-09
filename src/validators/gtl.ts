@@ -20,11 +20,14 @@ function findLastMatchingOpen(stack: GtlFrame[], closeTag: string): number {
 /**
  * Validate GTL block balance ({{#each}}/{{/each}}, {{#if}}/{{/if}}, etc.)
  * and push any diagnostics into the provided array.
+ * @param text
+ * @param diagnostics
+ * @param remainingBudget
  */
 export function validateGtlBlocks(
     text: string,
     diagnostics: Diagnostic[],
-    remainingBudget: number,
+    remainingBudget: number
 ): void {
     let problems = 0;
     const stack: GtlFrame[] = [];
