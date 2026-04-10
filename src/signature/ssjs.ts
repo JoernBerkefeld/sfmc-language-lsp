@@ -36,10 +36,10 @@ const ALL_SSJS_FUNCTIONS: SsjsFunction[] = [
  */
 export function getSsjsSignatureHelp(
     context: { functionName: string; paramIndex: number },
-    localFunctions: LocalSsjsFunction[]
+    localFunctions: LocalSsjsFunction[],
 ): SignatureHelp | null {
     const fn = ALL_SSJS_FUNCTIONS.find(
-        (f) => f.name.toLowerCase() === context.functionName.toLowerCase()
+        (f) => f.name.toLowerCase() === context.functionName.toLowerCase(),
     );
 
     if (fn) {
@@ -87,7 +87,7 @@ export function getSsjsSignatureHelp(
 
     // Fall back to file-local function
     const localFn = localFunctions.find(
-        (f) => f.name.toLowerCase() === context.functionName.toLowerCase()
+        (f) => f.name.toLowerCase() === context.functionName.toLowerCase(),
     );
     if (localFn && localFn.params.length > 0) {
         const parameterInfos: ParameterInformation[] = localFn.params.map((p) => {

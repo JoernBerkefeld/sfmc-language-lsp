@@ -36,7 +36,7 @@ export const personalizationCompletionItems: CompletionItem[] = personalizationS
         kind: CompletionItemKind.Variable,
         detail: ps.description,
         data: { type: 'personalization', index },
-    })
+    }),
 );
 
 function buildVariableCompletionItems(text: string): CompletionItem[] {

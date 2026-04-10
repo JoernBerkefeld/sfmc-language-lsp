@@ -26,7 +26,7 @@ import {
  */
 export function validateSsjs(
     text: string,
-    settings: SfmcSettings = DEFAULT_SETTINGS
+    settings: SfmcSettings = DEFAULT_SETTINGS,
 ): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     let problems = 0;

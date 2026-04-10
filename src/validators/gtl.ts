@@ -27,7 +27,7 @@ function findLastMatchingOpen(stack: GtlFrame[], closeTag: string): number {
 export function validateGtlBlocks(
     text: string,
     diagnostics: Diagnostic[],
-    remainingBudget: number
+    remainingBudget: number,
 ): void {
     let problems = 0;
     const stack: GtlFrame[] = [];
