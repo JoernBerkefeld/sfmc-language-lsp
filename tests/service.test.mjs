@@ -34,19 +34,21 @@ describe('AMPscript validation', () => {
     it('reports unknown function', () => {
         const doc = { text: '%%[ MyCustomFunc() ]%%', languageId: 'ampscript' };
         const diags = service.validate(doc);
-        assert.ok(diags.some((d) => d.message.includes("Unknown AMPscript function 'MyCustomFunc'")));
+        assert.ok(
+            diags.some((d) => d.message.includes("Unknown AMPscript function 'MyCustomFunc'")),
+        );
     });
 
     it('reports arity error (too few args)', () => {
         const doc = { text: '%%[ Add(1) ]%%', languageId: 'ampscript' };
         const diags = service.validate(doc);
-        assert.ok(diags.some((d) => d.message.includes("requires at least")));
+        assert.ok(diags.some((d) => d.message.includes('requires at least')));
     });
 
     it('reports arity error (too many args) for fixed-arity function', () => {
         const doc = { text: '%%[ Add(1, 2, 3) ]%%', languageId: 'ampscript' };
         const diags = service.validate(doc);
-        assert.ok(diags.some((d) => d.message.includes("accepts at most")));
+        assert.ok(diags.some((d) => d.message.includes('accepts at most')));
     });
 
     it('reports IF without ENDIF', () => {
@@ -124,7 +126,10 @@ describe('Completions', () => {
         const position = { line: 0, character: 4 };
         const items = service.getCompletions(doc, position);
         assert.ok(items.length > 0, 'expected completions');
-        assert.ok(items.some((i) => i.label === 'Add'), 'expected Add function');
+        assert.ok(
+            items.some((i) => i.label === 'Add'),
+            'expected Add function',
+        );
     });
 
     it('returns no AMPscript completions outside delimiters', () => {
@@ -246,7 +251,11 @@ describe('Definitions', () => {
     });
 
     it('returns null for AMPscript language', () => {
-        const doc = { text: '%%[ set @x = 1 ]%%', languageId: 'ampscript', uri: 'file:///test.amp' };
+        const doc = {
+            text: '%%[ set @x = 1 ]%%',
+            languageId: 'ampscript',
+            uri: 'file:///test.amp',
+        };
         const location = service.getDefinition(doc, 'x');
         assert.equal(location, null);
     });

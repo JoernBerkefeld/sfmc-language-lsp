@@ -19,7 +19,7 @@ import {
 export function getAmpscriptCodeActions(
     text: string,
     uri: string,
-    diagnostics: Diagnostic[]
+    diagnostics: Diagnostic[],
 ): CodeAction[] {
     const actions: CodeAction[] = [];
 

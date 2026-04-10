@@ -53,5 +53,5 @@ export default tseslint.config(
             'jsdoc/require-jsdoc': 'off',
             'jsdoc/require-param-type': 'off',
         },
-    }
+    },
 );

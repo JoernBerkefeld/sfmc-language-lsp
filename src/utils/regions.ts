@@ -94,7 +94,7 @@ function copySanitizedRegions(
     sanitizedChars: string[],
     pattern: RegExp,
     openDelimiterLength: number,
-    closeDelimiterLength: number
+    closeDelimiterLength: number,
 ): void {
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text)) !== null) {

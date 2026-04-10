@@ -84,7 +84,7 @@ function buildSsjsCatalog(): CompletionItem[] {
                 insertTextFormat: InsertTextFormat.Snippet,
                 filterText: `DateTime.${fn.name} ${fn.name}`,
                 data: { type: 'ssjs-platform-function', name: fn.name },
-            }
+            },
         );
     }
 
@@ -110,7 +110,7 @@ function buildSsjsCatalog(): CompletionItem[] {
                 insertTextFormat: InsertTextFormat.Snippet,
                 filterText: `Variable.${fn.name} ${fn.name}`,
                 data: { type: 'ssjs-platform-variable', name: fn.name },
-            }
+            },
         );
     }
 
@@ -136,7 +136,7 @@ function buildSsjsCatalog(): CompletionItem[] {
                 insertTextFormat: InsertTextFormat.Snippet,
                 filterText: `Response.${fn.name} ${fn.name}`,
                 data: { type: 'ssjs-platform-response', name: fn.name },
-            }
+            },
         );
     }
 
@@ -162,7 +162,7 @@ function buildSsjsCatalog(): CompletionItem[] {
                 insertTextFormat: InsertTextFormat.Snippet,
                 filterText: `Request.${fn.name} ${fn.name}`,
                 data: { type: 'ssjs-platform-request', name: fn.name },
-            }
+            },
         );
     }
 
@@ -225,7 +225,7 @@ function buildSsjsCatalog(): CompletionItem[] {
                 insertTextFormat: InsertTextFormat.Snippet,
                 filterText: `ClientBrowser.${fn.name} ${fn.name}`,
                 data: { type: 'ssjs-platform-client-browser', name: fn.name },
-            }
+            },
         );
     }
 
@@ -251,7 +251,7 @@ function buildSsjsCatalog(): CompletionItem[] {
                 insertTextFormat: InsertTextFormat.Snippet,
                 filterText: `Recipient.${fn.name} ${fn.name}`,
                 data: { type: 'ssjs-platform-recipient', name: fn.name },
-            }
+            },
         );
     }
 
@@ -325,7 +325,7 @@ function buildSsjsCatalog(): CompletionItem[] {
  * @param localFunctions
  */
 export function buildLocalFunctionCompletionItems(
-    localFunctions: LocalSsjsFunction[]
+    localFunctions: LocalSsjsFunction[],
 ): CompletionItem[] {
     return localFunctions.map((fn) => {
         const paramList = fn.params

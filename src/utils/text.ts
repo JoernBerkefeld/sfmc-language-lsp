@@ -63,7 +63,7 @@ export interface ArgumentSpan {
  */
 export function extractFunctionArguments(
     text: string,
-    openParenPos: number
+    openParenPos: number,
 ): ArgumentSpan[] | null {
     let depth = 1;
     let argStart = openParenPos + 1;
@@ -116,7 +116,7 @@ export function inferLiteralType(arg: string): 'string' | 'number' | 'boolean' |
  */
 export function getWordRangeAtPosition(
     line: string,
-    character: number
+    character: number,
 ): { start: number; end: number } | null {
     const wordPattern = /[@]?[a-zA-Z_][a-zA-Z0-9_]*/g;
     let match: RegExpExecArray | null;
@@ -136,7 +136,7 @@ export function getWordRangeAtPosition(
  * @param textUpToCursor
  */
 export function findFunctionContext(
-    textUpToCursor: string
+    textUpToCursor: string,
 ): { functionName: string; paramIndex: number } | null {
     let depth = 0;
     let commaCount = 0;
