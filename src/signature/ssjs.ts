@@ -7,10 +7,12 @@ import {
     platformVariableMethods,
     platformResponseMethods,
     platformRequestMethods,
-    platformClientBrowserMethods,
     platformRecipientMethods,
     wsproxyMethods,
     httpMethods,
+    httpHeaderMethods,
+    dateTimeTimezoneMethods,
+    errorUtilMethods,
 } from '../data/ssjs.js';
 import type { SsjsFunction } from '../data/ssjs.js';
 
@@ -21,10 +23,12 @@ const ALL_SSJS_FUNCTIONS: SsjsFunction[] = [
     ...platformVariableMethods,
     ...platformResponseMethods,
     ...platformRequestMethods,
-    ...platformClientBrowserMethods,
     ...platformRecipientMethods,
     ...wsproxyMethods,
     ...httpMethods,
+    ...httpHeaderMethods,
+    ...dateTimeTimezoneMethods,
+    ...errorUtilMethods,
 ];
 
 /**
