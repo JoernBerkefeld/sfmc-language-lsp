@@ -12,11 +12,13 @@ import {
     platformVariableMethods,
     platformResponseMethods,
     platformRequestMethods,
-    platformClientBrowserMethods,
     platformRecipientMethods,
     coreLibraryObjects,
     wsproxyMethods,
     httpMethods,
+    httpHeaderMethods,
+    dateTimeTimezoneMethods,
+    errorUtilMethods,
     scriptUtilConstructors,
     scriptUtilRequestMethods,
     ecmascriptBuiltins,
@@ -31,7 +33,12 @@ function makeRange(position: Position, start: number, end: number) {
     };
 }
 
-/** Return hover documentation for an SSJS document at the given line/position. */
+/**
+ * Return hover documentation for an SSJS document at the given line/position.
+ * @param line
+ * @param position
+ * @param localFunctions
+ */
 export function getSsjsHover(
     line: string,
     position: Position,
@@ -134,8 +141,8 @@ export function getSsjsHover(
                         range: makeRange(position, qMatch.index, qMatch.index + full.length),
                     };
             }
-            if (ns1 === 'Platform' && ns2 === 'ClientBrowser') {
-                const fn = platformClientBrowserMethods.find(
+            if (ns1 === 'DateTime' && ns2 === 'TimeZone') {
+                const fn = dateTimeTimezoneMethods.find(
                     (m) => m.name.toLowerCase() === name.toLowerCase(),
                 );
                 if (fn)
@@ -237,10 +244,21 @@ export function getSsjsHover(
                         range: makeRange(position, tpgMatch.index, tpgMatch.index + full.length),
                     };
             }
-            if (obj === 'ClientBrowser') {
-                const m = platformClientBrowserMethods.find(
+            if (obj === 'HTTPHeader') {
+                const m = httpHeaderMethods.find(
                     (m) => m.name.toLowerCase() === name.toLowerCase(),
                 );
+                if (m)
+                    return {
+                        contents: {
+                            kind: MarkupKind.Markdown,
+                            value: buildSsjsFunctionMarkdown(m),
+                        },
+                        range: makeRange(position, tpgMatch.index, tpgMatch.index + full.length),
+                    };
+            }
+            if (obj === 'ErrorUtil') {
+                const m = errorUtilMethods.find((m) => m.name.toLowerCase() === name.toLowerCase());
                 if (m)
                     return {
                         contents: {

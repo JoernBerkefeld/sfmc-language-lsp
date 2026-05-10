@@ -13,11 +13,13 @@ import {
     platformVariableMethods,
     platformResponseMethods,
     platformRequestMethods,
-    platformClientBrowserMethods,
     platformRecipientMethods,
     coreLibraryObjects,
     wsproxyMethods,
     httpMethods,
+    httpHeaderMethods,
+    dateTimeTimezoneMethods,
+    errorUtilMethods,
     scriptUtilConstructors,
     scriptUtilRequestMethods,
     ecmascriptBuiltins,
@@ -203,30 +205,43 @@ function buildSsjsCatalog(): CompletionItem[] {
         });
     }
 
-    for (const fn of platformClientBrowserMethods) {
-        const doc = { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(fn) };
-        items.push(
-            {
-                label: `Platform.ClientBrowser.${fn.name}`,
-                kind: CompletionItemKind.Method,
-                detail: `Platform.ClientBrowser.${fn.name}`,
-                documentation: doc,
-                insertText: buildSsjsFunctionSnippet(fn),
-                insertTextFormat: InsertTextFormat.Snippet,
-                filterText: `Platform.ClientBrowser.${fn.name} ${fn.name}`,
-                data: { type: 'ssjs-platform-client-browser', name: fn.name },
-            },
-            {
-                label: `ClientBrowser.${fn.name}`,
-                kind: CompletionItemKind.Method,
-                detail: `(shorthand) Platform.ClientBrowser.${fn.name}`,
-                documentation: doc,
-                insertText: buildSsjsFunctionSnippet({ ...fn, prefix: 'ClientBrowser' }),
-                insertTextFormat: InsertTextFormat.Snippet,
-                filterText: `ClientBrowser.${fn.name} ${fn.name}`,
-                data: { type: 'ssjs-platform-client-browser', name: fn.name },
-            },
-        );
+    for (const fn of httpHeaderMethods) {
+        items.push({
+            label: `HTTPHeader.${fn.name}`,
+            kind: CompletionItemKind.Method,
+            detail: `HTTPHeader.${fn.name}`,
+            documentation: { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(fn) },
+            insertText: buildSsjsFunctionSnippet(fn),
+            insertTextFormat: InsertTextFormat.Snippet,
+            filterText: `HTTPHeader.${fn.name} ${fn.name}`,
+            data: { type: 'ssjs-httpheader', name: fn.name },
+        });
+    }
+
+    for (const fn of dateTimeTimezoneMethods) {
+        items.push({
+            label: `DateTime.TimeZone.${fn.name}`,
+            kind: CompletionItemKind.Method,
+            detail: `DateTime.TimeZone.${fn.name}`,
+            documentation: { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(fn) },
+            insertText: buildSsjsFunctionSnippet(fn),
+            insertTextFormat: InsertTextFormat.Snippet,
+            filterText: `DateTime.TimeZone.${fn.name} TimeZone.${fn.name} ${fn.name}`,
+            data: { type: 'ssjs-datetime-timezone', name: fn.name },
+        });
+    }
+
+    for (const fn of errorUtilMethods) {
+        items.push({
+            label: `ErrorUtil.${fn.name}`,
+            kind: CompletionItemKind.Method,
+            detail: `ErrorUtil.${fn.name}`,
+            documentation: { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(fn) },
+            insertText: buildSsjsFunctionSnippet(fn),
+            insertTextFormat: InsertTextFormat.Snippet,
+            filterText: `ErrorUtil.${fn.name} ${fn.name}`,
+            data: { type: 'ssjs-errorutil', name: fn.name },
+        });
     }
 
     for (const fn of platformRecipientMethods) {

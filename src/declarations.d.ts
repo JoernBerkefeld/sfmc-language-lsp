@@ -47,6 +47,10 @@ declare module 'ssjs-data' {
         syntax?: string;
         example?: string;
         type?: string;
+        isStatic?: boolean;
+        deprecated?: boolean;
+        requiresCoreLoad?: boolean;
+        aliasOf?: string;
     }
     export interface SsjsDataObject {
         name: string;
@@ -75,11 +79,13 @@ declare module 'ssjs-data' {
     export const httpMethodNames: Set<string>;
     export const WSPROXY_METHODS: SsjsDataFunction[];
     export const wsproxyMethodNames: Set<string>;
+    export const HTTPHEADER_METHODS: SsjsDataFunction[];
+    export const httpHeaderMethodNames: Set<string>;
+    export const DATE_TIME_TIMEZONE_METHODS: SsjsDataFunction[];
+    export const ERROR_UTIL_METHODS: SsjsDataFunction[];
     export const PLATFORM_VARIABLE_METHODS: SsjsDataFunction[];
     export const PLATFORM_RESPONSE_METHODS: SsjsDataFunction[];
     export const PLATFORM_REQUEST_METHODS: SsjsDataFunction[];
-    export const PLATFORM_CLIENT_BROWSER_METHODS: SsjsDataFunction[];
-    export const platformClientBrowserMethodNames: Set<string>;
     export const PLATFORM_RECIPIENT_METHODS: SsjsDataFunction[];
     export const platformRecipientMethodNames: Set<string>;
     export const SCRIPT_UTIL_CONSTRUCTORS: SsjsDataFunction[];

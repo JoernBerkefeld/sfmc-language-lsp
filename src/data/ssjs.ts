@@ -14,11 +14,13 @@ import {
     PLATFORM_VARIABLE_METHODS,
     PLATFORM_RESPONSE_METHODS,
     PLATFORM_REQUEST_METHODS,
-    PLATFORM_CLIENT_BROWSER_METHODS,
     PLATFORM_RECIPIENT_METHODS,
     CORE_LIBRARY_OBJECTS,
     WSPROXY_METHODS,
     HTTP_METHODS,
+    HTTPHEADER_METHODS,
+    DATE_TIME_TIMEZONE_METHODS,
+    ERROR_UTIL_METHODS,
     SCRIPT_UTIL_CONSTRUCTORS,
     SCRIPT_UTIL_REQUEST_METHODS,
     ECMASCRIPT_BUILTINS,
@@ -41,6 +43,10 @@ export interface SsjsFunction {
     returnType?: string;
     syntax?: string;
     example?: string;
+    isStatic?: boolean;
+    deprecated?: boolean;
+    requiresCoreLoad?: boolean;
+    aliasOf?: string;
 }
 
 export interface EcmascriptBuiltin {
@@ -130,14 +136,26 @@ export const httpMethods: SsjsFunction[] = HTTP_METHODS.map((m) => ({
     prefix: 'HTTP',
 }));
 
-// ── Platform.ClientBrowser methods ───────────────────────────────────────────
+// ── HTTPHeader methods ───────────────────────────────────────────────────────
 
-export const platformClientBrowserMethods: SsjsFunction[] = PLATFORM_CLIENT_BROWSER_METHODS.map(
-    (m) => ({
-        ...m,
-        prefix: 'Platform.ClientBrowser',
-    }),
-);
+export const httpHeaderMethods: SsjsFunction[] = HTTPHEADER_METHODS.map((m) => ({
+    ...m,
+    prefix: 'HTTPHeader',
+}));
+
+// ── DateTime.TimeZone methods ────────────────────────────────────────────────
+
+export const dateTimeTimezoneMethods: SsjsFunction[] = DATE_TIME_TIMEZONE_METHODS.map((m) => ({
+    ...m,
+    prefix: 'DateTime.TimeZone',
+}));
+
+// ── ErrorUtil methods ────────────────────────────────────────────────────────
+
+export const errorUtilMethods: SsjsFunction[] = ERROR_UTIL_METHODS.map((m) => ({
+    ...m,
+    prefix: 'ErrorUtil',
+}));
 
 // ── Platform.Recipient methods ────────────────────────────────────────────────
 

@@ -96,7 +96,11 @@ for (const fn of ampscriptFunctions) {
     functionArityLookup.set(fn.name.toLowerCase(), { minArgs, maxArgs });
 }
 
-/** Validate an AMPscript document and return LSP Diagnostics. */
+/**
+ * Validate an AMPscript document and return LSP Diagnostics.
+ * @param text
+ * @param settings
+ */
 export function validateAmpscript(
     text: string,
     settings: SfmcSettings = DEFAULT_SETTINGS,

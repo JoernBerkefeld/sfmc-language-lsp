@@ -13,10 +13,12 @@ import {
     platformVariableMethods,
     platformResponseMethods,
     platformRequestMethods,
-    platformClientBrowserMethods,
     platformRecipientMethods,
     wsproxyMethods,
     httpMethods,
+    httpHeaderMethods,
+    dateTimeTimezoneMethods,
+    errorUtilMethods,
 } from '../data/ssjs.js';
 
 /**
@@ -51,6 +53,37 @@ export function validateSsjs(
                 message: `Platform.Load("core", "1.1.5") must be called before using ${coreMatch[1]}.Init(). Without it, this call will fail at runtime.`,
                 source: 'ssjs',
             });
+        }
+    }
+
+    // 1b. requiresCoreLoad methods used without Platform.Load
+    if (!hasPlatformLoad) {
+        const requiresCoreLoadEntries: Array<{ prefix: string; name: string }> = [
+            ...httpHeaderMethods,
+            ...dateTimeTimezoneMethods,
+            ...errorUtilMethods,
+        ]
+            .filter((m) => m.requiresCoreLoad)
+            .map((m) => ({ prefix: m.prefix ?? '', name: m.name }));
+
+        for (const entry of requiresCoreLoadEntries) {
+            const callPattern = new RegExp(
+                String.raw`\b${entry.prefix.replaceAll('.', String.raw`\.`)}\s*\.\s*${entry.name}\s*\(`,
+                'g',
+            );
+            let reqMatch: RegExpExecArray | null;
+            while ((reqMatch = callPattern.exec(text)) !== null && problems < max) {
+                problems++;
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, reqMatch.index),
+                        end: offsetToPosition(text, reqMatch.index + reqMatch[0].length - 1),
+                    },
+                    message: `Platform.Load("core", "1.1.5") must be called before using ${entry.prefix}.${entry.name}(). Without it, this call will fail at runtime.`,
+                    source: 'ssjs',
+                });
+            }
         }
     }
 
@@ -131,10 +164,12 @@ export function validateSsjs(
         ...platformVariableMethods,
         ...platformResponseMethods,
         ...platformRequestMethods,
-        ...platformClientBrowserMethods,
         ...platformRecipientMethods,
         ...wsproxyMethods,
         ...httpMethods,
+        ...httpHeaderMethods,
+        ...dateTimeTimezoneMethods,
+        ...errorUtilMethods,
     ]) {
         ssjsFunctionLookup.set(fn.name.toLowerCase(), fn);
     }

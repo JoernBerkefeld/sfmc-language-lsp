@@ -11,7 +11,7 @@ export function offsetToPosition(text: string, offset: number): Position {
     const lines = before.split('\n');
     return {
         line: lines.length - 1,
-        character: lines.at(-1).length,
+        character: lines.at(-1)!.length,
     };
 }
 

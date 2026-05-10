@@ -46,10 +46,12 @@ import {
     platformVariableMethods,
     platformResponseMethods,
     platformRequestMethods,
-    platformClientBrowserMethods,
     platformRecipientMethods,
     wsproxyMethods,
     httpMethods,
+    httpHeaderMethods,
+    dateTimeTimezoneMethods,
+    errorUtilMethods,
 } from './data/ssjs.js';
 import type { SsjsFunction } from './data/ssjs.js';
 import { findFunctionContext } from './utils/text.js';
@@ -192,10 +194,12 @@ export class SfmcLanguageService {
             ...platformVariableMethods,
             ...platformResponseMethods,
             ...platformRequestMethods,
-            ...platformClientBrowserMethods,
             ...platformRecipientMethods,
             ...wsproxyMethods,
             ...httpMethods,
+            ...httpHeaderMethods,
+            ...dateTimeTimezoneMethods,
+            ...errorUtilMethods,
         ];
         return allFns.find((f) => f.name.toLowerCase() === lower) ?? null;
     }
@@ -214,10 +218,12 @@ export class SfmcLanguageService {
             ...platformVariableMethods,
             ...platformResponseMethods,
             ...platformRequestMethods,
-            ...platformClientBrowserMethods,
             ...platformRecipientMethods,
             ...wsproxyMethods,
             ...httpMethods,
+            ...httpHeaderMethods,
+            ...dateTimeTimezoneMethods,
+            ...errorUtilMethods,
         ];
     }
 
