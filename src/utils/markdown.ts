@@ -72,7 +72,8 @@ export function buildSsjsFunctionMarkdown(fn: SsjsFunction): string {
 
         for (const p of fn.params) {
             const opt = p.optional ? ' *(optional)*' : '';
-            lines.push(`*@param* \`${p.name}\`${opt} — ${p.description}\n`);
+            const type = p.type ? ` *(${p.type})*` : '';
+            lines.push(`*@param* \`${p.name}\`${type}${opt} — ${p.description}\n`);
         }
 
         if (fn.returnType && fn.returnType !== 'void') {
