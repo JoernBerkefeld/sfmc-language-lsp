@@ -51,13 +51,13 @@ export function getSsjsSignatureHelp(
 
         if (fn.params && fn.params.length > 0) {
             const parameterInfos: ParameterInformation[] = fn.params.map((p) => ({
-                label: p.name,
+                label: `${p.name}${p.optional ? '?' : ''}: ${p.type ?? 'any'}`,
                 documentation: `${p.description}${p.optional ? ' *(optional)*' : ''}`,
             }));
 
             const sigLabel = fn.syntax
                 ? `${prefix}${fn.syntax}`
-                : `${prefix}${fn.name}(${fn.params.map((p) => p.name).join(', ')})`;
+                : `${prefix}${fn.name}(${fn.params.map((p) => `${p.name}${p.optional ? '?' : ''}: ${p.type ?? 'any'}`).join(', ')})`;
 
             return {
                 signatures: [
