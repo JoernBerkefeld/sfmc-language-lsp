@@ -6,8 +6,9 @@
  * Returns true when the given character offset falls inside an AMPscript
  * region: a %%[...]%% block, a %%=...=%% inline expression, or a
  * <script language="ampscript"> ... </script> tag body.
- * @param text
- * @param offset
+ * @param text - Full document text.
+ * @param offset - Character offset to test.
+ * @returns True if the offset is inside an AMPscript region.
  */
 export function isInsideAmpscript(text: string, offset: number): boolean {
     const before = text.slice(0, Math.max(0, offset));
@@ -45,8 +46,9 @@ export function isInsideAmpscript(text: string, offset: number): boolean {
 
 /**
  * Returns true when the given character offset falls inside a GTL {{...}} expression.
- * @param text
- * @param offset
+ * @param text - Full document text.
+ * @param offset - Character offset to test.
+ * @returns True if the offset is inside a GTL expression.
  */
 export function isInsideGtl(text: string, offset: number): boolean {
     const before = text.slice(0, Math.max(0, offset));
@@ -61,7 +63,8 @@ export function isInsideGtl(text: string, offset: number): boolean {
  * Everything outside AMPscript regions is replaced with spaces.
  * This lets validators run regex safely without accidentally matching
  * HTML content outside AMPscript blocks.
- * @param text
+ * @param text - Full document text.
+ * @returns Sanitized text with only AMPscript region content preserved.
  */
 export function getSanitizedAmpscriptText(text: string): string {
     const sanitizedChars = Array.from(text, () => ' ');

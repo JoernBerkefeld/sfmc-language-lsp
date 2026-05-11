@@ -17,7 +17,8 @@ export interface LocalSsjsFunction {
 
 /**
  * Build typed-signature Markdown for an AMPscript function.
- * @param fn
+ * @param fn - AMPscript function descriptor.
+ * @returns Markdown string with signature, description, params, and example.
  */
 export function buildFunctionMarkdown(fn: AmpscriptFunction): string {
     const lines: string[] = [];
@@ -53,7 +54,8 @@ export function buildFunctionMarkdown(fn: AmpscriptFunction): string {
 
 /**
  * Build typed-signature Markdown for an SSJS function or method.
- * @param fn
+ * @param fn - SSJS function descriptor.
+ * @returns Markdown string with signature, description, params, and example.
  */
 export function buildSsjsFunctionMarkdown(fn: SsjsFunction): string {
     const prefix = fn.prefix ? `${fn.prefix}.` : '';
@@ -97,7 +99,8 @@ export function buildSsjsFunctionMarkdown(fn: SsjsFunction): string {
 
 /**
  * Build Markdown for an ECMAScript built-in method.
- * @param builtin
+ * @param builtin - ECMAScript built-in descriptor.
+ * @returns Markdown string with signature, description, params, and example.
  */
 export function buildEcmascriptBuiltinMarkdown(builtin: EcmascriptBuiltin): string {
     const lines: string[] = [];
@@ -134,7 +137,8 @@ export function buildEcmascriptBuiltinMarkdown(builtin: EcmascriptBuiltin): stri
 
 /**
  * Build Markdown documentation for a file-local SSJS function declaration.
- * @param fn
+ * @param fn - Local SSJS function descriptor.
+ * @returns Markdown string with signature and parameter documentation.
  */
 export function buildLocalFunctionMarkdown(fn: LocalSsjsFunction): string {
     const lines: string[] = [];
@@ -163,7 +167,8 @@ export function buildLocalFunctionMarkdown(fn: LocalSsjsFunction): string {
 
 /**
  * Build a snippet string for an AMPscript function with parameter placeholders.
- * @param fn
+ * @param fn - AMPscript function descriptor.
+ * @returns VS Code snippet string with tab-stop placeholders.
  */
 export function buildFunctionSnippet(fn: AmpscriptFunction): string {
     if (!fn.params || fn.params.length === 0) {
@@ -175,7 +180,8 @@ export function buildFunctionSnippet(fn: AmpscriptFunction): string {
 
 /**
  * Build a snippet string for an SSJS function with parameter placeholders.
- * @param fn
+ * @param fn - SSJS function descriptor.
+ * @returns VS Code snippet string with tab-stop placeholders.
  */
 export function buildSsjsFunctionSnippet(fn: SsjsFunction): string {
     const prefix = fn.prefix ? `${fn.prefix}.` : '';

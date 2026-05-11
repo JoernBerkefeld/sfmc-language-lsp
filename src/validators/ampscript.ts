@@ -98,8 +98,9 @@ for (const fn of ampscriptFunctions) {
 
 /**
  * Validate an AMPscript document and return LSP Diagnostics.
- * @param text
- * @param settings
+ * @param text - Full document text.
+ * @param settings - Validation settings.
+ * @returns Array of LSP Diagnostic objects.
  */
 export function validateAmpscript(
     text: string,

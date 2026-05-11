@@ -2,8 +2,9 @@ import type { Position, Range } from '../types.js';
 
 /**
  * Convert a character offset in `text` to an LSP Position.
- * @param text
- * @param offset
+ * @param text - Source text.
+ * @param offset - Character offset.
+ * @returns LSP Position (line and character).
  */
 export function offsetToPosition(text: string, offset: number): Position {
     const clamped = Math.max(0, Math.min(offset, text.length));
@@ -17,8 +18,9 @@ export function offsetToPosition(text: string, offset: number): Position {
 
 /**
  * Convert an LSP Position in `text` to a character offset.
- * @param text
- * @param position
+ * @param text - Source text.
+ * @param position - LSP Position.
+ * @returns Character offset from the start of the text.
  */
 export function positionToOffset(text: string, position: Position): number {
     const lines = text.split('\n');
@@ -31,8 +33,9 @@ export function positionToOffset(text: string, position: Position): number {
 
 /**
  * Extract the text covered by a Range.
- * @param text
- * @param range
+ * @param text - Source text.
+ * @param range - LSP Range to extract.
+ * @returns Substring of `text` covered by the range.
  */
 export function getTextInRange(text: string, range: Range): string {
     const start = positionToOffset(text, range.start);

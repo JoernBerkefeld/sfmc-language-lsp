@@ -68,8 +68,9 @@ function buildVariableCompletionItems(text: string): CompletionItem[] {
 
 /**
  * Return AMPscript completions for the given document text and cursor position.
- * @param text
- * @param position
+ * @param text - Full document text.
+ * @param position - Cursor position.
+ * @returns Array of completion items.
  */
 export function getAmpscriptCompletions(text: string, position: Position): CompletionItem[] {
     const offset = positionToOffset(text, position);
@@ -93,7 +94,8 @@ export function getAmpscriptCompletions(text: string, position: Position): Compl
 
 /**
  * Resolve documentation for an AMPscript completion item (lazy-loaded).
- * @param item
+ * @param item - Completion item to resolve.
+ * @returns The resolved completion item with documentation attached.
  */
 export function resolveAmpscriptCompletion(item: CompletionItem): CompletionItem {
     const data = item.data as { type: string; index?: number } | undefined;

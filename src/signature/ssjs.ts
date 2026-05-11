@@ -33,10 +33,11 @@ const ALL_SSJS_FUNCTIONS: SsjsFunction[] = [
 
 /**
  * Return SSJS signature help for the given function context.
- * @param context
- * @param context.functionName
- * @param context.paramIndex
- * @param localFunctions
+ * @param context - Parsed function call context.
+ * @param context.functionName - Name of the function being called.
+ * @param context.paramIndex - Zero-based index of the active parameter.
+ * @param localFunctions - Local function declarations from the document.
+ * @returns SignatureHelp object, or null if the function is unknown.
  */
 export function getSsjsSignatureHelp(
     context: { functionName: string; paramIndex: number },

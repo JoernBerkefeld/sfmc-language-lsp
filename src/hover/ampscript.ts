@@ -6,8 +6,9 @@ import { functionLookup, ampscriptKeywords, personalizationStrings } from '../da
 
 /**
  * Return hover documentation for an AMPscript document at the given line/position.
- * @param line
- * @param position
+ * @param line - The current document line text.
+ * @param position - The cursor position.
+ * @returns Hover object with Markdown documentation, or null.
  */
 export function getAmpscriptHover(line: string, position: Position): Hover | null {
     const wordRange = getWordRangeAtPosition(line, position.character);

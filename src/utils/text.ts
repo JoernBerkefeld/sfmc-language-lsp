@@ -4,8 +4,9 @@
 
 /**
  * Returns all start offsets of `search` within `text`.
- * @param text
- * @param search
+ * @param text - Source text to search.
+ * @param search - Substring to find.
+ * @returns Array of start offsets where the substring occurs.
  */
 export function findAllOccurrences(text: string, search: string): number[] {
     const indices: number[] = [];
@@ -22,8 +23,9 @@ export function findAllOccurrences(text: string, search: string): number[] {
  * Runs on sanitized text so commas inside strings/comments don't produce false positives.
  *
  * Returns 0 for empty `()`, `commas + 1` otherwise, or -1 if no closing paren is found.
- * @param text
- * @param openParenPos
+ * @param text - Sanitized source text.
+ * @param openParenPos - Index of the opening parenthesis.
+ * @returns Argument count, or -1 if the argument list is unclosed.
  */
 export function countFunctionArguments(text: string, openParenPos: number): number {
     let depth = 1;
@@ -58,8 +60,9 @@ export interface ArgumentSpan {
 /**
  * Extracts each top-level argument's text and absolute position from a function call.
  * Returns null when the argument list is not properly closed.
- * @param text
- * @param openParenPos
+ * @param text - Source text.
+ * @param openParenPos - Index of the opening parenthesis.
+ * @returns Array of ArgumentSpan objects, or null if the list is unclosed.
  */
 export function extractFunctionArguments(
     text: string,
@@ -100,7 +103,8 @@ export function extractFunctionArguments(
 /**
  * Infers the literal type of a trimmed argument string.
  * Returns null for variables, expressions, or nested calls.
- * @param arg
+ * @param arg - Trimmed argument string.
+ * @returns Literal type string, or null if not a literal.
  */
 export function inferLiteralType(arg: string): 'string' | 'number' | 'boolean' | null {
     if (arg.startsWith('"') || arg.startsWith("'")) return 'string';
@@ -111,8 +115,9 @@ export function inferLiteralType(arg: string): 'string' | 'number' | 'boolean' |
 
 /**
  * Returns the word boundaries around a character position in a line.
- * @param line
- * @param character
+ * @param line - The line text.
+ * @param character - The character offset within the line.
+ * @returns Start and end offsets of the word, or null if none.
  */
 export function getWordRangeAtPosition(
     line: string,
@@ -133,7 +138,8 @@ export function getWordRangeAtPosition(
 /**
  * Walk backward from the cursor to find the enclosing function call name
  * and the current parameter index (0-based comma count).
- * @param textUpToCursor
+ * @param textUpToCursor - Document text from start up to the cursor position.
+ * @returns Function context object, or null if not inside a function call.
  */
 export function findFunctionContext(
     textUpToCursor: string,

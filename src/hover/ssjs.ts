@@ -35,9 +35,10 @@ function makeRange(position: Position, start: number, end: number) {
 
 /**
  * Return hover documentation for an SSJS document at the given line/position.
- * @param line
- * @param position
- * @param localFunctions
+ * @param line - The current document line text.
+ * @param position - The cursor position.
+ * @param localFunctions - Local function declarations from the document.
+ * @returns Hover object with Markdown documentation, or null.
  */
 export function getSsjsHover(
     line: string,

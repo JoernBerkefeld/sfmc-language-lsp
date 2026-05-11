@@ -5,7 +5,8 @@ import { offsetToPosition } from '../utils/positions.js';
 /**
  * Parse all `function name(...)` declarations from SSJS document text,
  * extracting preceding JSDoc blocks for documentation and parameter info.
- * @param text
+ * @param text - SSJS document text to parse.
+ * @returns Array of local function descriptors with name, params, and docs.
  */
 export function extractLocalSsjsFunctions(text: string): LocalSsjsFunction[] {
     const results: LocalSsjsFunction[] = [];
@@ -66,9 +67,10 @@ export function extractLocalSsjsFunctions(text: string): LocalSsjsFunction[] {
 /**
  * Return an LSP Location for a file-local SSJS function declaration,
  * or null if the name is not found.
- * @param text
- * @param uri
- * @param name
+ * @param text - SSJS document text.
+ * @param uri - Document URI.
+ * @param name - Function name to locate.
+ * @returns LSP Location of the function declaration, or null.
  */
 export function getSsjsDefinition(text: string, uri: string, name: string): Location | null {
     const fn = extractLocalSsjsFunctions(text).find((f) => f.name === name);
