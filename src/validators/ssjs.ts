@@ -23,8 +23,9 @@ import {
 
 /**
  * Validate an SSJS document and return LSP Diagnostics.
- * @param text
- * @param settings
+ * @param text - Full document text.
+ * @param settings - Validation settings.
+ * @returns Array of LSP Diagnostic objects.
  */
 export function validateSsjs(
     text: string,

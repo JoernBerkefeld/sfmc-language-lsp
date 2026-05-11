@@ -21,6 +21,9 @@ export default tseslint.config(
     eslintPluginUnicorn.configs.recommended,
     ...tseslint.configs.recommended,
     {
+        parserOptions: {
+            tsconfigRootDir: import.meta.dirname,
+        },
         languageOptions: {
             globals: {
                 ...globals.nodeBuiltin,
@@ -52,6 +55,7 @@ export default tseslint.config(
             'unicorn/prevent-abbreviations': 'off',
             'jsdoc/require-jsdoc': 'off',
             'jsdoc/require-param-type': 'off',
+            'jsdoc/require-returns-type': 'off',
         },
     },
 );

@@ -5,7 +5,8 @@
 
 /**
  * Returns [start, end) character ranges of every comment in the source.
- * @param source
+ * @param source - Source text to scan.
+ * @returns Array of [start, end) offset pairs for each comment range.
  */
 export function buildCommentRanges(source: string): Array<[number, number]> {
     const ranges: Array<[number, number]> = [];
@@ -58,8 +59,9 @@ export function buildCommentRanges(source: string): Array<[number, number]> {
 
 /**
  * Returns true when `index` falls within any of the given comment ranges.
- * @param index
- * @param ranges
+ * @param index - Character offset to test.
+ * @param ranges - Sorted comment ranges from `buildCommentRanges`.
+ * @returns True if the offset is inside a comment.
  */
 export function isInCommentRange(index: number, ranges: Array<[number, number]>): boolean {
     for (const [start, end] of ranges) {

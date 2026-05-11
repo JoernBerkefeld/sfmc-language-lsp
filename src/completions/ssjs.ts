@@ -337,7 +337,8 @@ function buildSsjsCatalog(): CompletionItem[] {
 
 /**
  * Build completion items for file-local SSJS function declarations.
- * @param localFunctions
+ * @param localFunctions - Local function declarations extracted from the document.
+ * @returns Array of completion items for each local function.
  */
 export function buildLocalFunctionCompletionItems(
     localFunctions: LocalSsjsFunction[],

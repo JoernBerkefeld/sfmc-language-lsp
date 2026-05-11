@@ -12,9 +12,10 @@ import {
 
 /**
  * Return quick-fix code actions for the given diagnostics.
- * @param text
- * @param uri
- * @param diagnostics
+ * @param text - Full document text.
+ * @param uri - Document URI.
+ * @param diagnostics - Diagnostics to generate actions for.
+ * @returns Array of code actions.
  */
 export function getAmpscriptCodeActions(
     text: string,

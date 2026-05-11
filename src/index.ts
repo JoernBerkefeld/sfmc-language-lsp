@@ -79,8 +79,9 @@ export class SfmcLanguageService {
 
     /**
      * Validate an AMPscript or SSJS document. Returns LSP Diagnostics.
-     * @param doc
-     * @param settings
+     * @param doc - Document context with text and language ID.
+     * @param settings - Validation settings.
+     * @returns Array of LSP Diagnostic objects.
      */
     validate(doc: DocumentContext, settings: SfmcSettings = DEFAULT_SETTINGS): Diagnostic[] {
         if (doc.languageId === 'ssjs') {
@@ -93,8 +94,9 @@ export class SfmcLanguageService {
 
     /**
      * Return completion items at the given cursor position.
-     * @param doc
-     * @param position
+     * @param doc - Document context with text and language ID.
+     * @param position - Cursor position.
+     * @returns Array of LSP CompletionItem objects.
      */
     getCompletions(doc: DocumentContext, position: Position): CompletionItem[] {
         if (doc.languageId === 'ssjs') {
@@ -107,7 +109,8 @@ export class SfmcLanguageService {
 
     /**
      * Resolve documentation for a completion item (lazy-loaded).
-     * @param item
+     * @param item - Completion item to resolve.
+     * @returns The resolved completion item with documentation attached.
      */
     resolveCompletion(item: CompletionItem): CompletionItem {
         return resolveAmpscriptCompletion(item);
@@ -117,9 +120,10 @@ export class SfmcLanguageService {
 
     /**
      * Return hover documentation at the given line/position.
-     * @param doc
-     * @param line
-     * @param position
+     * @param doc - Document context with text and language ID.
+     * @param line - The current document line text.
+     * @param position - The cursor position.
+     * @returns Hover object with Markdown documentation, or null.
      */
     getHover(doc: DocumentContext, line: string, position: Position): Hover | null {
         if (doc.languageId === 'ssjs') {
@@ -133,8 +137,9 @@ export class SfmcLanguageService {
 
     /**
      * Return signature help at the given cursor position.
-     * @param doc
-     * @param textUpToCursor
+     * @param doc - Document context with text and language ID.
+     * @param textUpToCursor - The document text from the start up to the cursor.
+     * @returns SignatureHelp object, or null if outside a function call.
      */
     getSignatureHelp(doc: DocumentContext, textUpToCursor: string): SignatureHelp | null {
         const context = findFunctionContext(textUpToCursor);
@@ -151,8 +156,9 @@ export class SfmcLanguageService {
 
     /**
      * Return the definition location for the word at the given position. Only SSJS is supported.
-     * @param doc
-     * @param word
+     * @param doc - Document context with text and language ID.
+     * @param word - Identifier name to locate.
+     * @returns LSP Location of the definition, or null.
      */
     getDefinition(doc: DocumentContext, word: string): Location | null {
         if (doc.languageId !== 'ssjs') return null;
@@ -163,8 +169,9 @@ export class SfmcLanguageService {
 
     /**
      * Return quick-fix code actions for the given diagnostics.
-     * @param doc
-     * @param diagnostics
+     * @param doc - Document context with text and language ID.
+     * @param diagnostics - Diagnostics to generate actions for.
+     * @returns Array of code actions.
      */
     getCodeActions(doc: DocumentContext, diagnostics: Diagnostic[]): CodeAction[] {
         if (doc.languageId === 'ssjs') return [];
@@ -175,7 +182,8 @@ export class SfmcLanguageService {
 
     /**
      * Look up an AMPscript function by name. Case-insensitive.
-     * @param name
+     * @param name - Function name to look up.
+     * @returns The AMPscript function descriptor, or null if not found.
      */
     lookupAmpscriptFunction(name: string) {
         return functionLookup.get(name.toLowerCase()) ?? null;
@@ -183,7 +191,8 @@ export class SfmcLanguageService {
 
     /**
      * Look up an SSJS function or method by name. Case-insensitive. Searches all catalogs.
-     * @param name
+     * @param name - Function or method name to look up.
+     * @returns The SSJS function descriptor, or null if not found.
      */
     lookupSsjsFunction(name: string): SsjsFunction | null {
         const lower = name.toLowerCase();
@@ -204,12 +213,18 @@ export class SfmcLanguageService {
         return allFns.find((f) => f.name.toLowerCase() === lower) ?? null;
     }
 
-    /** Return all AMPscript functions in the catalog. */
+    /**
+     * Return all AMPscript functions in the catalog.
+     * @returns Array of all AMPscript function descriptors.
+     */
     getAllAmpscriptFunctions() {
         return ampscriptFunctions;
     }
 
-    /** Return all SSJS functions and methods in the catalog. */
+    /**
+     * Return all SSJS functions and methods in the catalog.
+     * @returns Array of all SSJS function descriptors across all namespaces.
+     */
     getAllSsjsFunctions(): SsjsFunction[] {
         return [
             ...platformMethods,
@@ -227,12 +242,18 @@ export class SfmcLanguageService {
         ];
     }
 
-    /** Return all AMPscript keyword names. */
+    /**
+     * Return all AMPscript keyword names.
+     * @returns Array of keyword name strings.
+     */
     getAmpscriptKeywords(): string[] {
         return ampscriptKeywords.map((kw) => kw.name);
     }
 
-    /** Return the ES6+ syntax features that are unsupported in SFMC SSJS. */
+    /**
+     * Return the ES6+ syntax features that are unsupported in SFMC SSJS.
+     * @returns Array of unsupported syntax pattern descriptors.
+     */
     getUnsupportedSsjsSyntax(): Array<{ pattern: string; message: string }> {
         return [
             {
@@ -261,12 +282,18 @@ export class SfmcLanguageService {
 
     // ── Static completion catalog access ──────────────────────────────────────
 
-    /** Return the pre-built SSJS completion item catalog. */
+    /**
+     * Return the pre-built SSJS completion item catalog.
+     * @returns Array of pre-built SSJS completion items.
+     */
     getSsjsCompletionCatalog(): CompletionItem[] {
         return ssjsCompletionItems;
     }
 
-    /** Return the pre-built AMPscript function completion items. */
+    /**
+     * Return the pre-built AMPscript function completion items.
+     * @returns Array of pre-built AMPscript function completion items.
+     */
     getAmpscriptFunctionCompletionItems(): CompletionItem[] {
         return functionCompletionItems;
     }

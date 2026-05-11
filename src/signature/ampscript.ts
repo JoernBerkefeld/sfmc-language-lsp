@@ -3,9 +3,10 @@ import { functionLookup } from '../data/ampscript.js';
 
 /**
  * Return AMPscript signature help for the given function context.
- * @param context
- * @param context.functionName
- * @param context.paramIndex
+ * @param context - Parsed function call context.
+ * @param context.functionName - Name of the function being called.
+ * @param context.paramIndex - Zero-based index of the active parameter.
+ * @returns SignatureHelp object, or null if the function is unknown.
  */
 export function getAmpscriptSignatureHelp(context: {
     functionName: string;
