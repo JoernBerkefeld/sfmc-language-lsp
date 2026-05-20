@@ -135,6 +135,27 @@ export function validateSsjs(
             message: 'Async functions are not supported in SFMC SSJS.',
         },
         { pattern: /\bawait\s+/g, message: 'Await expressions are not supported in SFMC SSJS.' },
+        {
+            pattern: /\bfor\s*\(\s*(?:var\s+)?\w+\s+of\s+/g,
+            message: "'for...of' loops are not supported in SFMC SSJS. Use a regular for loop.",
+        },
+        {
+            pattern: /\bfunction\s*\*/g,
+            message: 'Generator functions are not supported in SFMC SSJS.',
+        },
+        {
+            pattern: /\.{3}/g,
+            message: 'Spread operator (...) is not supported in SFMC SSJS.',
+        },
+        {
+            pattern: /\bvar\s*\{/g,
+            message:
+                'Object destructuring is not supported in SFMC SSJS. Assign properties individually.',
+        },
+        {
+            pattern: /\bvar\s*\[/g,
+            message: 'Array destructuring is not supported in SFMC SSJS. Use index access instead.',
+        },
     ];
 
     const commentRanges = buildCommentRanges(text);
@@ -145,7 +166,7 @@ export function validateSsjs(
             if (isInCommentRange(match.index, commentRanges)) continue;
             problems++;
             diagnostics.push({
-                severity: DiagnosticSeverity.Warning,
+                severity: DiagnosticSeverity.Error,
                 range: {
                     start: offsetToPosition(text, match.index),
                     end: offsetToPosition(text, match.index + match[0].length),
@@ -157,7 +178,11 @@ export function validateSsjs(
     }
 
     // 4. Type-check literal arguments for known SSJS function calls
-    const ssjsFunctionLookup = new Map<string, SsjsFunction>();
+    // Build separate lookups to avoid name collisions across different prefixes
+    // (e.g. WSProxy.retrieve vs DateTime.TimeZone.Retrieve are different functions).
+    const ssjsKnownPrefixes = new Set<string>();
+    const ssjsQualifiedLookup = new Map<string, SsjsFunction>(); // prefix.name → fn
+    const ssjsBareNameLookup = new Map<string, SsjsFunction>(); // name → fn (no-prefix globals)
     for (const fn of [
         ...platformMethods,
         ...platformFunctions,
@@ -172,14 +197,31 @@ export function validateSsjs(
         ...dateTimeTimezoneMethods,
         ...errorUtilMethods,
     ]) {
-        ssjsFunctionLookup.set(fn.name.toLowerCase(), fn);
+        if (fn.prefix) {
+            ssjsKnownPrefixes.add(fn.prefix.toLowerCase());
+            ssjsQualifiedLookup.set(`${fn.prefix.toLowerCase()}.${fn.name.toLowerCase()}`, fn);
+        } else {
+            ssjsBareNameLookup.set(fn.name.toLowerCase(), fn);
+        }
     }
 
-    const ssjsCallPattern = /(?:\w+\.)*(\w+)\s*\(/g;
+    // Capture the full dotted call path (e.g. "Platform.Function.Now") so we can
+    // distinguish "WSProxy.retrieve" from a user variable named "api.retrieve".
+    const ssjsCallPattern = /((?:\w+\.)*\w+)\s*\(/g;
     let ssjsCallMatch: RegExpExecArray | null;
     while ((ssjsCallMatch = ssjsCallPattern.exec(text)) !== null && problems < max) {
-        const methodName = ssjsCallMatch[1];
-        const fn = ssjsFunctionLookup.get(methodName.toLowerCase());
+        const fullName = ssjsCallMatch[1];
+        const lastDot = fullName.lastIndexOf('.');
+        const funcName = lastDot === -1 ? fullName : fullName.slice(lastDot + 1);
+        const callPrefix = lastDot >= 0 ? fullName.slice(0, lastDot) : '';
+        let fn: SsjsFunction | undefined;
+        if (callPrefix) {
+            // Skip calls where the prefix is not a known SFMC namespace (user variable).
+            if (!ssjsKnownPrefixes.has(callPrefix.toLowerCase())) continue;
+            fn = ssjsQualifiedLookup.get(`${callPrefix.toLowerCase()}.${funcName.toLowerCase()}`);
+        } else {
+            fn = ssjsBareNameLookup.get(funcName.toLowerCase());
+        }
         if (!fn?.params || fn.params.length === 0) continue;
 
         const openParenPos = ssjsCallMatch.index + ssjsCallMatch[0].length - 1;
@@ -198,7 +240,7 @@ export function validateSsjs(
                         start: offsetToPosition(text, argSpans[ai].start),
                         end: offsetToPosition(text, argSpans[ai].end),
                     },
-                    message: `Argument '${param.name}' of '${methodName}' expects a ${param.type} but received a ${inferredType}.`,
+                    message: `Argument '${param.name}' of '${funcName}' expects a ${param.type} but received a ${inferredType}.`,
                     source: 'ssjs',
                 });
             }
