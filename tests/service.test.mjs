@@ -116,6 +116,62 @@ describe('SSJS validation', () => {
         const diags = service.validate(doc);
         assert.ok(diags.some((d) => d.message.includes('"1.1.5"')));
     });
+
+    it('reports let/const as Error severity (not Warning)', () => {
+        const doc = { text: 'let x = 1;', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.message.includes("'let'/'const'"));
+        assert.ok(d, 'expected diagnostic for let');
+        assert.equal(d.severity, 1, 'expected DiagnosticSeverity.Error (1)');
+    });
+
+    it('reports const as Error severity', () => {
+        const doc = { text: 'const y = 2;', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.message.includes("'let'/'const'"));
+        assert.ok(d, 'expected diagnostic for const');
+        assert.equal(d.severity, 1, 'expected DiagnosticSeverity.Error (1)');
+    });
+
+    it('reports for...of loop as Error severity', () => {
+        const doc = { text: 'for (var item of items) {}', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.some((d) => d.message.includes('for...of') && d.severity === 1),
+            'expected Error for for...of',
+        );
+    });
+
+    it('reports spread operator as Error severity', () => {
+        const doc = { text: 'var a = [...b];', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.some((d) => d.message.includes('Spread') && d.severity === 1),
+            'expected Error for spread',
+        );
+    });
+
+    it('does not flag unknown-prefix calls (user variable — e.g. api.retrieve)', () => {
+        const code =
+            'Platform.Load("core","1.1.5");\nvar api = new WSProxy();\napi.retrieve("DataExtension", ["Name"], {});';
+        const doc = { text: code, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            !diags.some((d) => d.message.toLowerCase().includes('retrieve')),
+            'api.retrieve should not produce a diagnostic',
+        );
+    });
+
+    it('does not flag DateTime.TimeZone.Retrieve when prefix is unknown', () => {
+        const code =
+            'Platform.Load("core","1.1.5");\nvar tz = new Object();\ntz.Retrieve("something");';
+        const doc = { text: code, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            !diags.some((d) => d.message.includes('Retrieve')),
+            'tz.Retrieve should not be flagged (unknown prefix)',
+        );
+    });
 });
 
 // ── Completions ────────────────────────────────────────────────────────────
