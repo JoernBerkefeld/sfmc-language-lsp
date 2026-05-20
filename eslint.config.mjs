@@ -21,10 +21,10 @@ export default tseslint.config(
     eslintPluginUnicorn.configs.recommended,
     ...tseslint.configs.recommended,
     {
-        parserOptions: {
-            tsconfigRootDir: import.meta.dirname,
-        },
         languageOptions: {
+            parserOptions: {
+                tsconfigRootDir: import.meta.dirname,
+            },
             globals: {
                 ...globals.nodeBuiltin,
                 Atomics: 'readonly',
