@@ -24,5 +24,6 @@ jobs:
                   node-version: ${{ matrix.node }}
 
             - run: npm ci --no-workspaces
+            - run: npm run build
             - run: npm run lint
             - run: npm test
