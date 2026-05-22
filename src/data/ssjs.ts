@@ -178,6 +178,18 @@ export const scriptUtilRequestMethods: SsjsFunction[] = SCRIPT_UTIL_REQUEST_METH
     prefix: 'req',
 }));
 
+// ── Bare-name globals requiring Platform.Load ────────────────────────────────
+
+/**
+ * Bare-name globals (e.g. Stringify, Write, Now, GUID) that require a
+ * preceding `Platform.Load("core", "1.1.5")` call. Object-typed entries
+ * (Attribute, HTTPHeader, DateTime, ErrorUtil) are excluded because the
+ * validator already has dedicated patterns for those.
+ */
+export const requiresCoreLoadGlobals: Set<string> = new Set(
+    SSJS_GLOBALS.filter((g) => g.requiresCoreLoad && g.type !== 'object').map((g) => g.name),
+);
+
 // ── ECMAScript 3/5 built-in methods ──────────────────────────────────────────
 
 export const ecmascriptBuiltins: EcmascriptBuiltin[] = ECMASCRIPT_BUILTINS.map((b) => ({

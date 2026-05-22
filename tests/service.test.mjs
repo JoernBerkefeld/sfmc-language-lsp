@@ -172,6 +172,66 @@ describe('SSJS validation', () => {
             'tz.Retrieve should not be flagged (unknown prefix)',
         );
     });
+
+    it('does not report core object usage when Platform.Load is real and core object is only in a comment', () => {
+        // DataExtension.Init is only inside a comment, so should not trigger
+        const code =
+            'Platform.Load("core","1.1.5");\n// var de = DataExtension.Init("test");';
+        const doc = { text: code, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            !diags.some((d) => d.message.includes('Platform.Load')),
+            'core object in a comment should not be flagged',
+        );
+    });
+
+    it('does not warn about wrong Platform.Load version when load is in a comment', () => {
+        const doc = { text: '// Platform.Load("core","1.0");', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            !diags.some((d) => d.message.includes('"1.1.5"')),
+            'version check in a comment should not produce a diagnostic',
+        );
+    });
+
+    it('still reports core object usage when Platform.Load is only in a comment', () => {
+        // The real code has no Platform.Load — only a commented-out one
+        const code = '// Platform.Load("core","1.1.5");\nvar de = DataExtension.Init("test");';
+        const doc = { text: code, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.some((d) => d.message.includes('Platform.Load')),
+            'core object should still be flagged when only commented-out load exists',
+        );
+    });
+
+    it('reports bare Stringify() without Platform.Load', () => {
+        const doc = { text: 'var s = Stringify({ foo: 1 });', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.some((d) => d.message.includes('Stringify')),
+            'bare Stringify() without Platform.Load should be flagged',
+        );
+    });
+
+    it('does not report bare Stringify() when Platform.Load is present', () => {
+        const code = 'Platform.Load("core","1.1.5");\nvar s = Stringify({ foo: 1 });';
+        const doc = { text: code, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            !diags.some((d) => d.message.includes('Stringify')),
+            'bare Stringify() should not be flagged when Platform.Load is present',
+        );
+    });
+
+    it('does not report bare Stringify() when only in a comment', () => {
+        const doc = { text: '// var s = Stringify({ foo: 1 });', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            !diags.some((d) => d.message.includes('Stringify')),
+            'Stringify() in a comment should not be flagged',
+        );
+    });
 });
 
 // ── Completions ────────────────────────────────────────────────────────────
@@ -224,6 +284,24 @@ describe('Hover', () => {
         const line = 'Platform.Function.Now();';
         const hover = service.getHover(doc, line, { line: 0, character: 18 });
         assert.ok(hover !== null, 'expected hover for Now');
+    });
+
+    it('returns null hover for wrong-case SSJS Platform.Function name (Bug #5)', () => {
+        // "URLEncode" is wrong case — correct spelling is "UrlEncode"
+        // Hover should return null so the TS type-checker diagnostic is the only feedback
+        const doc = { text: 'Platform.Function.URLEncode("x");', languageId: 'ssjs' };
+        const line = 'Platform.Function.URLEncode("x");';
+        const hover = service.getHover(doc, line, { line: 0, character: 20 });
+        assert.equal(hover, null, 'should not show hover for wrong-case function name');
+    });
+
+    it('returns null hover on object part of qualified call (Bug #1)', () => {
+        // Bug #1: cursor on "Platform" in "Platform.Load" (twoPartPattern) should not
+        // show Platform.Load method hover — only fire when cursor is on the member name
+        const doc = { text: 'Platform.Load("core", "1");', languageId: 'ssjs' };
+        const line = 'Platform.Load("core", "1");';
+        const hover = service.getHover(doc, line, { line: 0, character: 4 });
+        assert.equal(hover, null, 'should not show method hover when cursor is on the namespace prefix');
     });
 });
 
@@ -320,5 +398,32 @@ describe('Definitions', () => {
         const doc = { text: 'var x = 1;', languageId: 'ssjs', uri: 'file:///test.ssjs' };
         const location = service.getDefinition(doc, 'unknownFn');
         assert.equal(location, null);
+    });
+});
+
+// ── Signature Help ─────────────────────────────────────────────────────────
+
+describe('Signature Help', () => {
+    it('signature label for Platform.Function is not double-prefixed (Bug #7)', () => {
+        const doc = { text: 'Platform.Function.Stringify(', languageId: 'ssjs' };
+        const sig = service.getSignatureHelp(doc, 'Platform.Function.Stringify(');
+        assert.ok(sig !== null, 'expected signature help for Stringify');
+        const label = sig.signatures[0].label;
+        assert.ok(
+            !label.includes('Platform.Function.Platform.Function.'),
+            `label should not contain doubled prefix, got: ${label}`,
+        );
+        assert.ok(label.startsWith('Platform.Function.'), `label should start with Platform.Function., got: ${label}`);
+    });
+
+    it('signature label for shorthand Function.Stringify is not double-prefixed (Bug #7)', () => {
+        const doc = { text: 'Function.Stringify(', languageId: 'ssjs' };
+        const sig = service.getSignatureHelp(doc, 'Function.Stringify(');
+        assert.ok(sig !== null, 'expected signature help for shorthand Stringify');
+        const label = sig.signatures[0].label;
+        assert.ok(
+            !label.includes('Platform.Function.Platform.Function.'),
+            `label should not contain doubled prefix, got: ${label}`,
+        );
     });
 });
