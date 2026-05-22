@@ -220,7 +220,7 @@ describe('SSJS validation', () => {
         const diags = service.validate(doc);
         assert.ok(
             !diags.some((d) => d.message.includes('Stringify')),
-            'bare Stringify() should not be flagged when Platform.Load is present',
+            'bare Stringify() should not be flagged when Platform.Load precedes it',
         );
     });
 
@@ -230,6 +230,26 @@ describe('SSJS validation', () => {
         assert.ok(
             !diags.some((d) => d.message.includes('Stringify')),
             'Stringify() in a comment should not be flagged',
+        );
+    });
+
+    it('reports bare Stringify() when Platform.Load comes AFTER the call', () => {
+        const code = 'var s = Stringify({ foo: 1 });\nPlatform.Load("core","1.1.5");';
+        const doc = { text: code, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.some((d) => d.message.includes('Stringify')),
+            'bare Stringify() before Platform.Load should still be flagged',
+        );
+    });
+
+    it('reports core object usage when Platform.Load comes AFTER the call', () => {
+        const code = 'var de = DataExtension.Init("test");\nPlatform.Load("core","1.1.5");';
+        const doc = { text: code, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.some((d) => d.message.includes('Platform.Load')),
+            'DataExtension.Init() before Platform.Load should still be flagged',
         );
     });
 });
