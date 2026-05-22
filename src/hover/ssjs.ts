@@ -56,7 +56,8 @@ export function getSsjsHover(
     while ((tpMatch = twoPartPattern.exec(line)) !== null) {
         if (
             position.character >= tpMatch.index &&
-            position.character <= tpMatch.index + tpMatch[0].length
+            position.character <= tpMatch.index + tpMatch[0].length &&
+            word === tpMatch![1]
         ) {
             const fn = platformMethods.find(
                 (m) => m.name.toLowerCase() === tpMatch![1].toLowerCase(),
@@ -83,7 +84,8 @@ export function getSsjsHover(
 
             if (ns1 === 'Platform' && ns2 === 'Function') {
                 const fn = platformFunctionLookup.get(name.toLowerCase());
-                if (fn)
+                // Bug #5 fix: case-sensitive — don't show hover for wrong-case names like URLEncode
+                if (fn && fn.name === name)
                     return {
                         contents: {
                             kind: MarkupKind.Markdown,
@@ -94,7 +96,8 @@ export function getSsjsHover(
             }
             if (ns1 === 'Platform' && ns2 === 'DateTime') {
                 const fn = platformFunctionLookup.get(name.toLowerCase());
-                if (fn)
+                // Bug #5 fix: case-sensitive — don't show hover for wrong-case names
+                if (fn && fn.name === name)
                     return {
                         contents: {
                             kind: MarkupKind.Markdown,
@@ -195,6 +198,10 @@ export function getSsjsHover(
             const full = tpgMatch[0];
             const [, obj, name] = tpgMatch;
 
+            // Bug #3 fix: only trigger hover on the member name, not the object/prefix part
+            const dotPos = tpgMatch.index + obj.length;
+            if (position.character <= dotPos) continue;
+
             if (obj === 'Variable') {
                 const m = platformVariableMethods.find(
                     (m) => m.name.toLowerCase() === name.toLowerCase(),
@@ -210,7 +217,8 @@ export function getSsjsHover(
             }
             if (obj === 'Function' || obj === 'DateTime') {
                 const fn = platformFunctionLookup.get(name.toLowerCase());
-                if (fn)
+                // Bug #5 fix: case-sensitive — don't show hover for wrong-case names like URLEncode
+                if (fn && fn.name === name)
                     return {
                         contents: {
                             kind: MarkupKind.Markdown,
@@ -355,7 +363,8 @@ export function getSsjsHover(
 
     // Unprefixed Platform.Function calls
     const platformFnByWord = platformFunctionLookup.get(word.toLowerCase());
-    if (platformFnByWord)
+    // Bug #5 fix: case-sensitive — don't show hover for wrong-case names
+    if (platformFnByWord && platformFnByWord.name === word)
         return {
             contents: {
                 kind: MarkupKind.Markdown,

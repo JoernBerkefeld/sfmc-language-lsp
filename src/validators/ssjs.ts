@@ -3,22 +3,12 @@ import type { Diagnostic } from '../types.js';
 import type { SfmcSettings } from '../types.js';
 import { DEFAULT_SETTINGS } from '../types.js';
 import { buildCommentRanges, isInCommentRange } from '../utils/comments.js';
-import { extractFunctionArguments, inferLiteralType } from '../utils/text.js';
 import { offsetToPosition } from '../utils/positions.js';
-import type { SsjsFunction } from '../data/ssjs.js';
 import {
-    platformMethods,
-    platformFunctions,
-    ssjsGlobals,
-    platformVariableMethods,
-    platformResponseMethods,
-    platformRequestMethods,
-    platformRecipientMethods,
-    wsproxyMethods,
-    httpMethods,
     httpHeaderMethods,
     dateTimeTimezoneMethods,
     errorUtilMethods,
+    requiresCoreLoadGlobals,
 } from '../data/ssjs.js';
 
 /**
@@ -35,14 +25,26 @@ export function validateSsjs(
     let problems = 0;
     const max = settings.maxNumberOfProblems;
 
-    const platformLoadPattern = /Platform\s*\.\s*Load\s*\(\s*["']core["']/i;
-    const hasPlatformLoad = platformLoadPattern.test(text);
+    // Build comment ranges once here so every section below can skip them.
+    const commentRanges = buildCommentRanges(text);
+
+    // Determine whether a real (non-comment) Platform.Load call exists.
+    const plCheckPat = /Platform\s*\.\s*Load\s*\(\s*["']core["']/ig;
+    let plm: RegExpExecArray | null;
+    let hasPlatformLoad = false;
+    while ((plm = plCheckPat.exec(text)) !== null) {
+        if (!isInCommentRange(plm.index, commentRanges)) {
+            hasPlatformLoad = true;
+            break;
+        }
+    }
 
     // 1. Core library usage without Platform.Load
     const coreObjectPattern =
         /\b(DataExtension|Subscriber|Email|TriggeredSend|List|ContentArea|Folder|QueryDefinition|Send|Template|DeliveryProfile|SenderProfile|SendClassification|FilterDefinition|Account|AccountUser|Portfolio|BounceEvent|ClickEvent|ForwardedEmailEvent|ForwardedEmailOptInEvent|NotSentEvent|OpenEvent|SentEvent|SurveyEvent|UnsubEvent)\s*\.\s*(Init|Retrieve)\s*\(/g;
     let coreMatch: RegExpExecArray | null;
     while ((coreMatch = coreObjectPattern.exec(text)) !== null && problems < max) {
+        if (isInCommentRange(coreMatch.index, commentRanges)) continue;
         if (!hasPlatformLoad) {
             problems++;
             diagnostics.push({
@@ -74,6 +76,7 @@ export function validateSsjs(
             );
             let reqMatch: RegExpExecArray | null;
             while ((reqMatch = callPattern.exec(text)) !== null && problems < max) {
+                if (isInCommentRange(reqMatch.index, commentRanges)) continue;
                 problems++;
                 diagnostics.push({
                     severity: DiagnosticSeverity.Error,
@@ -86,6 +89,29 @@ export function validateSsjs(
                 });
             }
         }
+
+        // 1c. Bare-name globals that require Platform.Load (e.g. Stringify, Write, Now, GUID)
+        // Use negative lookbehind for '.' so Platform.Function.Now() is NOT flagged —
+        // only genuine bare calls like Now() are.
+        if (requiresCoreLoadGlobals.size > 0) {
+            const bareNames = [...requiresCoreLoadGlobals].join('|');
+            const barePattern = new RegExp(`(?<!\\.)(\\b(?:${bareNames}))\\s*\\(`, 'g');
+            let bareMatch: RegExpExecArray | null;
+            while ((bareMatch = barePattern.exec(text)) !== null && problems < max) {
+                if (isInCommentRange(bareMatch.index, commentRanges)) continue;
+                problems++;
+                const name = bareMatch[1];
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, bareMatch.index),
+                        end: offsetToPosition(text, bareMatch.index + name.length),
+                    },
+                    message: `Platform.Load("core", "1.1.5") must be called before using ${name}(). Without it, this call will fail at runtime.`,
+                    source: 'ssjs',
+                });
+            }
+        }
     }
 
     // 2. Wrong Platform.Load version
@@ -93,6 +119,7 @@ export function validateSsjs(
         /Platform\s*\.\s*Load\s*\(\s*["']core["']\s*,\s*["']([^"']*)["']\s*\)/gi;
     let versionMatch: RegExpExecArray | null;
     while ((versionMatch = platformLoadVersionPattern.exec(text)) !== null && problems < max) {
+        if (isInCommentRange(versionMatch.index, commentRanges)) continue;
         const actualVersion = versionMatch[1];
         if (actualVersion !== '1.1.5') {
             problems++;
@@ -158,8 +185,6 @@ export function validateSsjs(
         },
     ];
 
-    const commentRanges = buildCommentRanges(text);
-
     for (const { pattern, message } of es6Patterns) {
         let match: RegExpExecArray | null;
         while ((match = pattern.exec(text)) !== null && problems < max) {
@@ -174,76 +199,6 @@ export function validateSsjs(
                 message,
                 source: 'ssjs',
             });
-        }
-    }
-
-    // 4. Type-check literal arguments for known SSJS function calls
-    // Build separate lookups to avoid name collisions across different prefixes
-    // (e.g. WSProxy.retrieve vs DateTime.TimeZone.Retrieve are different functions).
-    const ssjsKnownPrefixes = new Set<string>();
-    const ssjsQualifiedLookup = new Map<string, SsjsFunction>(); // prefix.name → fn
-    const ssjsBareNameLookup = new Map<string, SsjsFunction>(); // name → fn (no-prefix globals)
-    for (const fn of [
-        ...platformMethods,
-        ...platformFunctions,
-        ...ssjsGlobals,
-        ...platformVariableMethods,
-        ...platformResponseMethods,
-        ...platformRequestMethods,
-        ...platformRecipientMethods,
-        ...wsproxyMethods,
-        ...httpMethods,
-        ...httpHeaderMethods,
-        ...dateTimeTimezoneMethods,
-        ...errorUtilMethods,
-    ]) {
-        if (fn.prefix) {
-            ssjsKnownPrefixes.add(fn.prefix.toLowerCase());
-            ssjsQualifiedLookup.set(`${fn.prefix.toLowerCase()}.${fn.name.toLowerCase()}`, fn);
-        } else {
-            ssjsBareNameLookup.set(fn.name.toLowerCase(), fn);
-        }
-    }
-
-    // Capture the full dotted call path (e.g. "Platform.Function.Now") so we can
-    // distinguish "WSProxy.retrieve" from a user variable named "api.retrieve".
-    const ssjsCallPattern = /((?:\w+\.)*\w+)\s*\(/g;
-    let ssjsCallMatch: RegExpExecArray | null;
-    while ((ssjsCallMatch = ssjsCallPattern.exec(text)) !== null && problems < max) {
-        const fullName = ssjsCallMatch[1];
-        const lastDot = fullName.lastIndexOf('.');
-        const funcName = lastDot === -1 ? fullName : fullName.slice(lastDot + 1);
-        const callPrefix = lastDot >= 0 ? fullName.slice(0, lastDot) : '';
-        let fn: SsjsFunction | undefined;
-        if (callPrefix) {
-            // Skip calls where the prefix is not a known SFMC namespace (user variable).
-            if (!ssjsKnownPrefixes.has(callPrefix.toLowerCase())) continue;
-            fn = ssjsQualifiedLookup.get(`${callPrefix.toLowerCase()}.${funcName.toLowerCase()}`);
-        } else {
-            fn = ssjsBareNameLookup.get(funcName.toLowerCase());
-        }
-        if (!fn?.params || fn.params.length === 0) continue;
-
-        const openParenPos = ssjsCallMatch.index + ssjsCallMatch[0].length - 1;
-        const argSpans = extractFunctionArguments(text, openParenPos);
-        if (!argSpans) continue;
-
-        for (let ai = 0; ai < argSpans.length && problems < max; ai++) {
-            const param = fn.params[ai];
-            if (!param?.type) continue;
-            const inferredType = inferLiteralType(argSpans[ai].value);
-            if (inferredType && inferredType !== param.type) {
-                problems++;
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Warning,
-                    range: {
-                        start: offsetToPosition(text, argSpans[ai].start),
-                        end: offsetToPosition(text, argSpans[ai].end),
-                    },
-                    message: `Argument '${param.name}' of '${funcName}' expects a ${param.type} but received a ${inferredType}.`,
-                    source: 'ssjs',
-                });
-            }
         }
     }
 

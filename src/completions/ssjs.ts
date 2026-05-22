@@ -67,26 +67,6 @@ function buildSsjsCatalog(): CompletionItem[] {
                 filterText: `Function.${fn.name} ${fn.name}`,
                 data: { type: 'ssjs-platform-function', name: fn.name },
             },
-            {
-                label: `Platform.DateTime.${fn.name}`,
-                kind: CompletionItemKind.Method,
-                detail: `Platform.DateTime.${fn.name}`,
-                documentation: doc,
-                insertText: buildSsjsFunctionSnippet(fn),
-                insertTextFormat: InsertTextFormat.Snippet,
-                filterText: `Platform.DateTime.${fn.name} ${fn.name}`,
-                data: { type: 'ssjs-platform-function', name: fn.name },
-            },
-            {
-                label: `DateTime.${fn.name}`,
-                kind: CompletionItemKind.Method,
-                detail: `(shorthand) Platform.DateTime.${fn.name}`,
-                documentation: doc,
-                insertText: buildSsjsFunctionSnippet({ ...fn, prefix: 'DateTime' }),
-                insertTextFormat: InsertTextFormat.Snippet,
-                filterText: `DateTime.${fn.name} ${fn.name}`,
-                data: { type: 'ssjs-platform-function', name: fn.name },
-            },
         );
     }
 
