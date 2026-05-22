@@ -28,13 +28,14 @@ export function validateSsjs(
     // Build comment ranges once here so every section below can skip them.
     const commentRanges = buildCommentRanges(text);
 
-    // Determine whether a real (non-comment) Platform.Load call exists.
+    // Find the character offset of the first real (non-comment) Platform.Load call.
+    // Infinity means no load call exists anywhere in the document.
     const plCheckPat = /Platform\s*\.\s*Load\s*\(\s*["']core["']/ig;
     let plm: RegExpExecArray | null;
-    let hasPlatformLoad = false;
+    let platformLoadOffset = Infinity;
     while ((plm = plCheckPat.exec(text)) !== null) {
         if (!isInCommentRange(plm.index, commentRanges)) {
-            hasPlatformLoad = true;
+            platformLoadOffset = plm.index;
             break;
         }
     }
@@ -45,7 +46,7 @@ export function validateSsjs(
     let coreMatch: RegExpExecArray | null;
     while ((coreMatch = coreObjectPattern.exec(text)) !== null && problems < max) {
         if (isInCommentRange(coreMatch.index, commentRanges)) continue;
-        if (!hasPlatformLoad) {
+        if (coreMatch.index < platformLoadOffset) {
             problems++;
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,
@@ -59,24 +60,24 @@ export function validateSsjs(
         }
     }
 
-    // 1b. requiresCoreLoad methods used without Platform.Load
-    if (!hasPlatformLoad) {
-        const requiresCoreLoadEntries: Array<{ prefix: string; name: string }> = [
-            ...httpHeaderMethods,
-            ...dateTimeTimezoneMethods,
-            ...errorUtilMethods,
-        ]
-            .filter((m) => m.requiresCoreLoad)
-            .map((m) => ({ prefix: m.prefix ?? '', name: m.name }));
+    // 1b. requiresCoreLoad methods used without a preceding Platform.Load
+    const requiresCoreLoadEntries: Array<{ prefix: string; name: string }> = [
+        ...httpHeaderMethods,
+        ...dateTimeTimezoneMethods,
+        ...errorUtilMethods,
+    ]
+        .filter((m) => m.requiresCoreLoad)
+        .map((m) => ({ prefix: m.prefix ?? '', name: m.name }));
 
-        for (const entry of requiresCoreLoadEntries) {
-            const callPattern = new RegExp(
-                String.raw`\b${entry.prefix.replaceAll('.', String.raw`\.`)}\s*\.\s*${entry.name}\s*\(`,
-                'g',
-            );
-            let reqMatch: RegExpExecArray | null;
-            while ((reqMatch = callPattern.exec(text)) !== null && problems < max) {
-                if (isInCommentRange(reqMatch.index, commentRanges)) continue;
+    for (const entry of requiresCoreLoadEntries) {
+        const callPattern = new RegExp(
+            String.raw`\b${entry.prefix.replaceAll('.', String.raw`\.`)}\s*\.\s*${entry.name}\s*\(`,
+            'g',
+        );
+        let reqMatch: RegExpExecArray | null;
+        while ((reqMatch = callPattern.exec(text)) !== null && problems < max) {
+            if (isInCommentRange(reqMatch.index, commentRanges)) continue;
+            if (reqMatch.index < platformLoadOffset) {
                 problems++;
                 diagnostics.push({
                     severity: DiagnosticSeverity.Error,
@@ -89,16 +90,18 @@ export function validateSsjs(
                 });
             }
         }
+    }
 
-        // 1c. Bare-name globals that require Platform.Load (e.g. Stringify, Write, Now, GUID)
-        // Use negative lookbehind for '.' so Platform.Function.Now() is NOT flagged —
-        // only genuine bare calls like Now() are.
-        if (requiresCoreLoadGlobals.size > 0) {
-            const bareNames = [...requiresCoreLoadGlobals].join('|');
-            const barePattern = new RegExp(`(?<!\\.)(\\b(?:${bareNames}))\\s*\\(`, 'g');
-            let bareMatch: RegExpExecArray | null;
-            while ((bareMatch = barePattern.exec(text)) !== null && problems < max) {
-                if (isInCommentRange(bareMatch.index, commentRanges)) continue;
+    // 1c. Bare-name globals that require Platform.Load (e.g. Stringify, Now, GUID)
+    // Use negative lookbehind for '.' so Platform.Function.Now() is NOT flagged —
+    // only genuine bare calls like Now() are.
+    if (requiresCoreLoadGlobals.size > 0) {
+        const bareNames = [...requiresCoreLoadGlobals].join('|');
+        const barePattern = new RegExp(`(?<!\\.)(\\b(?:${bareNames}))\\s*\\(`, 'g');
+        let bareMatch: RegExpExecArray | null;
+        while ((bareMatch = barePattern.exec(text)) !== null && problems < max) {
+            if (isInCommentRange(bareMatch.index, commentRanges)) continue;
+            if (bareMatch.index < platformLoadOffset) {
                 problems++;
                 const name = bareMatch[1];
                 diagnostics.push({
