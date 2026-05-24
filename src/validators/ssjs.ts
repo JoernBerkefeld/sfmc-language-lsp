@@ -30,7 +30,7 @@ export function validateSsjs(
 
     // Find the character offset of the first real (non-comment) Platform.Load call.
     // Infinity means no load call exists anywhere in the document.
-    const plCheckPat = /Platform\s*\.\s*Load\s*\(\s*["']core["']/ig;
+    const plCheckPat = /Platform\s*\.\s*Load\s*\(\s*["']core["']/gi;
     let plm: RegExpExecArray | null;
     let platformLoadOffset = Infinity;
     while ((plm = plCheckPat.exec(text)) !== null) {
@@ -97,7 +97,7 @@ export function validateSsjs(
     // only genuine bare calls like Now() are.
     if (requiresCoreLoadGlobals.size > 0) {
         const bareNames = [...requiresCoreLoadGlobals].join('|');
-        const barePattern = new RegExp(`(?<!\\.)(\\b(?:${bareNames}))\\s*\\(`, 'g');
+        const barePattern = new RegExp(String.raw`(?<!\.)(\b(?:${bareNames}))\s*\(`, 'g');
         let bareMatch: RegExpExecArray | null;
         while ((bareMatch = barePattern.exec(text)) !== null && problems < max) {
             if (isInCommentRange(bareMatch.index, commentRanges)) continue;
