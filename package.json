@@ -2,8 +2,8 @@
     "name": "sfmc-language-lsp",
     "version": "0.2.6",
     "type": "module",
-    "description": "Protocol-agnostic, browser-compatible language service for Salesforce Marketing Cloud â€” AMPscript, SSJS, and GTL. Provides validation, completions, hover, signature help, and code actions.",
-    "author": "JÃ¶rn Berkefeld",
+    "description": "Protocol-agnostic, browser-compatible language service for Salesforce Marketing Cloud Ã¢â‚¬â€ AMPscript, SSJS, and GTL. Provides validation, completions, hover, signature help, and code actions.",
+    "author": "JÃƒÂ¶rn Berkefeld",
     "license": "MIT",
     "repository": {
         "type": "git",
@@ -70,8 +70,14 @@
         "eslint-plugin-unicorn": "^64.0.0",
         "globals": "^17.4.0",
         "husky": "^9.1.7",
+        "lint-staged": "^17.0.5",
         "prettier": "^3.8.1",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.57.2"
+    },
+    "lint-staged": {
+        "*.{js,mjs,cjs,ts}": [
+            "eslint --fix"
+        ]
     }
 }
