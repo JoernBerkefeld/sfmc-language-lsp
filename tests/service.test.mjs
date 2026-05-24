@@ -175,8 +175,7 @@ describe('SSJS validation', () => {
 
     it('does not report core object usage when Platform.Load is real and core object is only in a comment', () => {
         // DataExtension.Init is only inside a comment, so should not trigger
-        const code =
-            'Platform.Load("core","1.1.5");\n// var de = DataExtension.Init("test");';
+        const code = 'Platform.Load("core","1.1.5");\n// var de = DataExtension.Init("test");';
         const doc = { text: code, languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
@@ -321,7 +320,11 @@ describe('Hover', () => {
         const doc = { text: 'Platform.Load("core", "1");', languageId: 'ssjs' };
         const line = 'Platform.Load("core", "1");';
         const hover = service.getHover(doc, line, { line: 0, character: 4 });
-        assert.equal(hover, null, 'should not show method hover when cursor is on the namespace prefix');
+        assert.equal(
+            hover,
+            null,
+            'should not show method hover when cursor is on the namespace prefix',
+        );
     });
 });
 
@@ -433,7 +436,10 @@ describe('Signature Help', () => {
             !label.includes('Platform.Function.Platform.Function.'),
             `label should not contain doubled prefix, got: ${label}`,
         );
-        assert.ok(label.startsWith('Platform.Function.'), `label should start with Platform.Function., got: ${label}`);
+        assert.ok(
+            label.startsWith('Platform.Function.'),
+            `label should start with Platform.Function., got: ${label}`,
+        );
     });
 
     it('signature label for shorthand Function.Stringify is not double-prefixed (Bug #7)', () => {
