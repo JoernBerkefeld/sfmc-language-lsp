@@ -58,9 +58,9 @@ export function getSsjsSignatureHelp(
 
             // Bug #7 fix: fn.syntax is already fully qualified (e.g. "Platform.Function.Lookup(...)"),
             // so don't prepend prefix again. Only use prefix for the fallback (no syntax defined).
-            const sigLabel = fn.syntax
-                ? fn.syntax
-                : `${prefix}${fn.name}(${fn.params.map((p) => `${p.name}${p.optional ? '?' : ''}: ${p.type ?? 'any'}`).join(', ')})`;
+            const sigLabel =
+                fn.syntax ??
+                `${prefix}${fn.name}(${fn.params.map((p) => `${p.name}${p.optional ? '?' : ''}: ${p.type ?? 'any'}`).join(', ')})`;
 
             return {
                 signatures: [
