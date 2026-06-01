@@ -269,7 +269,7 @@ function buildSsjsCatalog(): CompletionItem[] {
         detail: '(SOAP API wrapper)',
         documentation: {
             kind: MarkupKind.Markdown,
-            value: 'Lightweight wrapper for the Marketing Cloud SOAP API. Faster than AMPscript API functions for bulk operations.\n\n**Example:** `var prox = new WSProxy();`',
+            value: 'Lightweight wrapper for the Marketing Cloud SOAP API. Faster than AMPscript API functions for bulk operations.\n\n**Example:** `var prox = new Script.Util.WSProxy();`',
         },
         data: { type: 'ssjs-wsproxy-class' },
     });
@@ -280,7 +280,7 @@ function buildSsjsCatalog(): CompletionItem[] {
             kind: CompletionItemKind.Constructor,
             detail: `new Script.Util.${c.name}`,
             documentation: { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(c) },
-            insertText: buildSsjsFunctionSnippet(c),
+            insertText: `new ${buildSsjsFunctionSnippet(c)}`,
             insertTextFormat: InsertTextFormat.Snippet,
             filterText: `Script.Util.${c.name} ${c.name}`,
             data: { type: 'ssjs-script-util-constructor', name: c.name },
