@@ -82,6 +82,7 @@ declare module 'ssjs-data' {
     export const HTTPHEADER_METHODS: SsjsDataFunction[];
     export const httpHeaderMethodNames: Set<string>;
     export const DATE_TIME_TIMEZONE_METHODS: SsjsDataFunction[];
+    export const DATE_TIME_METHODS: SsjsDataFunction[];
     export const ERROR_UTIL_METHODS: SsjsDataFunction[];
     export const PLATFORM_VARIABLE_METHODS: SsjsDataFunction[];
     export const PLATFORM_RESPONSE_METHODS: SsjsDataFunction[];

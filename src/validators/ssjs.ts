@@ -96,7 +96,9 @@ export function validateSsjs(
     // Use negative lookbehind for '.' so Platform.Function.Now() is NOT flagged —
     // only genuine bare calls like Now() are.
     if (requiresCoreLoadGlobals.size > 0) {
-        const bareNames = [...requiresCoreLoadGlobals].join('|');
+        const bareNames = [...requiresCoreLoadGlobals]
+            .map((n) => n.replaceAll('.', String.raw`\.`))
+            .join('|');
         const barePattern = new RegExp(String.raw`(?<!\.)(\b(?:${bareNames}))\s*\(`, 'g');
         let bareMatch: RegExpExecArray | null;
         while ((bareMatch = barePattern.exec(text)) !== null && problems < max) {
