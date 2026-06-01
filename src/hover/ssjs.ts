@@ -388,7 +388,7 @@ export function getSsjsHover(
         return {
             contents: {
                 kind: MarkupKind.Markdown,
-                value: '**WSProxy** *(SOAP API wrapper)*\n\nLightweight wrapper for the Marketing Cloud SOAP API. Faster than AMPscript API functions for bulk operations.',
+                value: '**WSProxy** *(SOAP API wrapper)*\n\nLightweight wrapper for the Marketing Cloud SOAP API. Faster than AMPscript API functions for bulk operations.\n\n**Usage:** `var prox = new Script.Util.WSProxy();`',
             },
             range: makeRange(position, wordRange.start, wordRange.end),
         };
