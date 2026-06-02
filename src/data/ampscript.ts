@@ -2719,14 +2719,14 @@ export const ampscriptFunctions: AmpscriptFunction[] = [
         example: '%%[\n  set @encoded = URLEncode(@searchQuery)\n]%%',
     },
     {
-        name: 'V',
-        syntax: 'V(variable)',
+        name: 'v',
+        syntax: 'v(variable)',
         description:
             'Outputs the value of an AMPscript variable. Typically used in inline expressions to display variable values.',
         category: 'Utility',
         params: [{ name: 'variable', description: 'AMPscript variable reference', type: 'string' }],
         returnType: 'string',
-        example: '<p>Hello, %%=V(@displayName)=%%!</p>',
+        example: '<p>Hello, %%=v(@displayName)=%%!</p>',
     },
     {
         name: 'WAT',
