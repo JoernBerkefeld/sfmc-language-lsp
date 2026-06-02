@@ -19,8 +19,8 @@ export interface LocalSsjsFunction {
  * Build typed-signature Markdown for an AMPscript function.
  * @param fn - AMPscript function descriptor.
  * @param links - Optional documentation URLs to render below the description.
- * @param links.docUrl
- * @param links.guideUrl
+ * @param links.docUrl - URL to the official Salesforce developer documentation page.
+ * @param links.guideUrl - URL to the ampscript.guide reference page.
  * @returns Markdown string with signature, description, params, and example.
  */
 export function buildFunctionMarkdown(
