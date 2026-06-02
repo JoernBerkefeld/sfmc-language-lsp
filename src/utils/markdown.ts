@@ -18,9 +18,15 @@ export interface LocalSsjsFunction {
 /**
  * Build typed-signature Markdown for an AMPscript function.
  * @param fn - AMPscript function descriptor.
+ * @param links - Optional documentation URLs to render below the description.
+ * @param links.docUrl
+ * @param links.guideUrl
  * @returns Markdown string with signature, description, params, and example.
  */
-export function buildFunctionMarkdown(fn: AmpscriptFunction): string {
+export function buildFunctionMarkdown(
+    fn: AmpscriptFunction,
+    links?: { docUrl?: string; guideUrl?: string },
+): string {
     const lines: string[] = [];
 
     const paramParts = fn.params.map((p) => {
@@ -32,6 +38,13 @@ export function buildFunctionMarkdown(fn: AmpscriptFunction): string {
     const sig = `(function) ${fn.name}(${paramParts.join(', ')}): ${returnType}`;
 
     lines.push('```typescript', sig, '```', '', fn.description);
+
+    if (links?.docUrl || links?.guideUrl) {
+        const parts: string[] = [];
+        if (links.docUrl) parts.push(`[Salesforce Developers](${links.docUrl})`);
+        if (links.guideUrl) parts.push(`[ampscript.guide reference](${links.guideUrl})`);
+        lines.push('', parts.join(' / '));
+    }
 
     if (fn.params.length > 0) {
         lines.push('');
