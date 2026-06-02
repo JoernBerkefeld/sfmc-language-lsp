@@ -54,8 +54,8 @@
         "format:check": "prettier --check ."
     },
     "dependencies": {
-        "ampscript-data": "^0.1.4",
-        "ssjs-data": "^0.3.5",
+        "ampscript-data": "^0.2.0",
+        "ssjs-data": "^0.4.0",
         "vscode-languageserver-types": "^3.17.5"
     },
     "engines": {
