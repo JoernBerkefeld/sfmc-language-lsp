@@ -18,6 +18,7 @@ import {
     wsproxyMethods,
     httpMethods,
     httpHeaderMethods,
+    dateTimeMethods,
     dateTimeTimezoneMethods,
     errorUtilMethods,
     scriptUtilConstructors,
@@ -198,6 +199,19 @@ function buildSsjsCatalog(): CompletionItem[] {
         });
     }
 
+    for (const fn of dateTimeMethods) {
+        items.push({
+            label: `DateTime.${fn.name}`,
+            kind: CompletionItemKind.Method,
+            detail: `DateTime.${fn.name}`,
+            documentation: { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(fn) },
+            insertText: buildSsjsFunctionSnippet(fn),
+            insertTextFormat: InsertTextFormat.Snippet,
+            filterText: `DateTime.${fn.name} ${fn.name}`,
+            data: { type: 'ssjs-datetime', name: fn.name },
+        });
+    }
+
     for (const fn of dateTimeTimezoneMethods) {
         items.push({
             label: `DateTime.TimeZone.${fn.name}`,
@@ -262,17 +276,6 @@ function buildSsjsCatalog(): CompletionItem[] {
             data: { type: 'ssjs-platform', name: fn.name },
         });
     }
-
-    items.push({
-        label: 'WSProxy',
-        kind: CompletionItemKind.Class,
-        detail: '(SOAP API wrapper)',
-        documentation: {
-            kind: MarkupKind.Markdown,
-            value: 'Lightweight wrapper for the Marketing Cloud SOAP API. Faster than AMPscript API functions for bulk operations.\n\n**Example:** `var prox = new Script.Util.WSProxy();`',
-        },
-        data: { type: 'ssjs-wsproxy-class' },
-    });
 
     for (const c of scriptUtilConstructors) {
         items.push({

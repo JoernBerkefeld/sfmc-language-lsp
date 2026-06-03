@@ -19,6 +19,7 @@ import {
     WSPROXY_METHODS,
     HTTP_METHODS,
     HTTPHEADER_METHODS,
+    DATE_TIME_METHODS,
     DATE_TIME_TIMEZONE_METHODS,
     ERROR_UTIL_METHODS,
     SCRIPT_UTIL_CONSTRUCTORS,
@@ -141,6 +142,13 @@ export const httpMethods: SsjsFunction[] = HTTP_METHODS.map((m) => ({
 export const httpHeaderMethods: SsjsFunction[] = HTTPHEADER_METHODS.map((m) => ({
     ...m,
     prefix: 'HTTPHeader',
+}));
+
+// ── DateTime methods ──────────────────────────────────────────────────────────
+
+export const dateTimeMethods: SsjsFunction[] = DATE_TIME_METHODS.map((m) => ({
+    ...m,
+    prefix: 'DateTime',
 }));
 
 // ── DateTime.TimeZone methods ────────────────────────────────────────────────
