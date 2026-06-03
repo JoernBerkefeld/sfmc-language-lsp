@@ -15,7 +15,6 @@ import {
     platformRequestMethods,
     platformRecipientMethods,
     coreLibraryObjects,
-    wsproxyMethods,
     httpMethods,
     httpHeaderMethods,
     dateTimeMethods,
@@ -159,18 +158,6 @@ function buildSsjsCatalog(): CompletionItem[] {
                 value: `${obj.description}\n\n**Methods:** ${obj.methods.join(', ')}\n\n*Requires* \`Platform.Load("core", "1.1.5")\``,
             },
             data: { type: 'ssjs-core-object', name: obj.name },
-        });
-    }
-
-    for (const fn of wsproxyMethods) {
-        items.push({
-            label: `WSProxy.${fn.name}`,
-            kind: CompletionItemKind.Method,
-            detail: `WSProxy.${fn.name}`,
-            documentation: { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(fn) },
-            insertText: buildSsjsFunctionSnippet(fn),
-            insertTextFormat: InsertTextFormat.Snippet,
-            data: { type: 'ssjs-wsproxy', name: fn.name },
         });
     }
 
