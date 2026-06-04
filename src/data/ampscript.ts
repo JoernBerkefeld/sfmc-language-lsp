@@ -14,6 +14,9 @@ export {
     PERSONALIZATION_STRINGS as canonicalPersonalizationStrings,
     functionNames,
     isEmailExcluded,
+    isMcnSupported,
+    getMcnApiVersion,
+    getMcnNotes,
 } from 'ampscript-data';
 
 export interface AmpscriptFunctionParam {

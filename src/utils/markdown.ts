@@ -18,14 +18,21 @@ export interface LocalSsjsFunction {
 /**
  * Build typed-signature Markdown for an AMPscript function.
  * @param fn - AMPscript function descriptor.
- * @param links - Optional documentation URLs to render below the description.
+ * @param links - Optional documentation URLs, MCN status, and notes to render below the description.
  * @param links.docUrl - URL to the official Salesforce developer documentation page.
  * @param links.guideUrl - URL to the ampscript.guide reference page.
- * @returns Markdown string with signature, description, params, and example.
+ * @param links.mcnSince - API version from which MCN supports this function, or null if unsupported.
+ * @param links.mcnNotes - Behavioral difference notes for MCN, or null if no differences.
+ * @returns Markdown string with signature, description, params, MCN status, and example.
  */
 export function buildFunctionMarkdown(
     fn: AmpscriptFunction,
-    links?: { docUrl?: string; guideUrl?: string },
+    links?: {
+        docUrl?: string;
+        guideUrl?: string;
+        mcnSince?: number | null;
+        mcnNotes?: string | null;
+    },
 ): string {
     const lines: string[] = [];
 
@@ -44,6 +51,17 @@ export function buildFunctionMarkdown(
         if (links.docUrl) parts.push(`[Salesforce Developers](${links.docUrl})`);
         if (links.guideUrl) parts.push(`[ampscript.guide reference](${links.guideUrl})`);
         lines.push('', parts.join(' / '));
+    }
+
+    if (links && 'mcnSince' in links) {
+        if (links.mcnSince !== null && links.mcnSince !== undefined) {
+            lines.push('', `✅ Supported in Marketing Cloud Next (API v${links.mcnSince}.0+)`);
+            if (links.mcnNotes) {
+                lines.push('', `> **MCN Note:** ${links.mcnNotes}`);
+            }
+        } else {
+            lines.push('', '❌ Not supported in Marketing Cloud Next');
+        }
     }
 
     if (fn.params.length > 0) {

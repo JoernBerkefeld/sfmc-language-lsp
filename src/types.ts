@@ -44,6 +44,13 @@ export interface DocumentContext {
 export interface SfmcSettings {
     /** Maximum number of diagnostics to emit per document. Default: 100. */
     maxNumberOfProblems: number;
+    /**
+     * Target platform for MCN compatibility diagnostics.
+     * - `'engagement'` (default): Marketing Cloud Engagement — existing behaviour, no MCN diagnostics.
+     * - `'next'`: Marketing Cloud Next — flags AMPscript functions unsupported in MCN (error),
+     *   and flags any SSJS content as unsupported (error).
+     */
+    targetPlatform?: 'engagement' | 'next';
 }
 
 export const DEFAULT_SETTINGS: SfmcSettings = {

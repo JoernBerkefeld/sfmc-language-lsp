@@ -10,7 +10,12 @@ import {
     inferLiteralType,
 } from '../utils/text.js';
 import { offsetToPosition } from '../utils/positions.js';
-import { functionLookup, ampscriptKeywords, ampscriptFunctions } from '../data/ampscript.js';
+import {
+    functionLookup,
+    ampscriptKeywords,
+    ampscriptFunctions,
+    isMcnSupported,
+} from '../data/ampscript.js';
 import { validateGtlBlocks } from './gtl.js';
 
 // Diagnostic codes that code actions identify and act on.
@@ -575,5 +580,65 @@ export function validateAmpscript(
     // 12. GTL block balance
     validateGtlBlocks(text, diagnostics, max - problems);
 
+    // 13. MCN compatibility — flag functions not supported in Marketing Cloud Next
+    if (settings.targetPlatform === 'next') {
+        const callSites = extractAmpscriptFunctionCalls(text);
+        for (const site of callSites) {
+            if (problems >= max) break;
+            if (!isMcnSupported(site.name)) {
+                problems++;
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: { line: site.line, character: site.col },
+                        end: { line: site.line, character: site.col + site.name.length },
+                    },
+                    message: `'${site.name}' is not supported in Marketing Cloud Next.`,
+                    source: 'ampscript',
+                    code: 'ampscript/mcn-unsupported-function',
+                });
+            }
+        }
+    }
+
     return diagnostics;
+}
+
+// ── AMPscript function call extraction ────────────────────────────────────────
+
+export interface AmpscriptCallSite {
+    /** Canonical-case function name as it appears in the catalog. */
+    name: string;
+    /** Zero-based line number of the function name. */
+    line: number;
+    /** Zero-based column of the first character of the function name. */
+    col: number;
+}
+
+/**
+ * Extract every AMPscript function call site from the given code.
+ * Only calls to functions that exist in the AMPscript catalog are returned;
+ * unknown identifiers and control-flow keywords are ignored.
+ * @param code - Full document text (may include HTML with embedded AMPscript).
+ * @returns Array of call sites in document order.
+ */
+export function extractAmpscriptFunctionCalls(code: string): AmpscriptCallSite[] {
+    const sanitizedText = getSanitizedAmpscriptText(code);
+    const results: AmpscriptCallSite[] = [];
+    const functionCallPattern = /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
+    let match: RegExpExecArray | null;
+
+    while ((match = functionCallPattern.exec(sanitizedText)) !== null) {
+        const rawName = match[1];
+        const lower = rawName.toLowerCase();
+        if (!functionLookup.has(lower)) {
+            continue;
+        }
+        // Retrieve canonical casing from the catalog
+        const entry = functionLookup.get(lower)!;
+        const pos = offsetToPosition(sanitizedText, match.index);
+        results.push({ name: entry.name, line: pos.line, col: pos.character });
+    }
+
+    return results;
 }

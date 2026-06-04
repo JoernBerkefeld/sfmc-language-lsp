@@ -5,7 +5,13 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { SfmcLanguageService, sfmcLanguageService } from '../dist/esm/index.js';
+import {
+    SfmcLanguageService,
+    sfmcLanguageService,
+    isMcnSupported,
+    getMcnApiVersion,
+    extractAmpscriptFunctionCalls,
+} from '../dist/esm/index.js';
 
 const service = new SfmcLanguageService();
 
@@ -74,6 +80,75 @@ describe('AMPscript validation', () => {
         const doc = { text: '%%[ // this is wrong ]%%', languageId: 'ampscript' };
         const diags = service.validate(doc);
         assert.ok(diags.some((d) => d.code === 'ampscript/js-line-comment'));
+    });
+});
+
+// ── MCN diagnostics — AMPscript ──────────────────────────────────────────────
+
+describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
+    const nextSettings = { maxNumberOfProblems: 100, targetPlatform: 'next' };
+
+    it('no diagnostics for MCN-supported function with targetPlatform:next', () => {
+        const doc = { text: '%%[ set @x = Now() ]%%', languageId: 'ampscript' };
+        const diags = service.validate(doc, nextSettings);
+        assert.ok(
+            !diags.some((d) => d.code === 'ampscript/mcn-unsupported-function'),
+            'Now() is MCN-supported and should not be flagged',
+        );
+    });
+
+    it('reports MCN-unsupported function as error with targetPlatform:next', () => {
+        const doc = { text: '%%[ InsertDE("MyDE", "Col", "Val") ]%%', languageId: 'ampscript' };
+        const diags = service.validate(doc, nextSettings);
+        const mcnDiag = diags.find((d) => d.code === 'ampscript/mcn-unsupported-function');
+        assert.ok(mcnDiag, 'expected an MCN unsupported diagnostic for InsertDE');
+        assert.ok(mcnDiag.message.includes('InsertDE'));
+        assert.strictEqual(mcnDiag.severity, 1 /* Error */);
+    });
+
+    it('no MCN diagnostics for AMPscript with default settings (targetPlatform unset)', () => {
+        const doc = { text: '%%[ InsertDE("MyDE", "Col", "Val") ]%%', languageId: 'ampscript' };
+        const diags = service.validate(doc);
+        assert.ok(
+            !diags.some((d) => d.code === 'ampscript/mcn-unsupported-function'),
+            'MCN diagnostics should not fire without targetPlatform:next',
+        );
+    });
+
+    it('no MCN diagnostics for AMPscript with targetPlatform:engagement', () => {
+        const doc = { text: '%%[ InsertDE("MyDE", "Col", "Val") ]%%', languageId: 'ampscript' };
+        const diags = service.validate(doc, {
+            maxNumberOfProblems: 100,
+            targetPlatform: 'engagement',
+        });
+        assert.ok(
+            !diags.some((d) => d.code === 'ampscript/mcn-unsupported-function'),
+            'MCN diagnostics should not fire with targetPlatform:engagement',
+        );
+    });
+});
+
+// ── MCN diagnostics — SSJS ────────────────────────────────────────────────────
+
+describe('MCN SSJS diagnostics (targetPlatform: next)', () => {
+    const nextSettings = { maxNumberOfProblems: 100, targetPlatform: 'next' };
+
+    it('reports SSJS as not supported in MCN with targetPlatform:next', () => {
+        const doc = { text: 'Platform.Function.Lookup("DE", "F", "K", "V");', languageId: 'ssjs' };
+        const diags = service.validate(doc, nextSettings);
+        const mcnDiag = diags.find((d) => d.code === 'ssjs/mcn-not-supported');
+        assert.ok(mcnDiag, 'expected MCN SSJS diagnostic');
+        assert.ok(mcnDiag.message.includes('SSJS is not supported in Marketing Cloud Next'));
+        assert.strictEqual(mcnDiag.severity, 1 /* Error */);
+    });
+
+    it('no MCN SSJS diagnostic with default settings', () => {
+        const doc = { text: 'Platform.Function.Lookup("DE", "F", "K", "V");', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            !diags.some((d) => d.code === 'ssjs/mcn-not-supported'),
+            'MCN SSJS diagnostic should not fire without targetPlatform:next',
+        );
     });
 });
 
@@ -421,6 +496,127 @@ describe('Definitions', () => {
         const doc = { text: 'var x = 1;', languageId: 'ssjs', uri: 'file:///test.ssjs' };
         const location = service.getDefinition(doc, 'unknownFn');
         assert.equal(location, null);
+    });
+});
+
+// ── MCN Hover ──────────────────────────────────────────────────────────────
+
+describe('MCN hover badges', () => {
+    it('hover for MCN-supported function (no notes) includes MCN badge', () => {
+        const doc = { text: '%%[ Add(1,2) ]%%', languageId: 'ampscript' };
+        const hover = service.getHover(doc, '%%[ Add(1,2) ]%%', { line: 0, character: 4 });
+        assert.ok(hover !== null, 'expected hover for Add');
+        assert.ok(
+            hover.contents.value.includes('Supported in Marketing Cloud Next'),
+            `expected MCN badge, got: ${hover.contents.value}`,
+        );
+    });
+
+    it('hover for MCN-supported function with notes includes both badge and notes', () => {
+        const line = '%%[ FormatDate(@d, "MM/dd/yyyy") ]%%';
+        const doc = { text: line, languageId: 'ampscript' };
+        const hover = service.getHover(doc, line, { line: 0, character: 5 });
+        assert.ok(hover !== null, 'expected hover for FormatDate');
+        assert.ok(
+            hover.contents.value.includes('Supported in Marketing Cloud Next'),
+            'expected MCN badge for FormatDate',
+        );
+        assert.ok(
+            hover.contents.value.includes('MCN Note:'),
+            'expected mcnNotes text for FormatDate',
+        );
+    });
+
+    it('hover for MCE-only function includes not-supported badge', () => {
+        const line = '%%[ AttachFile("p","k","file.pdf","application/pdf") ]%%';
+        const doc = { text: line, languageId: 'ampscript' };
+        const hover = service.getHover(doc, line, { line: 0, character: 5 });
+        assert.ok(hover !== null, 'expected hover for AttachFile');
+        assert.ok(
+            hover.contents.value.includes('Not supported in Marketing Cloud Next'),
+            `expected not-supported badge, got: ${hover.contents.value}`,
+        );
+    });
+});
+
+// ── MCN helpers (re-exported) ───────────────────────────────────────────────
+
+describe('MCN helpers', () => {
+    it('isMcnSupported returns true for MCN-supported functions', () => {
+        assert.equal(isMcnSupported('Add'), true);
+        assert.equal(isMcnSupported('Lookup'), true);
+        assert.equal(isMcnSupported('add'), true, 'case-insensitive');
+    });
+
+    it('isMcnSupported returns false for MCE-only functions', () => {
+        assert.equal(isMcnSupported('AttachFile'), false);
+        assert.equal(isMcnSupported('InsertDE'), false);
+    });
+
+    it('getMcnApiVersion returns 67 for MCN-supported functions', () => {
+        assert.equal(getMcnApiVersion('Concat'), 67);
+        assert.equal(getMcnApiVersion('FormatDate'), 67);
+    });
+
+    it('getMcnApiVersion returns null for MCE-only functions', () => {
+        assert.equal(getMcnApiVersion('AttachFile'), null);
+        assert.equal(getMcnApiVersion('InsertDE'), null);
+    });
+});
+
+// ── extractAmpscriptFunctionCalls ──────────────────────────────────────────
+
+describe('extractAmpscriptFunctionCalls', () => {
+    it('returns call site for inline %%=...=%% expression', () => {
+        const code = '%%=Lookup("DE","col","k","v")=%%';
+        const calls = extractAmpscriptFunctionCalls(code);
+        assert.ok(calls.length > 0, 'expected at least one call site');
+        const lookupCall = calls.find((c) => c.name.toLowerCase() === 'lookup');
+        assert.ok(lookupCall, 'expected Lookup call site');
+        assert.equal(lookupCall.line, 0);
+    });
+
+    it('returns call sites for block %%[...]%% syntax', () => {
+        const code = '%%[ SET @x = Add(1,2) SET @y = Concat("a","b") ]%%';
+        const calls = extractAmpscriptFunctionCalls(code);
+        const names = calls.map((c) => c.name.toLowerCase());
+        assert.ok(names.includes('add'), 'expected Add');
+        assert.ok(names.includes('concat'), 'expected Concat');
+    });
+
+    it('returns call sites from HTML with embedded AMPscript', () => {
+        const code = '<p>Hello</p>%%[ SET @x = Trim("  hi  ") ]%%<p>world</p>';
+        const calls = extractAmpscriptFunctionCalls(code);
+        const names = calls.map((c) => c.name.toLowerCase());
+        assert.ok(names.includes('trim'), 'expected Trim from HTML context');
+        assert.ok(!names.includes('p'), 'HTML tags should not appear as function calls');
+    });
+
+    it('returns empty array for code with no AMPscript function calls', () => {
+        const calls = extractAmpscriptFunctionCalls('<p>No AMPscript here</p>');
+        assert.equal(calls.length, 0);
+    });
+
+    it('returns empty array for empty input', () => {
+        assert.deepEqual(extractAmpscriptFunctionCalls(''), []);
+    });
+
+    it('returns correct line and col for multi-line code', () => {
+        const code = '%%[\n  SET @x = Add(1,2)\n  SET @y = Trim("hi")\n]%%';
+        const calls = extractAmpscriptFunctionCalls(code);
+        const addCall = calls.find((c) => c.name.toLowerCase() === 'add');
+        const trimCall = calls.find((c) => c.name.toLowerCase() === 'trim');
+        assert.ok(addCall, 'expected Add');
+        assert.ok(trimCall, 'expected Trim');
+        assert.equal(addCall.line, 1, 'Add should be on line 1');
+        assert.equal(trimCall.line, 2, 'Trim should be on line 2');
+    });
+
+    it('service.extractAmpscriptFunctionCalls delegates to standalone function', () => {
+        const code = '%%=Add(1,2)=%%';
+        const serviceResult = service.extractAmpscriptFunctionCalls(code);
+        const standaloneResult = extractAmpscriptFunctionCalls(code);
+        assert.deepEqual(serviceResult, standaloneResult);
     });
 });
 

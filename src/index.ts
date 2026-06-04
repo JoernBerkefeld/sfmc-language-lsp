@@ -18,7 +18,8 @@ import type {
 import type { SfmcSettings } from './types.js';
 import { DEFAULT_SETTINGS } from './types.js';
 
-import { validateAmpscript } from './validators/ampscript.js';
+import { validateAmpscript, extractAmpscriptFunctionCalls } from './validators/ampscript.js';
+import type { AmpscriptCallSite } from './validators/ampscript.js';
 import { validateSsjs } from './validators/ssjs.js';
 
 import {
@@ -59,6 +60,8 @@ import { findFunctionContext } from './utils/text.js';
 export type { DocumentContext, SfmcSettings } from './types.js';
 export { DEFAULT_SETTINGS } from './types.js';
 export type { AmpscriptFunction, AmpscriptFunctionParam } from './data/ampscript.js';
+export { isMcnSupported, getMcnApiVersion, getMcnNotes } from './data/ampscript.js';
+export type { AmpscriptCallSite } from './validators/ampscript.js';
 export type {
     SsjsFunction,
     SsjsFunctionParam,
@@ -190,6 +193,14 @@ export class SfmcLanguageService {
     }
 
     /**
+     * Return all AMPscript functions from the catalog.
+     * @returns Array of all AMPscript function descriptors.
+     */
+    listAmpscriptFunctions() {
+        return ampscriptFunctions;
+    }
+
+    /**
      * Look up an SSJS function or method by name. Case-insensitive. Searches all catalogs.
      * @param name - Function or method name to look up.
      * @returns The SSJS function descriptor, or null if not found.
@@ -297,13 +308,26 @@ export class SfmcLanguageService {
     getAmpscriptFunctionCompletionItems(): CompletionItem[] {
         return functionCompletionItems;
     }
+
+    // ── AMPscript call extraction (used by MCP tools) ─────────────────────────
+
+    /**
+     * Extract every AMPscript function call site from the given code.
+     * Only calls to known AMPscript catalog functions are returned; unknown
+     * identifiers and control-flow keywords are ignored.
+     * @param code - Full document text (may include HTML with embedded AMPscript).
+     * @returns Array of call sites in document order, each with name, line, and col.
+     */
+    extractAmpscriptFunctionCalls(code: string): AmpscriptCallSite[] {
+        return extractAmpscriptFunctionCalls(code);
+    }
 }
 
 /** Shared singleton instance for callers that don't need separate instances. */
 export const sfmcLanguageService = new SfmcLanguageService();
 
 // Re-export validators for direct use
-export { validateAmpscript } from './validators/ampscript.js';
+export { validateAmpscript, extractAmpscriptFunctionCalls } from './validators/ampscript.js';
 export { validateSsjs } from './validators/ssjs.js';
 export { validateGtlBlocks } from './validators/gtl.js';
 export { extractLocalSsjsFunctions } from './definitions/ssjs.js';
