@@ -7,6 +7,10 @@ declare module 'ampscript-data' {
     export interface AmpscriptDataFunction {
         name: string;
         category: string;
+        /** API version in which MCN support was introduced (e.g. 67), or null if not supported in MCN. */
+        mcnSince: number | null;
+        /** Behavioral difference notes for MCN, or null if none. */
+        mcnNotes: string | null;
     }
     export interface AmpscriptDataKeyword {
         name: string;
@@ -27,6 +31,24 @@ declare module 'ampscript-data' {
     export const AMPSCRIPT_KEYWORDS: AmpscriptDataKeyword[];
     export const PERSONALIZATION_STRINGS: AmpscriptDataPersonalization[];
     export function isEmailExcluded(name: string): boolean;
+    /**
+     * Returns the API version in which MCN support was introduced, or null.
+     * @param name - Function name (case-insensitive).
+     * @returns API version number (e.g. 67) or null when MCN support is unavailable.
+     */
+    export function getMcnApiVersion(name: string): number | null;
+    /**
+     * Returns true when the given AMPscript function is supported in Marketing Cloud Next.
+     * @param name - Function name (case-insensitive).
+     * @returns True when MCN support was introduced.
+     */
+    export function isMcnSupported(name: string): boolean;
+    /**
+     * Returns the MCN behavioral difference notes for the given function, or null.
+     * @param name - Function name (case-insensitive).
+     * @returns Behavioral difference notes string, or null when none.
+     */
+    export function getMcnNotes(name: string): string | null;
 }
 
 declare module 'ssjs-data' {

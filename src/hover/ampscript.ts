@@ -5,13 +5,15 @@ import { getWordRangeAtPosition } from '../utils/text.js';
 import { buildFunctionMarkdown } from '../utils/markdown.js';
 import { functionLookup, ampscriptKeywords, personalizationStrings } from '../data/ampscript.js';
 
-/** Map from lowercase function name to its documentation URLs. */
+/** Map from lowercase function name to its documentation URLs and MCN metadata. */
 const ampscriptDocLinks = new Map(
     FUNCTIONS.map((f) => [
         f.name.toLowerCase(),
         {
             docUrl: (f as { docUrl?: string }).docUrl,
             guideUrl: (f as { guideUrl?: string }).guideUrl,
+            mcnSince: (f as { mcnSince?: number | null }).mcnSince ?? null,
+            mcnNotes: (f as { mcnNotes?: string | null }).mcnNotes ?? null,
         },
     ]),
 );

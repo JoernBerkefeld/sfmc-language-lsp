@@ -207,5 +207,24 @@ export function validateSsjs(
         }
     }
 
+    // MCN compatibility — SSJS is not supported in Marketing Cloud Next.
+    // Emit one document-level diagnostic covering the first non-empty line.
+    if (settings.targetPlatform === 'next' && problems < max) {
+        const lines = text.split('\n');
+        const firstNonBlankLine = lines.findIndex((l) => l.trim().length > 0);
+        const lineIndex = Math.max(0, firstNonBlankLine);
+        diagnostics.push({
+            severity: DiagnosticSeverity.Error,
+            range: {
+                start: { line: lineIndex, character: 0 },
+                end: { line: lineIndex, character: lines[lineIndex]?.length ?? 0 },
+            },
+            message:
+                'SSJS is not supported in Marketing Cloud Next. Rewrite this code in AMPscript.',
+            source: 'ssjs',
+            code: 'ssjs/mcn-not-supported',
+        });
+    }
+
     return diagnostics;
 }
