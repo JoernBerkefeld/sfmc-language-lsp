@@ -215,7 +215,7 @@ export function getSsjsHover(
                         range: makeRange(position, tpgMatch.index, tpgMatch.index + full.length),
                     };
             }
-            if (obj === 'Function' || obj === 'DateTime') {
+            if (obj === 'DateTime') {
                 const fn = platformFunctionLookup.get(name.toLowerCase());
                 // Bug #5 fix: case-sensitive — don't show hover for wrong-case names like URLEncode
                 if (fn && fn.name === name)

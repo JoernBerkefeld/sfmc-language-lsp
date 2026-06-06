@@ -46,28 +46,16 @@ function buildSsjsCatalog(): CompletionItem[] {
 
     for (const fn of platformFunctions) {
         const doc = { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(fn) };
-        items.push(
-            {
-                label: `Platform.Function.${fn.name}`,
-                kind: CompletionItemKind.Method,
-                detail: `Platform.Function.${fn.name}`,
-                documentation: doc,
-                insertText: buildSsjsFunctionSnippet(fn),
-                insertTextFormat: InsertTextFormat.Snippet,
-                filterText: `Platform.Function.${fn.name} ${fn.name}`,
-                data: { type: 'ssjs-platform-function', name: fn.name },
-            },
-            {
-                label: `Function.${fn.name}`,
-                kind: CompletionItemKind.Method,
-                detail: `(shorthand) Platform.Function.${fn.name}`,
-                documentation: doc,
-                insertText: buildSsjsFunctionSnippet({ ...fn, prefix: 'Function' }),
-                insertTextFormat: InsertTextFormat.Snippet,
-                filterText: `Function.${fn.name} ${fn.name}`,
-                data: { type: 'ssjs-platform-function', name: fn.name },
-            },
-        );
+        items.push({
+            label: `Platform.Function.${fn.name}`,
+            kind: CompletionItemKind.Method,
+            detail: `Platform.Function.${fn.name}`,
+            documentation: doc,
+            insertText: buildSsjsFunctionSnippet(fn),
+            insertTextFormat: InsertTextFormat.Snippet,
+            filterText: `Platform.Function.${fn.name} ${fn.name}`,
+            data: { type: 'ssjs-platform-function', name: fn.name },
+        });
     }
 
     for (const fn of platformVariableMethods) {
