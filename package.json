@@ -55,7 +55,7 @@
     },
     "dependencies": {
         "ampscript-data": "^1.0.0",
-        "ssjs-data": "^0.4.0",
+        "ssjs-data": "^0.4.1",
         "vscode-languageserver-types": "^3.17.5"
     },
     "engines": {
