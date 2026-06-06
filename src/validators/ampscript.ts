@@ -636,7 +636,7 @@ export function extractAmpscriptFunctionCalls(code: string): AmpscriptCallSite[]
         }
         // Retrieve canonical casing from the catalog
         const entry = functionLookup.get(lower)!;
-        const pos = offsetToPosition(sanitizedText, match.index);
+        const pos = offsetToPosition(code, match.index);
         results.push({ name: entry.name, line: pos.line, col: pos.character });
     }
 

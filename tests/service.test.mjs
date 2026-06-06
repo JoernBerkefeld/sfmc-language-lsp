@@ -126,6 +126,49 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
             'MCN diagnostics should not fire with targetPlatform:engagement',
         );
     });
+
+    it('MCN diagnostic line is correct when preceding comment block has newlines (regression)', () => {
+        // The function call is on line 7 (0-indexed) — after a 7-line comment block at the top.
+        // Before the fix, getSanitizedAmpscriptText blanked comment newlines → position computed
+        // against sanitizedText returned line 0 instead of line 7.
+        const code = [
+            '%%[',
+            '/* line 1 of comment',
+            '   line 2 of comment',
+            '   line 3 of comment',
+            '   line 4 of comment',
+            '   line 5 of comment',
+            '   line 6 of comment */',
+            'InsertDE("MyDE", "Col", "Val")',
+            ']%%',
+        ].join('\n');
+        const doc = { text: code, languageId: 'ampscript' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100, targetPlatform: 'next' });
+        const mcnDiag = diags.find((d) => d.code === 'ampscript/mcn-unsupported-function');
+        assert.ok(mcnDiag, 'expected MCN diagnostic for InsertDE');
+        assert.strictEqual(mcnDiag.range.start.line, 7, 'diagnostic must be on line 7 (0-indexed)');
+    });
+
+    it('MCN diagnostic line is correct in HTML <script language="ampscript"> block (regression)', () => {
+        // The function is on line 5 (0-indexed) inside a script block starting on line 4.
+        // Before the fix, the 4 newlines in HTML before the script block were blanked, so the
+        // diagnostic was reported at line 1 instead of line 5.
+        const code = [
+            '<html>',
+            '<head></head>',
+            '<body>',
+            '<main>',
+            '<script language="ampscript" runat="server">',
+            'set @x = InsertDE("MyDE", "Col", "Val")',
+            '</script>',
+            '</main></body></html>',
+        ].join('\n');
+        const doc = { text: code, languageId: 'ampscript' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100, targetPlatform: 'next' });
+        const mcnDiag = diags.find((d) => d.code === 'ampscript/mcn-unsupported-function');
+        assert.ok(mcnDiag, 'expected MCN diagnostic for InsertDE in HTML script block');
+        assert.strictEqual(mcnDiag.range.start.line, 5, 'diagnostic must be on line 5 (0-indexed)');
+    });
 });
 
 // ── MCN diagnostics — SSJS ────────────────────────────────────────────────────
