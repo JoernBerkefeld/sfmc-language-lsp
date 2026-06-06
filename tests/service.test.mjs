@@ -169,6 +169,112 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
         assert.ok(mcnDiag, 'expected MCN diagnostic for InsertDE in HTML script block');
         assert.strictEqual(mcnDiag.range.start.line, 5, 'diagnostic must be on line 5 (0-indexed)');
     });
+
+    it('arity diagnostic line is correct after multi-line comment block (regression)', () => {
+        // UpperCase is on line 4 (0-indexed) — after a 3-line block comment.
+        // Before the fix, sanitizedText had 2 \n replaced with spaces inside the comment,
+        // so offsetToPosition reported line 2 instead of line 4.
+        const code = [
+            '%%[',
+            '/* comment line 1',
+            '   comment line 2',
+            '   comment line 3 */',
+            'UpperCase("hello", "extra")',
+            ']%%',
+        ].join('\n');
+        const doc = { text: code, languageId: 'ampscript' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+        const d = diags.find((x) => x.message.includes('accepts at most'));
+        assert.ok(d, 'expected arity diagnostic for UpperCase');
+        assert.strictEqual(d.range.start.line, 4, 'arity diagnostic must be on line 4 (0-indexed)');
+    });
+
+    it('unknown-function diagnostic line is correct after multi-line comment block (regression)', () => {
+        // MyCustomFunc is on line 4 (0-indexed) — after a 3-line block comment.
+        const code = [
+            '%%[',
+            '/* comment line 1',
+            '   comment line 2',
+            '   comment line 3 */',
+            'MyCustomFunc()',
+            ']%%',
+        ].join('\n');
+        const doc = { text: code, languageId: 'ampscript' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+        const d = diags.find((x) => x.message.includes('Unknown AMPscript function'));
+        assert.ok(d, 'expected unknown-function diagnostic for MyCustomFunc');
+        assert.strictEqual(
+            d.range.start.line,
+            4,
+            'unknown-function diagnostic must be on line 4 (0-indexed)',
+        );
+    });
+
+    it('HTML-comment diagnostic line is correct after multi-line comment block (regression)', () => {
+        // The HTML comment <!-- --> is on line 4 (0-indexed) — after a 3-line block comment.
+        const code = [
+            '%%[',
+            '/* comment line 1',
+            '   comment line 2',
+            '   comment line 3 */',
+            '<!-- this is wrong -->',
+            ']%%',
+        ].join('\n');
+        const doc = { text: code, languageId: 'ampscript' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+        const d = diags.find((x) => x.code === 'ampscript/html-comment');
+        assert.ok(d, 'expected html-comment diagnostic');
+        assert.strictEqual(
+            d.range.start.line,
+            4,
+            'html-comment diagnostic must be on line 4 (0-indexed)',
+        );
+    });
+
+    it('JS-line-comment diagnostic line is correct after multi-line comment block (regression)', () => {
+        // The // comment is on line 4 (0-indexed) — after a 3-line block comment.
+        const code = [
+            '%%[',
+            '/* comment line 1',
+            '   comment line 2',
+            '   comment line 3 */',
+            '// this is wrong',
+            ']%%',
+        ].join('\n');
+        const doc = { text: code, languageId: 'ampscript' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+        const d = diags.find((x) => x.code === 'ampscript/js-line-comment');
+        assert.ok(d, 'expected js-line-comment diagnostic');
+        assert.strictEqual(
+            d.range.start.line,
+            4,
+            'js-line-comment diagnostic must be on line 4 (0-indexed)',
+        );
+    });
+
+    it('arg-type diagnostic line is correct after multi-line comment block (regression)', () => {
+        // Format(42, "N2") is on line 4 (0-indexed) — after a 3-line block comment.
+        // The first param of Format expects a string but receives a number literal.
+        const code = [
+            '%%[',
+            '/* comment line 1',
+            '   comment line 2',
+            '   comment line 3 */',
+            'SET @x = Format(42, "N2")',
+            ']%%',
+        ].join('\n');
+        const doc = { text: code, languageId: 'ampscript' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+        const d = diags.find(
+            (x) => x.message.includes('expects a') && x.message.includes('Format'),
+        );
+        assert.ok(d, 'expected arg-type diagnostic for Format');
+        assert.strictEqual(
+            d.range.start.line,
+            4,
+            'arg-type diagnostic must be on line 4 (0-indexed)',
+        );
+    });
 });
 
 // ── MCN diagnostics — SSJS ────────────────────────────────────────────────────

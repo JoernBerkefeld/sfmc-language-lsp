@@ -270,8 +270,8 @@ export function validateAmpscript(
             diagnostics.push({
                 severity: DiagnosticSeverity.Error,
                 range: {
-                    start: offsetToPosition(sanitizedText, functionMatch.index),
-                    end: offsetToPosition(sanitizedText, functionMatch.index + functionName.length),
+                    start: offsetToPosition(text, functionMatch.index),
+                    end: offsetToPosition(text, functionMatch.index + functionName.length),
                 },
                 message: `Unknown AMPscript function '${functionName}'. AMPscript does not support custom functions.`,
                 source: 'ampscript',
@@ -289,11 +289,8 @@ export function validateAmpscript(
                     diagnostics.push({
                         severity: DiagnosticSeverity.Error,
                         range: {
-                            start: offsetToPosition(sanitizedText, functionMatch.index),
-                            end: offsetToPosition(
-                                sanitizedText,
-                                functionMatch.index + functionName.length,
-                            ),
+                            start: offsetToPosition(text, functionMatch.index),
+                            end: offsetToPosition(text, functionMatch.index + functionName.length),
                         },
                         message: `'${functionName}' requires at least ${arity.minArgs} argument(s) but was called with ${argCount}.`,
                         source: 'ampscript',
@@ -303,11 +300,8 @@ export function validateAmpscript(
                     diagnostics.push({
                         severity: DiagnosticSeverity.Error,
                         range: {
-                            start: offsetToPosition(sanitizedText, functionMatch.index),
-                            end: offsetToPosition(
-                                sanitizedText,
-                                functionMatch.index + functionName.length,
-                            ),
+                            start: offsetToPosition(text, functionMatch.index),
+                            end: offsetToPosition(text, functionMatch.index + functionName.length),
                         },
                         message: `'${functionName}' accepts at most ${arity.maxArgs} argument(s) but was called with ${argCount}.`,
                         source: 'ampscript',
@@ -326,11 +320,8 @@ export function validateAmpscript(
                                     diagnostics.push({
                                         severity: DiagnosticSeverity.Warning,
                                         range: {
-                                            start: offsetToPosition(
-                                                sanitizedText,
-                                                argSpans[ai].start,
-                                            ),
-                                            end: offsetToPosition(sanitizedText, argSpans[ai].end),
+                                            start: offsetToPosition(text, argSpans[ai].start),
+                                            end: offsetToPosition(text, argSpans[ai].end),
                                         },
                                         message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but received a ${inferredType}.`,
                                         source: 'ampscript',
@@ -352,8 +343,8 @@ export function validateAmpscript(
         diagnostics.push({
             severity: DiagnosticSeverity.Error,
             range: {
-                start: offsetToPosition(sanitizedText, setMatch.index),
-                end: offsetToPosition(sanitizedText, setMatch.index + setMatch[0].length),
+                start: offsetToPosition(text, setMatch.index),
+                end: offsetToPosition(text, setMatch.index + setMatch[0].length),
             },
             message:
                 '`set` statement is missing a target variable. Expected: `set @variable = expression`.',
@@ -397,11 +388,8 @@ export function validateAmpscript(
             diagnostics.push({
                 severity: DiagnosticSeverity.Information,
                 range: {
-                    start: offsetToPosition(sanitizedText, attributeMatch.index),
-                    end: offsetToPosition(
-                        sanitizedText,
-                        attributeMatch.index + attributeMatch[0].length,
-                    ),
+                    start: offsetToPosition(text, attributeMatch.index),
+                    end: offsetToPosition(text, attributeMatch.index + attributeMatch[0].length),
                 },
                 message: `Consider using AttributeValue("${attributeMatch[1]}") instead of the bare attribute name for null safety.`,
                 source: 'ampscript',
@@ -420,8 +408,8 @@ export function validateAmpscript(
         diagnostics.push({
             severity: DiagnosticSeverity.Warning,
             range: {
-                start: offsetToPosition(sanitizedText, htmlCommentMatch.index),
-                end: offsetToPosition(sanitizedText, htmlCommentMatch.index + fullMatch.length),
+                start: offsetToPosition(text, htmlCommentMatch.index),
+                end: offsetToPosition(text, htmlCommentMatch.index + fullMatch.length),
             },
             message: isWrappedBlockComment
                 ? 'HTML comment wrapper around an AMPscript comment is not valid. Use /* ... */ directly.'
@@ -441,11 +429,8 @@ export function validateAmpscript(
         diagnostics.push({
             severity: DiagnosticSeverity.Warning,
             range: {
-                start: offsetToPosition(sanitizedText, jsCommentMatch.index),
-                end: offsetToPosition(
-                    sanitizedText,
-                    jsCommentMatch.index + jsCommentMatch[0].length,
-                ),
+                start: offsetToPosition(text, jsCommentMatch.index),
+                end: offsetToPosition(text, jsCommentMatch.index + jsCommentMatch[0].length),
             },
             message:
                 'Single-line // comments are not valid AMPscript syntax. Use /* ... */ instead.',
