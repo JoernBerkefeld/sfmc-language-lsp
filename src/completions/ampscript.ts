@@ -23,10 +23,8 @@ export const keywordCompletionItems: CompletionItem[] = ampscriptKeywords.map((k
     label: kw.name,
     kind: CompletionItemKind.Keyword,
     detail: kw.description,
-    insertText: (kw as { snippet?: string }).snippet ?? kw.name,
-    insertTextFormat: (kw as { snippet?: string }).snippet
-        ? InsertTextFormat.Snippet
-        : InsertTextFormat.PlainText,
+    insertText: kw.snippet ?? kw.name,
+    insertTextFormat: kw.snippet ? InsertTextFormat.Snippet : InsertTextFormat.PlainText,
     data: { type: 'keyword', index },
 }));
 

@@ -253,22 +253,22 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
     });
 
     it('arg-type diagnostic line is correct after multi-line comment block (regression)', () => {
-        // Format(42, "N2") is on line 4 (0-indexed) — after a 3-line block comment.
-        // The first param of Format expects a string but receives a number literal.
+        // Uppercase(42) is on line 4 (0-indexed) — after a 3-line block comment.
+        // The first param of Uppercase expects a string but receives a number literal.
         const code = [
             '%%[',
             '/* comment line 1',
             '   comment line 2',
             '   comment line 3 */',
-            'SET @x = Format(42, "N2")',
+            'SET @x = Uppercase(42)',
             ']%%',
         ].join('\n');
         const doc = { text: code, languageId: 'ampscript' };
         const diags = service.validate(doc, { maxNumberOfProblems: 100 });
         const d = diags.find(
-            (x) => x.message.includes('expects a') && x.message.includes('Format'),
+            (x) => x.message.includes('expects a') && x.message.includes('Uppercase'),
         );
-        assert.ok(d, 'expected arg-type diagnostic for Format');
+        assert.ok(d, 'expected arg-type diagnostic for Uppercase');
         assert.strictEqual(
             d.range.start.line,
             4,

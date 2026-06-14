@@ -23,7 +23,7 @@ export function getAmpscriptSignatureHelp(context: {
     return {
         signatures: [
             {
-                label: fn.syntax,
+                label: fn.syntax ?? `${fn.name}(${fn.params.map((p) => p.name).join(', ')})`,
                 documentation: fn.description,
                 parameters: parameterInfos,
             },

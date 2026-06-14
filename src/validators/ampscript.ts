@@ -13,9 +13,10 @@ import { offsetToPosition } from '../utils/positions.js';
 import {
     functionLookup,
     ampscriptKeywords,
-    ampscriptFunctions,
+    canonicalFunctions,
     isMcnSupported,
 } from '../data/ampscript.js';
+import type { AmpscriptDataRepeatGroup } from '../data/ampscript.js';
 import { validateGtlBlocks } from './gtl.js';
 
 // Diagnostic codes that code actions identify and act on.
@@ -55,50 +56,47 @@ function isKnownAmpscriptConstruct(name: string): boolean {
     );
 }
 
-const variadicFunctionNames = new Set([
-    'lookup',
-    'lookuprows',
-    'lookuprowscs',
-    'lookuporderedrows',
-    'lookuporderedrowscs',
-    'insertdata',
-    'insertde',
-    'updatedata',
-    'updatede',
-    'upsertdata',
-    'upsertde',
-    'deletedata',
-    'deletede',
-    'claimrow',
-    'claimrowvalue',
-    'cloudpagesurl',
-    'micrositeurl',
-    'concat',
-    'replacelist',
-    'regexmatch',
-    'createsalesforceobject',
-    'updatesinglesalesforceobject',
-    'retrievesalesforceobjects',
-    'httppost',
-    'httppost2',
-    'httppostwithretry',
-    'createmscrm',
-    'buildoptionlist',
-    'wat',
-    'getsocialpublishurl',
-    'getsocialpublishurlbyname',
-    'upsertcontact',
-]);
-
 interface FunctionArity {
     minArgs: number;
     maxArgs: number;
 }
+// Arity and variadic repeat model come straight from the canonical ampscript-data
+// package: maxArgs === Infinity marks a variadic function and `repeat[]` describes
+// how its trailing arguments must group.
 const functionArityLookup = new Map<string, FunctionArity>();
-for (const fn of ampscriptFunctions) {
-    const minArgs = fn.params.filter((p) => !p.optional).length;
-    const maxArgs = variadicFunctionNames.has(fn.name.toLowerCase()) ? Infinity : fn.params.length;
-    functionArityLookup.set(fn.name.toLowerCase(), { minArgs, maxArgs });
+const repeatLookup = new Map<string, AmpscriptDataRepeatGroup[]>();
+for (const fn of canonicalFunctions) {
+    functionArityLookup.set(fn.name.toLowerCase(), {
+        minArgs: fn.minArgs,
+        maxArgs: fn.maxArgs,
+    });
+    if (Array.isArray(fn.repeat) && fn.repeat.length > 0) {
+        repeatLookup.set(fn.name.toLowerCase(), fn.repeat);
+    }
+}
+
+/**
+ * Returns true when a variadic call's trailing arguments do not form complete
+ * repeating groups, given the function's canonical `repeat[]` model.
+ * @param groups - Repeat-group descriptors from ampscript-data.
+ * @param argCount - Actual number of arguments supplied to the call.
+ * @returns True when at least one repeating group is incomplete.
+ */
+function hasIncompleteRepeatGroup(groups: AmpscriptDataRepeatGroup[], argCount: number): boolean {
+    // Single repeating group: trailing args must be a whole multiple of groupSize.
+    if (groups.length === 1) {
+        const { startIndex, groupSize, minGroups } = groups[0];
+        if (argCount <= startIndex) {
+            return minGroups > 0 && argCount < startIndex + groupSize * minGroups;
+        }
+        const trailing = argCount - startIndex;
+        return trailing % groupSize !== 0 || trailing / groupSize < minGroups;
+    }
+    // Two repeating groups (DataExtension Update/Upsert family). Without evaluating
+    // the countParam literal here, fall back to a parity check across the block.
+    const [g1] = groups;
+    const trailing = argCount - g1.startIndex;
+    return trailing % g1.groupSize !== 0;
 }
 
 /**
@@ -304,6 +302,20 @@ export function validateAmpscript(
                             end: offsetToPosition(text, functionMatch.index + functionName.length),
                         },
                         message: `'${functionName}' accepts at most ${arity.maxArgs} argument(s) but was called with ${argCount}.`,
+                        source: 'ampscript',
+                    });
+                } else if (
+                    repeatLookup.has(normalizedName) &&
+                    hasIncompleteRepeatGroup(repeatLookup.get(normalizedName)!, argCount)
+                ) {
+                    problems++;
+                    diagnostics.push({
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: offsetToPosition(text, functionMatch.index),
+                            end: offsetToPosition(text, functionMatch.index + functionName.length),
+                        },
+                        message: `'${functionName}' expects its repeating arguments in complete groups.`,
                         source: 'ampscript',
                     });
                 } else if (problems < max) {
