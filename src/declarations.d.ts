@@ -4,13 +4,61 @@
  */
 
 declare module 'ampscript-data' {
+    export interface AmpscriptDataParam {
+        name: string;
+        description: string;
+        type?: string;
+        optional?: boolean;
+        enum?: (string | number)[];
+        default?: string | number | boolean;
+    }
+    /**
+     * Describes how trailing arguments repeat for a variadic function.
+     * Coordinates are 0-based argument-stream indices.
+     */
+    export interface AmpscriptDataRepeatGroup {
+        /** First argument index where the repeating group begins. */
+        startIndex: number;
+        /** Number of arguments that form one repeatable unit. */
+        groupSize: number;
+        /** Minimum number of complete groups required. */
+        minGroups: number;
+        /** Name of an earlier param whose literal value dictates the group count. */
+        countParam?: string;
+    }
     export interface AmpscriptDataFunction {
         name: string;
         category: string;
+        minArgs: number;
+        maxArgs: number;
+        /** Human-readable description of what the function does. */
+        description: string;
+        params: AmpscriptDataParam[];
+        /** Repeating-group model for variadic functions (maxArgs === Infinity). */
+        repeat?: AmpscriptDataRepeatGroup[];
+        returnType?: string;
+        /** Prose description of the return value. */
+        returnDescription?: string;
+        /** Fixed set of literal return values, when the function returns an enum. */
+        returnEnum?: (string | number)[];
+        /** Canonical signature string, e.g. `Add(number1, number2)`. */
+        syntax?: string;
+        /** Usage example, where available. */
+        example?: string;
+        /** URL to the official Salesforce developer documentation page. */
+        docUrl?: string;
+        /** URL to the ampscript.guide reference page. */
+        guideUrl?: string;
         /** API version in which MCN support was introduced (e.g. 67), or null if not supported in MCN. */
         mcnSince: number | null;
         /** Behavioral difference notes for MCN, or null if none. */
         mcnNotes: string | null;
+        /** True when the function is deprecated and should be avoided in new code. */
+        deprecated?: boolean;
+        /** Suggested replacement function name when this function is deprecated. */
+        deprecatedReplacement?: string;
+        /** Human-readable reason explaining the deprecation. */
+        deprecatedReason?: string;
     }
     export interface AmpscriptDataKeyword {
         name: string;
@@ -26,7 +74,6 @@ declare module 'ampscript-data' {
     export const functionNames: Set<string>;
     export const CANONICAL_FUNCTIONS: string[];
     export const FUNCTION_CANONICAL_MAP: Map<string, string>;
-    export const DEPRECATED_FUNCTIONS: AmpscriptDataFunction[];
     export const deprecatedFunctionLookup: Map<string, AmpscriptDataFunction>;
     export const AMPSCRIPT_KEYWORDS: AmpscriptDataKeyword[];
     export const PERSONALIZATION_STRINGS: AmpscriptDataPersonalization[];
