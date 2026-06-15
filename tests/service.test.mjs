@@ -15,6 +15,14 @@ import {
 
 const service = new SfmcLanguageService();
 
+/**
+ * Helper: request AMPscript signature help for text up to the cursor.
+ * @param {string} textUpToCursor - Document text from start to the cursor.
+ * @returns {import('../dist/esm/index.js').SignatureHelp | null} Signature help result.
+ */
+const ampSig = (textUpToCursor) =>
+    service.getSignatureHelp({ text: textUpToCursor, languageId: 'ampscript' }, textUpToCursor);
+
 // ── Validation — AMPscript ─────────────────────────────────────────────────
 
 describe('AMPscript validation', () => {
@@ -273,6 +281,65 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
             d.range.start.line,
             4,
             'arg-type diagnostic must be on line 4 (0-indexed)',
+        );
+    });
+
+    it('union-type param accepts either type (no false positive)', () => {
+        // ContentArea.contentAreaId is typed number|string — both literals must be valid.
+        for (const call of ['ContentArea(12345)', "ContentArea('abc')"]) {
+            const doc = { text: `%%=${call}=%%`, languageId: 'ampscript' };
+            const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+            const d = diags.find(
+                (x) => x.message.includes('expects a') && x.message.includes('ContentArea'),
+            );
+            assert.ok(!d, `unexpected arg-type diagnostic for ${call}`);
+        }
+    });
+
+    it('union-type param still flags an unmistakably wrong type', () => {
+        // Length(sourceString:string) — a boolean literal is neither member of the type.
+        const doc = { text: '%%=Length(true)=%%', languageId: 'ampscript' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+        const d = diags.find(
+            (x) => x.message.includes('expects a') && x.message.includes('Length'),
+        );
+        assert.ok(d, 'expected arg-type diagnostic for Length(true)');
+    });
+});
+
+// ── Deprecation surfacing — AMPscript ─────────────────────────────────────────
+
+describe('AMPscript deprecation in hover & completion', () => {
+    it('hover for a deprecated function shows a deprecation note + replacement', () => {
+        const line = '%%=ContentArea(12345)=%%';
+        const doc = { text: line, languageId: 'ampscript' };
+        const position = { line: 0, character: line.indexOf('ContentArea') + 1 };
+        const hover = service.getHover(doc, line, position);
+        assert.ok(hover, 'expected hover for ContentArea');
+        const value = typeof hover.contents === 'string' ? hover.contents : hover.contents.value;
+        assert.match(value, /Deprecated/i, 'hover should mention deprecation');
+        assert.match(value, /ContentBlockByID/, 'hover should suggest the replacement');
+    });
+
+    it('completion item for a deprecated function carries the Deprecated tag', () => {
+        const doc = { text: '%%=  =%%', languageId: 'ampscript' };
+        const items = service.getCompletions(doc, { line: 0, character: 4 });
+        const item = items.find((i) => i.label === 'ContentArea');
+        assert.ok(item, 'expected ContentArea completion item');
+        assert.ok(
+            Array.isArray(item.tags) && item.tags.includes(1),
+            'ContentArea completion must carry CompletionItemTag.Deprecated (1)',
+        );
+    });
+
+    it('completion item for a non-deprecated function has no Deprecated tag', () => {
+        const doc = { text: '%%=  =%%', languageId: 'ampscript' };
+        const items = service.getCompletions(doc, { line: 0, character: 4 });
+        const item = items.find((i) => i.label === 'ContentBlockByID');
+        assert.ok(item, 'expected ContentBlockByID completion item');
+        assert.ok(
+            !item.tags || !item.tags.includes(1),
+            'ContentBlockByID completion must not be tagged Deprecated',
         );
     });
 });
@@ -795,6 +862,51 @@ describe('Signature Help', () => {
         assert.ok(
             !label.includes('Platform.Function.Platform.Function.'),
             `label should not contain doubled prefix, got: ${label}`,
+        );
+    });
+
+    // ── AMPscript repeat-group activeParameter (#1) ──
+    it('Concat: single repeat group cycles on the last param slot', () => {
+        // params: string1(0), string2(1), stringN(2); repeat {start:0,size:1}
+        // 4th arg (index 3) folds back to slot 0.
+        const sig = ampSig("%%=Concat('a','b','c',");
+        assert.ok(sig, 'expected signature help for Concat');
+        assert.strictEqual(sig.activeParameter, 0, '4th Concat arg should map to slot 0');
+    });
+
+    it('HTTPPost2: header pairs cycle within the two-param group', () => {
+        // repeat {start:6,size:2}. Index 6 -> headerName1 (6), index 7 -> headerValue1 (7),
+        // index 8 -> back to headerName1 (6).
+        const base = '%%=HTTPPost2(url,ct,body,false,@r,@rs,';
+        assert.strictEqual(ampSig(base).activeParameter, 6, 'index 6 -> headerName slot');
+        assert.strictEqual(ampSig(base + 'n1,').activeParameter, 7, 'index 7 -> headerValue slot');
+        assert.strictEqual(
+            ampSig(base + 'n1,v1,').activeParameter,
+            6,
+            'index 8 -> back to headerName slot',
+        );
+    });
+
+    it('UpsertData: countParam splits search block from upsert block', () => {
+        // params: dataExt(0), columnValuePairs(1), searchColumnName1(2), searchValue1(3),
+        //   searchColumnNameN(4), searchValueN(5), columnToUpsert1(6), upsertedValue1(7) ...
+        // group1 {start:2,size:2,countParam:columnValuePairs}, group2 {start:4,size:2}
+        // With columnValuePairs = 1, searchBlockEnd = 2 + 1*2 = 4.
+        // paramIndex 4 (>= searchBlockEnd) -> group2 slot: 4 + ((4-4)%2) = 4 (the upsert/N slot).
+        const c1 = "%%=UpsertData('DE',1,'k','v',";
+        assert.strictEqual(
+            ampSig(c1).activeParameter,
+            4,
+            'index 4 with count=1 -> upsert (group2) slot',
+        );
+
+        // With columnValuePairs = 2, searchBlockEnd = 2 + 2*2 = 6.
+        // paramIndex 4 (< searchBlockEnd) -> group1 slot: 2 + ((4-2)%2) = 2 (still in search block).
+        const c2 = "%%=UpsertData('DE',2,'k1','v1',";
+        assert.strictEqual(
+            ampSig(c2).activeParameter,
+            2,
+            'index 4 with count=2 -> back to search slot',
         );
     });
 });

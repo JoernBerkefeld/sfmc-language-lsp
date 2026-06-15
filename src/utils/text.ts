@@ -143,7 +143,7 @@ export function getWordRangeAtPosition(
  */
 export function findFunctionContext(
     textUpToCursor: string,
-): { functionName: string; paramIndex: number } | null {
+): { functionName: string; paramIndex: number; argValues: string[] } | null {
     let depth = 0;
     let commaCount = 0;
 
@@ -156,7 +156,8 @@ export function findFunctionContext(
                 const before = textUpToCursor.slice(0, Math.max(0, index)).trimEnd();
                 const functionMatch = before.match(/([a-zA-Z_][a-zA-Z0-9_]*)$/);
                 if (functionMatch) {
-                    return { functionName: functionMatch[1], paramIndex: commaCount };
+                    const argValues = splitTopLevelArgs(textUpToCursor.slice(index + 1));
+                    return { functionName: functionMatch[1], paramIndex: commaCount, argValues };
                 }
                 return null;
             }
@@ -166,4 +167,30 @@ export function findFunctionContext(
         }
     }
     return null;
+}
+
+/**
+ * Splits a partial argument list (text after the opening paren, up to the cursor)
+ * into top-level argument strings, ignoring commas nested inside parens/brackets/braces.
+ * The final entry is the argument currently being typed.
+ * @param argsText - Text following the opening parenthesis, up to the cursor.
+ * @returns Array of trimmed top-level argument strings.
+ */
+function splitTopLevelArgs(argsText: string): string[] {
+    const args: string[] = [];
+    let depth = 0;
+    let start = 0;
+    for (let index = 0; index < argsText.length; index++) {
+        const ch = argsText[index];
+        if (ch === '(' || ch === '[' || ch === '{') {
+            depth++;
+        } else if (ch === ')' || ch === ']' || ch === '}') {
+            depth--;
+        } else if (ch === ',' && depth === 0) {
+            args.push(argsText.slice(start, index).trim());
+            start = index + 1;
+        }
+    }
+    args.push(argsText.slice(start).trim());
+    return args;
 }

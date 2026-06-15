@@ -25,6 +25,7 @@ export type {
 export {
     DiagnosticSeverity,
     CompletionItemKind,
+    CompletionItemTag,
     InsertTextFormat,
     MarkupKind,
     CodeActionKind,

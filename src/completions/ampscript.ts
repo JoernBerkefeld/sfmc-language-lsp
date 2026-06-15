@@ -1,4 +1,4 @@
-import { CompletionItemKind, InsertTextFormat, MarkupKind } from '../types.js';
+import { CompletionItemKind, CompletionItemTag, InsertTextFormat, MarkupKind } from '../types.js';
 import type { CompletionItem, Position } from '../types.js';
 import { isInsideAmpscript, isInsideGtl, getSanitizedAmpscriptText } from '../utils/regions.js';
 import { positionToOffset } from '../utils/positions.js';
@@ -16,6 +16,7 @@ export const functionCompletionItems: CompletionItem[] = ampscriptFunctions.map(
     detail: `(${fn.category}) ${fn.name}`,
     insertText: buildFunctionSnippet(fn),
     insertTextFormat: InsertTextFormat.Snippet,
+    ...(fn.deprecated ? { tags: [CompletionItemTag.Deprecated] } : {}),
     data: { type: 'function', index },
 }));
 
