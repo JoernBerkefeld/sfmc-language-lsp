@@ -23,6 +23,13 @@ const service = new SfmcLanguageService();
 const ampSig = (textUpToCursor) =>
     service.getSignatureHelp({ text: textUpToCursor, languageId: 'ampscript' }, textUpToCursor);
 
+/**
+ * Helper: validate a one-line AMPscript snippet.
+ * @param {string} text - AMPscript source.
+ * @returns {import('../dist/esm/index.js').Diagnostic[]} Diagnostics.
+ */
+const ampValidate = (text) => service.validate({ text, languageId: 'ampscript' });
+
 // ── Validation — AMPscript ─────────────────────────────────────────────────
 
 describe('AMPscript validation', () => {
@@ -865,48 +872,212 @@ describe('Signature Help', () => {
         );
     });
 
-    // ── AMPscript repeat-group activeParameter (#1) ──
-    it('Concat: single repeat group cycles on the last param slot', () => {
-        // params: string1(0), string2(1), stringN(2); repeat {start:0,size:1}
-        // 4th arg (index 3) folds back to slot 0.
-        const sig = ampSig("%%=Concat('a','b','c',");
-        assert.ok(sig, 'expected signature help for Concat');
-        assert.strictEqual(sig.activeParameter, 0, '4th Concat arg should map to slot 0');
+    // ── AMPscript repeat-group activeParameter (*1 / *N convention) ──
+    it('Concat: first two args use string1/string2, then repeats on stringN', () => {
+        // params: string1(0), string2(1), stringN(2). No symmetric *1/*N block,
+        // so the trailing param simply repeats (clamp to last slot).
+        assert.strictEqual(ampSig('%%=Concat(').activeParameter, 0, 'arg 1 -> string1');
+        assert.strictEqual(ampSig("%%=Concat('a',").activeParameter, 1, 'arg 2 -> string2');
+        assert.strictEqual(ampSig("%%=Concat('a','b',").activeParameter, 2, 'arg 3 -> stringN');
+        assert.strictEqual(
+            ampSig("%%=Concat('a','b','c',").activeParameter,
+            2,
+            'arg 4 -> stringN (repeats)',
+        );
     });
 
-    it('HTTPPost2: header pairs cycle within the two-param group', () => {
-        // repeat {start:6,size:2}. Index 6 -> headerName1 (6), index 7 -> headerValue1 (7),
-        // index 8 -> back to headerName1 (6).
+    it('HTTPPost2: first header pair uses *1 slots, later pairs use *N slots', () => {
+        // params: ... headerName1(6), headerValue1(7), headerNameN(8), headerValueN(9)
         const base = '%%=HTTPPost2(url,ct,body,false,@r,@rs,';
-        assert.strictEqual(ampSig(base).activeParameter, 6, 'index 6 -> headerName slot');
-        assert.strictEqual(ampSig(base + 'n1,').activeParameter, 7, 'index 7 -> headerValue slot');
+        assert.strictEqual(ampSig(base).activeParameter, 6, 'index 6 -> headerName1');
+        assert.strictEqual(ampSig(base + 'n1,').activeParameter, 7, 'index 7 -> headerValue1');
         assert.strictEqual(
             ampSig(base + 'n1,v1,').activeParameter,
-            6,
-            'index 8 -> back to headerName slot',
+            8,
+            'index 8 -> headerNameN (not back to *1)',
+        );
+        assert.strictEqual(
+            ampSig(base + 'n1,v1,n2,').activeParameter,
+            9,
+            'index 9 -> headerValueN',
+        );
+        assert.strictEqual(
+            ampSig(base + 'n1,v1,n2,v2,').activeParameter,
+            8,
+            'index 10 -> headerNameN again',
+        );
+    });
+
+    it('UpdateSingleSalesforceObject: first field pair *1, later pairs *N', () => {
+        // params: objectName(0), idToUpdate(1), fieldName1(2), fieldValue1(3),
+        //   fieldNameN(4), fieldValueN(5)
+        const base = "%%=UpdateSingleSalesforceObject('Account','id',";
+        assert.strictEqual(ampSig(base).activeParameter, 2, 'arg 3 -> fieldName1');
+        assert.strictEqual(ampSig(base + "'F1',").activeParameter, 3, 'arg 4 -> fieldValue1');
+        assert.strictEqual(
+            ampSig(base + "'F1','V1',").activeParameter,
+            4,
+            'arg 5 -> fieldNameN (not back to *1)',
+        );
+        assert.strictEqual(
+            ampSig(base + "'F1','V1','F2',").activeParameter,
+            5,
+            'arg 6 -> fieldValueN',
         );
     });
 
     it('UpsertData: countParam splits search block from upsert block', () => {
-        // params: dataExt(0), columnValuePairs(1), searchColumnName1(2), searchValue1(3),
-        //   searchColumnNameN(4), searchValueN(5), columnToUpsert1(6), upsertedValue1(7) ...
-        // group1 {start:2,size:2,countParam:columnValuePairs}, group2 {start:4,size:2}
-        // With columnValuePairs = 1, searchBlockEnd = 2 + 1*2 = 4.
-        // paramIndex 4 (>= searchBlockEnd) -> group2 slot: 4 + ((4-4)%2) = 4 (the upsert/N slot).
+        // params: dataExt(0), columnValuePairs(1),
+        //   searchColumnName1(2), searchValue1(3), searchColumnNameN(4), searchValueN(5),
+        //   columnToUpsert1(6), upsertedValue1(7), columnToUpsertN(8), upsertedValueN(9)
+
+        // count = 1: search block fills exactly the *1 pair (slots 2-3), so the
+        // next arg (index 4) begins the upsert block at columnToUpsert1 (slot 6).
         const c1 = "%%=UpsertData('DE',1,'k','v',";
         assert.strictEqual(
             ampSig(c1).activeParameter,
-            4,
-            'index 4 with count=1 -> upsert (group2) slot',
+            6,
+            'count=1, arg index 4 -> columnToUpsert1 (upsert block)',
         );
 
-        // With columnValuePairs = 2, searchBlockEnd = 2 + 2*2 = 6.
-        // paramIndex 4 (< searchBlockEnd) -> group1 slot: 2 + ((4-2)%2) = 2 (still in search block).
-        const c2 = "%%=UpsertData('DE',2,'k1','v1',";
+        // count = 2: search block spans slots 2-5 (one *1 pair + one *N pair).
+        const c2base = "%%=UpsertData('DE',2,";
+        assert.strictEqual(ampSig(c2base).activeParameter, 2, 'arg 3 -> searchColumnName1');
+        assert.strictEqual(ampSig(c2base + "'k1',").activeParameter, 3, 'arg 4 -> searchValue1');
         assert.strictEqual(
-            ampSig(c2).activeParameter,
-            2,
-            'index 4 with count=2 -> back to search slot',
+            ampSig(c2base + "'k1','v1',").activeParameter,
+            4,
+            'arg 5 -> searchColumnNameN',
+        );
+        assert.strictEqual(
+            ampSig(c2base + "'k1','v1','k2',").activeParameter,
+            5,
+            'arg 6 -> searchValueN',
+        );
+        assert.strictEqual(
+            ampSig(c2base + "'k1','v1','k2','v2',").activeParameter,
+            6,
+            'arg 7 -> columnToUpsert1 (upsert block begins after 2 search pairs)',
+        );
+    });
+
+    it('parameter labels use offset ranges so repeating slots can be highlighted', () => {
+        // Concat's syntax string spells out stringN; the LSP should emit an
+        // offset-tuple label for it so the client highlights slot 2 (stringN)
+        // rather than failing a substring match and sticking on string1.
+        const sig = ampSig("%%=Concat('a','b','c',");
+        const stringNLabel = sig.signatures[0].parameters[2].label;
+        assert.ok(
+            Array.isArray(stringNLabel),
+            `expected offset-tuple label for stringN, got: ${JSON.stringify(stringNLabel)}`,
+        );
+        const [start, end] = stringNLabel;
+        assert.strictEqual(sig.signatures[0].label.slice(start, end), 'stringN');
+    });
+
+    it('DatePart: enum values are surfaced in signature help param docs', () => {
+        const sig = ampSig("%%=DatePart('2026-01-15',");
+        assert.ok(sig, 'expected signature help for DatePart');
+        const datePartDoc = sig.signatures[0].parameters[1].documentation;
+        assert.ok(
+            /Allowed values:.*monthName/.test(datePartDoc),
+            `expected enum values in datePart doc, got: ${datePartDoc}`,
+        );
+    });
+});
+
+// ── Count-gated repeat-group arity validation ──────────────────────────────
+
+describe('AMPscript Update/UpsertData count-gated arity', () => {
+    it('accepts UpsertData with columnValuePairs=1 and one upsert pair', () => {
+        const diags = ampValidate("%%[ set @r = UpsertData('DE',1,'k','v','c','x') ]%%");
+        assert.deepEqual(diags, [], `expected no diagnostics, got: ${JSON.stringify(diags)}`);
+    });
+
+    it('flags UpsertData with columnValuePairs=2 but only one search pair', () => {
+        // count=2 promises 2 search pairs (4 args) + ≥1 upsert pair; here only
+        // 1 search pair + 1 upsert pair are supplied -> incomplete groups.
+        const diags = ampValidate("%%[ set @r = UpsertData('DE',2,'k','v','c','x') ]%%");
+        assert.ok(
+            diags.some((d) => /repeating arguments in complete groups/.test(d.message)),
+            `expected incomplete-group diagnostic, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('accepts UpsertData with columnValuePairs=2 and two search + one upsert pair', () => {
+        const diags = ampValidate(
+            "%%[ set @r = UpsertData('DE',2,'k1','v1','k2','v2','c','x') ]%%",
+        );
+        assert.deepEqual(diags, [], `expected no diagnostics, got: ${JSON.stringify(diags)}`);
+    });
+
+    it('flags UpdateData with columnValuePairs=2 but only one search pair', () => {
+        const diags = ampValidate("%%[ set @r = UpdateData('DE',2,'k','v','c','x') ]%%");
+        assert.ok(
+            diags.some((d) => /repeating arguments in complete groups/.test(d.message)),
+            `expected incomplete-group diagnostic, got: ${JSON.stringify(diags)}`,
+        );
+    });
+});
+
+// ── Enum-typed arguments: validation + completion ──────────────────────────
+
+describe('AMPscript enum-typed arguments', () => {
+    it('accepts a valid DatePart enum literal', () => {
+        const diags = ampValidate("%%[ set @r = DatePart('2026-01-15','Y') ]%%");
+        assert.deepEqual(diags, [], `expected no diagnostics, got: ${JSON.stringify(diags)}`);
+    });
+
+    it('flags an invalid DatePart enum literal', () => {
+        const diags = ampValidate("%%[ set @r = DatePart('2026-01-15','decade') ]%%");
+        assert.ok(
+            diags.some((d) => /must be one of:.*monthName/.test(d.message)),
+            `expected enum diagnostic, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('does not flag a variable passed to an enum parameter', () => {
+        const diags = ampValidate("%%[ set @r = DatePart('2026-01-15',@part) ]%%");
+        assert.deepEqual(diags, [], `expected no diagnostics, got: ${JSON.stringify(diags)}`);
+    });
+
+    it('flags a numeric literal passed to an enum parameter', () => {
+        const diags = ampValidate("%%[ set @r = DatePart('2026-01-15',5) ]%%");
+        assert.ok(
+            diags.some((d) => /must be one of:.*monthName/.test(d.message)),
+            `expected enum diagnostic for number, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('flags a boolean literal passed to an enum parameter', () => {
+        const diags = ampValidate("%%[ set @r = DatePart('2026-01-15',true) ]%%");
+        assert.ok(
+            diags.some((d) => /must be one of:.*monthName/.test(d.message)),
+            `expected enum diagnostic for boolean, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('offers enum values as completions inside the datePart argument', () => {
+        const text = "%%=DatePart('2026-01-15',";
+        const doc = { text, languageId: 'ampscript' };
+        const items = service.getCompletions(doc, { line: 0, character: text.length });
+        const labels = items.map((i) => i.label);
+        assert.ok(labels.includes('monthName'), 'expected monthName enum completion');
+        assert.ok(labels.includes('Y'), 'expected Y enum completion');
+    });
+
+    it('returns ONLY enum values inside an enum argument (no functions/variables)', () => {
+        const text = "%%=DatePart('2026-01-15',";
+        const doc = { text, languageId: 'ampscript' };
+        const items = service.getCompletions(doc, { line: 0, character: text.length });
+        // Every item must be an enum member (LSP CompletionItemKind.EnumMember = 20)
+        // — no Add/Concat functions, no @vars.
+        const ENUM_MEMBER_KIND = 20;
+        assert.ok(
+            items.every((i) => i.kind === ENUM_MEMBER_KIND),
+            `expected only enum members, got kinds: ${JSON.stringify([
+                ...new Set(items.map((i) => i.kind)),
+            ])}`,
         );
     });
 });

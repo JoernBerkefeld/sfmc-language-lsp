@@ -2,10 +2,12 @@ import { CompletionItemKind, CompletionItemTag, InsertTextFormat, MarkupKind } f
 import type { CompletionItem, Position } from '../types.js';
 import { isInsideAmpscript, isInsideGtl, getSanitizedAmpscriptText } from '../utils/regions.js';
 import { positionToOffset } from '../utils/positions.js';
+import { findFunctionContext } from '../utils/text.js';
 import { buildFunctionMarkdown, buildFunctionSnippet } from '../utils/markdown.js';
 import {
     ampscriptFunctions,
     ampscriptKeywords,
+    functionLookup,
     personalizationStrings,
 } from '../data/ampscript.js';
 
@@ -66,6 +68,38 @@ function buildVariableCompletionItems(text: string): CompletionItem[] {
 }
 
 /**
+ * When the cursor sits on a function argument whose parameter declares an
+ * `enum`, return completion items for each allowed value. Returns null when the
+ * cursor is not on an enum-typed parameter.
+ * @param textUpToCursor - Document text from the start up to the cursor.
+ * @returns Enum value completion items, or null.
+ */
+function getEnumValueCompletions(textUpToCursor: string): CompletionItem[] | null {
+    const context = findFunctionContext(textUpToCursor);
+    if (!context) return null;
+
+    const fn = functionLookup.get(context.functionName.toLowerCase());
+    if (!fn?.params) return null;
+
+    const param = fn.params[context.paramIndex];
+    if (!param?.enum || param.enum.length === 0) return null;
+
+    return param.enum.map((rawValue) => {
+        const value = String(rawValue);
+        return {
+            label: value,
+            kind: CompletionItemKind.EnumMember,
+            detail: `${fn.name} — allowed value for ${param.name}`,
+            insertText: `"${value}"`,
+            insertTextFormat: InsertTextFormat.PlainText,
+            // Sort enum values to the top of the list.
+            sortText: `0_${value}`,
+            data: { type: 'enum' },
+        };
+    });
+}
+
+/**
  * Return AMPscript completions for the given document text and cursor position.
  * @param text - Full document text.
  * @param position - Cursor position.
@@ -81,6 +115,14 @@ export function getAmpscriptCompletions(text: string, position: Position): Compl
 
     if (!isInsideAmpscript(text, offset)) {
         return [];
+    }
+
+    // When the cursor is on an enum-typed function argument (e.g. DatePart's
+    // datePart, BarcodeURL's barcodeType), only the allowed values are valid —
+    // return them exclusively instead of appending functions/keywords/variables.
+    const enumItems = getEnumValueCompletions(text.slice(0, offset));
+    if (enumItems) {
+        return enumItems;
     }
 
     return [

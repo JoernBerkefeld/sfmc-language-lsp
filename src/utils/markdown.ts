@@ -75,12 +75,20 @@ export function buildFunctionMarkdown(
         lines.push('');
         for (const p of fn.params) {
             const opt = p.optional ? ' *(optional)*' : '';
-            lines.push(`*@param* \`${p.name}\`${opt} — ${p.description}\n`);
+            const allowed =
+                p.enum && p.enum.length > 0
+                    ? ` _(allowed: ${p.enum.map((v) => `\`${v}\``).join(', ')})_`
+                    : '';
+            lines.push(`*@param* \`${p.name}\`${opt} — ${p.description}${allowed}\n`);
         }
     }
 
     if (fn.returnType && fn.returnType !== 'void') {
-        lines.push(`*@return* \`${fn.returnType}\``);
+        const returnEnum =
+            fn.returnEnum && fn.returnEnum.length > 0
+                ? ` _(one of: ${fn.returnEnum.map((v) => `\`${v}\``).join(', ')})_`
+                : '';
+        lines.push(`*@return* \`${fn.returnType}\`${returnEnum}`);
     }
 
     if (fn.example) {
