@@ -76,13 +76,47 @@ for (const fn of canonicalFunctions) {
 }
 
 /**
+ * Resolve the comparable value of a static AMPscript literal (string, number, or
+ * boolean) for enum validation. Returns null when the argument is not a static
+ * literal (e.g. a variable like `@x` or an expression) and therefore cannot be
+ * statically validated against an enum.
+ * @param raw - The raw argument text as written in the source.
+ * @returns The literal value as a string, or null.
+ */
+function resolveStaticLiteral(raw: string): string | null {
+    const trimmed = raw.trim();
+    if (trimmed.length === 0) return null;
+    // Quoted string literal — return inner content.
+    const first = trimmed[0];
+    const last = trimmed.at(-1);
+    if (trimmed.length >= 2 && (first === '"' || first === "'") && last === first) {
+        return trimmed.slice(1, -1);
+    }
+    // Numeric literal (e.g. 5, 3.14, -2).
+    if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
+        return trimmed;
+    }
+    // Boolean literal (true/false, case-insensitive).
+    if (/^(true|false)$/i.test(trimmed)) {
+        return trimmed;
+    }
+    // Variable (@x) or expression — not statically resolvable.
+    return null;
+}
+
+/**
  * Returns true when a variadic call's trailing arguments do not form complete
  * repeating groups, given the function's canonical `repeat[]` model.
  * @param groups - Repeat-group descriptors from ampscript-data.
  * @param argCount - Actual number of arguments supplied to the call.
+ * @param argValues - Top-level argument literals, used to read a `countParam`.
  * @returns True when at least one repeating group is incomplete.
  */
-function hasIncompleteRepeatGroup(groups: AmpscriptDataRepeatGroup[], argCount: number): boolean {
+function hasIncompleteRepeatGroup(
+    groups: AmpscriptDataRepeatGroup[],
+    argCount: number,
+    argValues?: string[],
+): boolean {
     // Single repeating group: trailing args must be a whole multiple of groupSize.
     if (groups.length === 1) {
         const { startIndex, groupSize, minGroups } = groups[0];
@@ -92,11 +126,41 @@ function hasIncompleteRepeatGroup(groups: AmpscriptDataRepeatGroup[], argCount: 
         const trailing = argCount - startIndex;
         return trailing % groupSize !== 0 || trailing / groupSize < minGroups;
     }
-    // Two repeating groups (DataExtension Update/Upsert family). Without evaluating
-    // the countParam literal here, fall back to a parity check across the block.
-    const [g1] = groups;
-    const trailing = argCount - g1.startIndex;
-    return trailing % g1.groupSize !== 0;
+
+    // Two repeating groups gated by a count param (DataExtension Update/Upsert
+    // family): fixed args, then `count` search pairs, then ≥1 update/upsert pairs.
+    // Example UpsertData(dataExt, columnValuePairs, search×count, upsert×M).
+    const [g1, g2] = groups;
+    const countParam = g1.countParam;
+
+    // Determine how many search groups the count literal promises. By the
+    // catalog convention the count param sits in the fixed slot immediately
+    // before the first repeat group (e.g. columnValuePairs at index 1, search
+    // pairs start at index 2).
+    let searchGroups = g1.minGroups;
+    if (countParam) {
+        const countIndex = g1.startIndex - 1;
+        const rawCount = argValues?.[countIndex];
+        const parsed = rawCount === undefined ? Number.NaN : Number.parseInt(rawCount, 10);
+        if (Number.isFinite(parsed) && parsed > 0) {
+            searchGroups = parsed;
+        }
+    }
+
+    const searchArgs = searchGroups * g1.groupSize;
+    const searchBlockEnd = g1.startIndex + searchArgs;
+
+    // Not enough args to satisfy the declared search pairs.
+    if (argCount < searchBlockEnd) {
+        return true;
+    }
+
+    // Remaining args form the update/upsert block; require ≥1 complete group.
+    const updateArgs = argCount - searchBlockEnd;
+    if (updateArgs <= 0) {
+        return true;
+    }
+    return updateArgs % g2.groupSize !== 0;
 }
 
 /**
@@ -306,7 +370,11 @@ export function validateAmpscript(
                     });
                 } else if (
                     repeatLookup.has(normalizedName) &&
-                    hasIncompleteRepeatGroup(repeatLookup.get(normalizedName)!, argCount)
+                    hasIncompleteRepeatGroup(
+                        repeatLookup.get(normalizedName)!,
+                        argCount,
+                        extractFunctionArguments(sanitizedText, openParenPos)?.map((a) => a.value),
+                    )
                 ) {
                     problems++;
                     diagnostics.push({
@@ -325,7 +393,43 @@ export function validateAmpscript(
                         if (argSpans) {
                             for (let ai = 0; ai < argSpans.length && problems < max; ai++) {
                                 const param = fnDef.params[ai];
-                                if (!param?.type) continue;
+                                if (!param) continue;
+
+                                // Enum validation — when the argument is a static
+                                // literal (string, number, or boolean) it must be
+                                // one of the allowed enum values (case-insensitive).
+                                // Variables (@x) and expressions are skipped because
+                                // their value cannot be determined statically.
+                                // Note: argSpans come from sanitized text where
+                                // string contents are blanked, so read the raw
+                                // literal from the original text by offset.
+                                if (param.enum && param.enum.length > 0) {
+                                    const rawLiteral = text
+                                        .slice(argSpans[ai].start, argSpans[ai].end)
+                                        .trim();
+                                    const literal = resolveStaticLiteral(rawLiteral);
+                                    if (
+                                        literal !== null &&
+                                        !param.enum.some(
+                                            (v) =>
+                                                String(v).toLowerCase() === literal.toLowerCase(),
+                                        )
+                                    ) {
+                                        problems++;
+                                        diagnostics.push({
+                                            severity: DiagnosticSeverity.Warning,
+                                            range: {
+                                                start: offsetToPosition(text, argSpans[ai].start),
+                                                end: offsetToPosition(text, argSpans[ai].end),
+                                            },
+                                            message: `Argument '${param.name}' of '${functionName}' must be one of: ${param.enum.join(', ')}.`,
+                                            source: 'ampscript',
+                                        });
+                                    }
+                                    continue;
+                                }
+
+                                if (!param.type) continue;
                                 const inferredType = inferLiteralType(argSpans[ai].value);
                                 const allowedTypes = param.type
                                     .toLowerCase()
