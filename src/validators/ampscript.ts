@@ -327,7 +327,11 @@ export function validateAmpscript(
                                 const param = fnDef.params[ai];
                                 if (!param?.type) continue;
                                 const inferredType = inferLiteralType(argSpans[ai].value);
-                                if (inferredType && inferredType !== param.type) {
+                                const allowedTypes = param.type
+                                    .toLowerCase()
+                                    .split('|')
+                                    .map((t) => t.trim());
+                                if (inferredType && !allowedTypes.includes(inferredType)) {
                                     problems++;
                                     diagnostics.push({
                                         severity: DiagnosticSeverity.Warning,

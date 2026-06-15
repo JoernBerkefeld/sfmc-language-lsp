@@ -46,6 +46,13 @@ export function buildFunctionMarkdown(
 
     lines.push('```typescript', sig, '```', '', fn.description);
 
+    if (fn.deprecated) {
+        const parts = ['⚠️ **Deprecated.**'];
+        if (fn.deprecatedReason) parts.push(fn.deprecatedReason);
+        if (fn.deprecatedReplacement) parts.push(`Use \`${fn.deprecatedReplacement}\` instead.`);
+        lines.push('', `> ${parts.join(' ')}`);
+    }
+
     if (links?.docUrl || links?.guideUrl) {
         const parts: string[] = [];
         if (links.docUrl) parts.push(`[Salesforce Developers](${links.docUrl})`);
