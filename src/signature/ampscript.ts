@@ -22,6 +22,10 @@ export function getAmpscriptSignatureHelp(context: {
 
     const parameterInfos: ParameterInformation[] = fn.params.map((p) => {
         const optional = p.optional ? ' *(optional)*' : '';
+        const defaultVal =
+            p.default !== undefined && p.default !== null
+                ? `\n\n**Default:** \`${String(p.default)}\``
+                : '';
         const allowed =
             p.enum && p.enum.length > 0 ? `\n\nAllowed values: ${p.enum.join(', ')}` : '';
         return {
@@ -30,7 +34,7 @@ export function getAmpscriptSignatureHelp(context: {
             // renders `string2[, ...]` and never spells out `stringN`). Falls
             // back to the plain name when the token is not present in the label.
             label: labelRange(signatureLabel, p.name) ?? p.name,
-            documentation: `${p.description}${optional}${allowed}`,
+            documentation: `${p.description}${optional}${defaultVal}${allowed}`,
         };
     });
 

@@ -18,6 +18,7 @@ import {
 } from '../data/ampscript.js';
 import type { AmpscriptDataRepeatGroup } from '../data/ampscript.js';
 import { validateGtlBlocks } from './gtl.js';
+import { buildVariableTypeMap } from '../utils/ampscriptVariableTracker.js';
 
 // Diagnostic codes that code actions identify and act on.
 export const DIAG_CODE_HTML_WRAPPED_COMMENT = 'ampscript/html-wrapped-comment';
@@ -26,6 +27,36 @@ export const DIAG_CODE_JS_LINE_COMMENT = 'ampscript/js-line-comment';
 export const DIAG_CODE_NESTED_SCRIPT_TAG = 'ampscript/nested-script-tag';
 export const DIAG_CODE_NESTED_DELIMITER_IN_SCRIPT = 'ampscript/nested-delimiter-in-script';
 export const DIAG_CODE_NESTED_DELIMITER = 'ampscript/nested-delimiter';
+export const DIAG_CODE_DEPRECATED_FUNCTION = 'ampscript/deprecated-function';
+
+// Diagnostic codes for checks that overlap with eslint-plugin-sfmc rules.
+// When `disableLspDiagnosticsForEslintRules` is enabled these codes are filtered out.
+export const DIAG_CODE_UNKNOWN_FUNCTION = 'ampscript/unknown-function';
+export const DIAG_CODE_FUNCTION_ARITY = 'ampscript/function-arity';
+export const DIAG_CODE_ARG_TYPE = 'ampscript/arg-type';
+export const DIAG_CODE_ENUM_VALUE = 'ampscript/enum-value';
+export const DIAG_CODE_SMART_QUOTES = 'ampscript/smart-quotes';
+export const DIAG_CODE_SET_NO_TARGET = 'ampscript/set-no-target';
+
+/**
+ * Diagnostic codes that duplicate eslint-plugin-sfmc rules and can be
+ * suppressed via the `disableLspDiagnosticsForEslintRules` setting.
+ */
+export const ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
+    DIAG_CODE_UNKNOWN_FUNCTION,
+    DIAG_CODE_FUNCTION_ARITY,
+    DIAG_CODE_ARG_TYPE,
+    DIAG_CODE_ENUM_VALUE,
+    DIAG_CODE_SMART_QUOTES,
+    DIAG_CODE_SET_NO_TARGET,
+    DIAG_CODE_HTML_COMMENT,
+    DIAG_CODE_HTML_WRAPPED_COMMENT,
+    DIAG_CODE_JS_LINE_COMMENT,
+    DIAG_CODE_NESTED_SCRIPT_TAG,
+    DIAG_CODE_NESTED_DELIMITER,
+    DIAG_CODE_NESTED_DELIMITER_IN_SCRIPT,
+    DIAG_CODE_DEPRECATED_FUNCTION,
+]);
 
 const ampscriptKeywordSet = new Set(ampscriptKeywords.map((kw) => kw.name.toLowerCase()));
 const controlFlowConstructSet = new Set([
@@ -320,7 +351,8 @@ export function validateAmpscript(
         });
     }
 
-    // 4. Unknown functions + arity validation
+    // 4. Unknown functions + arity validation + deprecated function warnings
+    const variableTypeMap = buildVariableTypeMap(text);
     const functionCallPattern = /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
     let functionMatch: RegExpExecArray | null;
     while ((functionMatch = functionCallPattern.exec(sanitizedText)) && problems < max) {
@@ -337,8 +369,35 @@ export function validateAmpscript(
                 },
                 message: `Unknown AMPscript function '${functionName}'. AMPscript does not support custom functions.`,
                 source: 'ampscript',
+                code: DIAG_CODE_UNKNOWN_FUNCTION,
             });
             continue;
+        }
+
+        // 4a. Deprecated function warning
+        const fnEntry = functionLookup.get(normalizedName);
+        if (fnEntry?.deprecated && problems < max) {
+            problems++;
+            const deprecatedData = fnEntry.deprecated as
+                | { reason?: string; replacement?: string }
+                | true;
+            const reason = typeof deprecatedData === 'object' ? (deprecatedData.reason ?? '') : '';
+            const replacement =
+                typeof deprecatedData === 'object' ? (deprecatedData.replacement ?? '') : '';
+            let message = `'${fnEntry.name}' is deprecated.`;
+            if (reason) message += ` ${reason}`;
+            if (replacement) message += ` Use '${replacement}' instead.`;
+            diagnostics.push({
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, functionMatch.index),
+                    end: offsetToPosition(text, functionMatch.index + functionName.length),
+                },
+                message,
+                source: 'ampscript',
+                code: DIAG_CODE_DEPRECATED_FUNCTION,
+                data: replacement || undefined,
+            });
         }
 
         const arity = functionArityLookup.get(normalizedName);
@@ -356,6 +415,7 @@ export function validateAmpscript(
                         },
                         message: `'${functionName}' requires at least ${arity.minArgs} argument(s) but was called with ${argCount}.`,
                         source: 'ampscript',
+                        code: DIAG_CODE_FUNCTION_ARITY,
                     });
                 } else if (argCount > arity.maxArgs) {
                     problems++;
@@ -367,6 +427,7 @@ export function validateAmpscript(
                         },
                         message: `'${functionName}' accepts at most ${arity.maxArgs} argument(s) but was called with ${argCount}.`,
                         source: 'ampscript',
+                        code: DIAG_CODE_FUNCTION_ARITY,
                     });
                 } else if (
                     repeatLookup.has(normalizedName) &&
@@ -385,6 +446,7 @@ export function validateAmpscript(
                         },
                         message: `'${functionName}' expects its repeating arguments in complete groups.`,
                         source: 'ampscript',
+                        code: DIAG_CODE_FUNCTION_ARITY,
                     });
                 } else if (problems < max) {
                     const fnDef = functionLookup.get(normalizedName);
@@ -424,18 +486,25 @@ export function validateAmpscript(
                                             },
                                             message: `Argument '${param.name}' of '${functionName}' must be one of: ${param.enum.join(', ')}.`,
                                             source: 'ampscript',
+                                            code: DIAG_CODE_ENUM_VALUE,
                                         });
                                     }
                                     continue;
                                 }
 
                                 if (!param.type) continue;
-                                const inferredType = inferLiteralType(argSpans[ai].value);
+                                const argText = argSpans[ai].value.trim();
                                 const allowedTypes = param.type
                                     .toLowerCase()
                                     .split('|')
                                     .map((t) => t.trim());
-                                if (inferredType && !allowedTypes.includes(inferredType)) {
+
+                                // Check literal type mismatch
+                                const inferredLiteralType = inferLiteralType(argText);
+                                if (
+                                    inferredLiteralType &&
+                                    !allowedTypes.includes(inferredLiteralType)
+                                ) {
                                     problems++;
                                     diagnostics.push({
                                         severity: DiagnosticSeverity.Warning,
@@ -443,9 +512,39 @@ export function validateAmpscript(
                                             start: offsetToPosition(text, argSpans[ai].start),
                                             end: offsetToPosition(text, argSpans[ai].end),
                                         },
-                                        message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but received a ${inferredType}.`,
+                                        message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but received a ${inferredLiteralType}.`,
                                         source: 'ampscript',
+                                        code: DIAG_CODE_ARG_TYPE,
                                     });
+                                    continue;
+                                }
+
+                                // Check variable type mismatch when param expects a
+                                // non-primitive type (rowset, row, object) — only
+                                // these are unambiguously typed from function return values.
+                                const NON_PRIMITIVE_TYPES = new Set(['rowset', 'row', 'object']);
+                                const requiresNonPrimitive = allowedTypes.some((t) =>
+                                    NON_PRIMITIVE_TYPES.has(t),
+                                );
+                                if (requiresNonPrimitive && argText.startsWith('@')) {
+                                    const varName = argText.slice(1).toLowerCase();
+                                    const varType = variableTypeMap.get(varName);
+                                    if (
+                                        varType !== undefined &&
+                                        !allowedTypes.includes(varType.toLowerCase())
+                                    ) {
+                                        problems++;
+                                        diagnostics.push({
+                                            severity: DiagnosticSeverity.Warning,
+                                            range: {
+                                                start: offsetToPosition(text, argSpans[ai].start),
+                                                end: offsetToPosition(text, argSpans[ai].end),
+                                            },
+                                            message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but '@${varName}' is a ${varType}.`,
+                                            source: 'ampscript',
+                                            code: DIAG_CODE_ARG_TYPE,
+                                        });
+                                    }
                                 }
                             }
                         }
@@ -469,6 +568,7 @@ export function validateAmpscript(
             message:
                 '`set` statement is missing a target variable. Expected: `set @variable = expression`.',
             source: 'ampscript',
+            code: DIAG_CODE_SET_NO_TARGET,
         });
     }
 
@@ -487,6 +587,7 @@ export function validateAmpscript(
                 message:
                     'Smart/curly quote character detected. AMPscript only supports straight ASCII quotes (\' or ").',
                 source: 'ampscript',
+                code: DIAG_CODE_SMART_QUOTES,
             });
         }
     }

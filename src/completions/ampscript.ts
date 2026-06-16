@@ -84,7 +84,7 @@ function getEnumValueCompletions(textUpToCursor: string): CompletionItem[] | nul
     const param = fn.params[context.paramIndex];
     if (!param?.enum || param.enum.length === 0) return null;
 
-    return param.enum.map((rawValue) => {
+    return param.enum.map((rawValue, index) => {
         const value = String(rawValue);
         return {
             label: value,
@@ -92,8 +92,9 @@ function getEnumValueCompletions(textUpToCursor: string): CompletionItem[] | nul
             detail: `${fn.name} — allowed value for ${param.name}`,
             insertText: `"${value}"`,
             insertTextFormat: InsertTextFormat.PlainText,
-            // Sort enum values to the top of the list.
+            // Sort enum values to the top of the list; mark the first as pre-selected.
             sortText: `0_${value}`,
+            preselect: index === 0,
             data: { type: 'enum' },
         };
     });
