@@ -479,7 +479,7 @@ export function validateAmpscript(
                                     ) {
                                         problems++;
                                         diagnostics.push({
-                                            severity: DiagnosticSeverity.Warning,
+                                            severity: DiagnosticSeverity.Error,
                                             range: {
                                                 start: offsetToPosition(text, argSpans[ai].start),
                                                 end: offsetToPosition(text, argSpans[ai].end),
@@ -507,7 +507,7 @@ export function validateAmpscript(
                                 ) {
                                     problems++;
                                     diagnostics.push({
-                                        severity: DiagnosticSeverity.Warning,
+                                        severity: DiagnosticSeverity.Error,
                                         range: {
                                             start: offsetToPosition(text, argSpans[ai].start),
                                             end: offsetToPosition(text, argSpans[ai].end),
@@ -535,7 +535,7 @@ export function validateAmpscript(
                                     ) {
                                         problems++;
                                         diagnostics.push({
-                                            severity: DiagnosticSeverity.Warning,
+                                            severity: DiagnosticSeverity.Error,
                                             range: {
                                                 start: offsetToPosition(text, argSpans[ai].start),
                                                 end: offsetToPosition(text, argSpans[ai].end),

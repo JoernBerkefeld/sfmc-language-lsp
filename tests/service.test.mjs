@@ -962,9 +962,9 @@ describe('Signature Help', () => {
     });
 
     it('parameter labels use offset ranges so repeating slots can be highlighted', () => {
-        // Concat's syntax string spells out stringN; the LSP should emit an
-        // offset-tuple label for it so the client highlights slot 2 (stringN)
-        // rather than failing a substring match and sticking on string1.
+        // Concat params: string1: string, string2: string, stringN?: string.
+        // The LSP emits an offset-tuple label for the full typed token so the
+        // client highlights the complete `stringN?: string` token.
         const sig = ampSig("%%=Concat('a','b','c',");
         const stringNLabel = sig.signatures[0].parameters[2].label;
         assert.ok(
@@ -972,13 +972,15 @@ describe('Signature Help', () => {
             `expected offset-tuple label for stringN, got: ${JSON.stringify(stringNLabel)}`,
         );
         const [start, end] = stringNLabel;
-        assert.strictEqual(sig.signatures[0].label.slice(start, end), 'stringN');
+        assert.strictEqual(sig.signatures[0].label.slice(start, end), 'stringN?: string');
     });
 
     it('DatePart: enum values are surfaced in signature help param docs', () => {
         const sig = ampSig("%%=DatePart('2026-01-15',");
         assert.ok(sig, 'expected signature help for DatePart');
-        const datePartDoc = sig.signatures[0].parameters[1].documentation;
+        const raw = sig.signatures[0].parameters[1].documentation;
+        // documentation is now a MarkupContent object; extract the text value
+        const datePartDoc = typeof raw === 'string' ? raw : (raw?.value ?? '');
         assert.ok(
             /Allowed values:.*monthName/.test(datePartDoc),
             `expected enum values in datePart doc, got: ${datePartDoc}`,
@@ -1081,17 +1083,17 @@ describe('AMPscript enum-typed arguments', () => {
         );
     });
 
-    it('preselects exactly one enum completion item', () => {
+    it('no enum completion item has preselect set', () => {
         const text = "%%=DatePart('2026-01-15',";
         const doc = { text, languageId: 'ampscript' };
         const items = service.getCompletions(doc, { line: 0, character: text.length });
         assert.ok(items.length > 0, 'expected enum completions');
-        // Exactly one item should be preselected (index 0 in the enum array).
+        // No item should be preselected — VS Code picks the best match by sortText.
         const preselected = items.filter((i) => i.preselect === true);
         assert.strictEqual(
             preselected.length,
-            1,
-            `expected exactly one preselected item, got: ${preselected.length}`,
+            0,
+            `expected no preselected items, got: ${preselected.length}`,
         );
     });
 });
@@ -1134,13 +1136,14 @@ describe('AMPscript variable type tracking', () => {
             character: 8,
         });
         assert.ok(hover, 'expected hover result');
+        // New format: ```typescript\n// AMPscript variable\nvar @rows: rowset\n```
         assert.ok(
-            hover.contents.value.includes('rowset'),
-            `expected type 'rowset' in hover, got: ${hover.contents.value}`,
+            hover.contents.value.includes('var @rows: rowset'),
+            `expected 'var @rows: rowset' in hover, got: ${hover.contents.value}`,
         );
     });
 
-    it('shows basic hover for @variable without inferred type', () => {
+    it('shows hover for @variable without inferred type as any', () => {
         const fullText = '%%[ set @x = SomeUnknown() ]%%';
         const line = fullText;
         const hover = service.getHover({ text: fullText, languageId: 'ampscript' }, line, {
@@ -1148,9 +1151,10 @@ describe('AMPscript variable type tracking', () => {
             character: 8,
         });
         assert.ok(hover, 'expected hover result for unknown-type variable');
+        // Untyped variables show as `any`
         assert.ok(
-            hover.contents.value.includes('@x'),
-            `expected variable name in hover, got: ${hover.contents.value}`,
+            hover.contents.value.includes('var @x: any'),
+            `expected 'var @x: any' in hover, got: ${hover.contents.value}`,
         );
     });
 });
@@ -1223,15 +1227,19 @@ describe('Signature Help — default values', () => {
         const sig = service.getSignatureHelp({ text, languageId: 'ampscript' }, text);
         if (!sig) return; // skip if HTTPGet not found
         // url param has no default, so look for a param that does
-        const paramWithDefault = sig.signatures[0]?.parameters?.find(
-            (p) => typeof p.documentation === 'string' && p.documentation.includes('Default:'),
-        );
+        const paramWithDefault = sig.signatures[0]?.parameters?.find((p) => {
+            const doc = p.documentation;
+            const text = typeof doc === 'string' ? doc : (doc?.value ?? '');
+            return text.includes('Default:');
+        });
         // If no param has a default, the test is vacuously satisfied (no regression)
         if (paramWithDefault) {
+            // documentation is now a MarkupContent object with kind: 'markdown'
+            const doc = paramWithDefault.documentation;
+            const text = typeof doc === 'string' ? doc : (doc?.value ?? '');
             assert.ok(
-                typeof paramWithDefault.documentation === 'string' &&
-                    paramWithDefault.documentation.includes('**Default:**'),
-                `expected Default: in param doc, got: ${paramWithDefault.documentation}`,
+                text.includes('**Default:**'),
+                `expected **Default:** in param doc, got: ${text}`,
             );
         }
     });
