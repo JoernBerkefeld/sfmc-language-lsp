@@ -36,28 +36,15 @@ export function getAmpscriptHover(
 
     const word = line.slice(wordRange.start, wordRange.end);
 
-    // @variable hover — show inferred type when available
+    // @variable hover — show inferred type matching the SSJS TypeScript hover style
     if (word.startsWith('@') && fullText !== undefined) {
         const varName = word.slice(1).toLowerCase();
         const typeMap = buildVariableTypeMap(fullText);
-        const varType = typeMap.get(varName);
-        if (varType !== undefined) {
-            return {
-                contents: {
-                    kind: MarkupKind.Markdown,
-                    value: `\`${word}\` *(AMPscript variable)*\n\n**Type:** \`${varType}\``,
-                },
-                range: {
-                    start: { line: position.line, character: wordRange.start },
-                    end: { line: position.line, character: wordRange.end },
-                },
-            };
-        }
-        // Variable exists but type cannot be inferred — still show a basic hover
+        const varType = typeMap.get(varName) ?? 'any';
         return {
             contents: {
                 kind: MarkupKind.Markdown,
-                value: `\`${word}\` *(AMPscript variable)*`,
+                value: `\`\`\`typescript\n// AMPscript variable\nvar ${word}: ${varType}\n\`\`\``,
             },
             range: {
                 start: { line: position.line, character: wordRange.start },

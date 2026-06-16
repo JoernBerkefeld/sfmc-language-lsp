@@ -1,3 +1,4 @@
+import { MarkupKind } from '../types.js';
 import type { SignatureHelp, ParameterInformation } from '../types.js';
 import type { AmpscriptFunction } from '../data/ampscript.js';
 import { functionLookup } from '../data/ampscript.js';
@@ -18,10 +19,18 @@ export function getAmpscriptSignatureHelp(context: {
     const fn = functionLookup.get(context.functionName.toLowerCase());
     if (!fn || !fn.params || fn.params.length === 0) return null;
 
-    const signatureLabel = fn.syntax ?? `${fn.name}(${fn.params.map((p) => p.name).join(', ')})`;
+    // Build a TypeScript-style signature label from params[], matching the hover card format:
+    // FunctionName(param1: type, param2?: type, ...)
+    // This ensures param tokens include their type (e.g. `startDate: date`) so the LSP
+    // client highlights the full `name?: type` token, matching SSJS signature help behaviour.
+    const paramTokens = fn.params.map((p) => {
+        const opt = p.optional ? '?' : '';
+        const type = p.type ?? 'any';
+        return `${p.name}${opt}: ${type}`;
+    });
+    const signatureLabel = `${fn.name}(${paramTokens.join(', ')})`;
 
-    const parameterInfos: ParameterInformation[] = fn.params.map((p) => {
-        const optional = p.optional ? ' *(optional)*' : '';
+    const parameterInfos: ParameterInformation[] = fn.params.map((p, i) => {
         const defaultVal =
             p.default !== undefined && p.default !== null
                 ? `\n\n**Default:** \`${String(p.default)}\``
@@ -29,12 +38,15 @@ export function getAmpscriptSignatureHelp(context: {
         const allowed =
             p.enum && p.enum.length > 0 ? `\n\nAllowed values: ${p.enum.join(', ')}` : '';
         return {
-            // Prefer an offset range so the client can highlight the parameter
-            // even when the syntax string collapses repeating slots (e.g. Concat
-            // renders `string2[, ...]` and never spells out `stringN`). Falls
-            // back to the plain name when the token is not present in the label.
-            label: labelRange(signatureLabel, p.name) ?? p.name,
-            documentation: `${p.description}${optional}${defaultVal}${allowed}`,
+            // Highlight the full `name?: type` token in the label.
+            label: labelRange(signatureLabel, paramTokens[i]) ?? paramTokens[i],
+            // Use MarkupContent so that markdown (bold, backticks) is rendered
+            // properly in the signature help tooltip — plain strings are not parsed.
+            // Optional marker is already visible in the label; omit it from docs.
+            documentation: {
+                kind: MarkupKind.Markdown,
+                value: `${p.description}${defaultVal}${allowed}`,
+            },
         };
     });
 
@@ -56,14 +68,25 @@ export function getAmpscriptSignatureHelp(context: {
  * `[start, end)` character offsets, as expected by the LSP `ParameterInformation`
  * label tuple form. Returns null when the token does not appear literally (the
  * caller then falls back to the plain string label).
+ *
+ * Uses a word-boundary pattern so that a param named `content` is not matched
+ * inside `contentTypeHeader` — the token must be preceded by `(` or `, ` and
+ * followed by `,`, `[`, `)`, or end-of-string.
  * @param signatureLabel - The full signature string shown to the user.
  * @param paramName - The parameter name to locate.
  * @returns A `[start, end]` offset tuple, or null when not found.
  */
 function labelRange(signatureLabel: string, paramName: string): [number, number] | null {
-    const start = signatureLabel.indexOf(paramName);
-    if (start === -1) return null;
-    return [start, start + paramName.length];
+    // Now that paramName is a full typed token like `startDate: date` or `numRetries?: number`,
+    // we locate it by its start position only — find the index of the token in the label
+    // and return the full span. We still verify word-boundary context so that `content: string`
+    // is not matched inside `contentTypeHeader: string`.
+    const escaped = paramName.replaceAll(/[$()*+.?[\\\]^{|}]/g, String.raw`\$&`);
+    // Token must be preceded by `(` or a space (the space after `, `), and followed by `,`, `)`, or end.
+    const pattern = new RegExp(String.raw`(?<=[(,\s])${escaped}(?=[,)]|$)`);
+    const match = pattern.exec(signatureLabel);
+    if (!match) return null;
+    return [match.index, match.index + paramName.length];
 }
 
 /**
