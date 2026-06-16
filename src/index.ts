@@ -18,7 +18,11 @@ import type {
 import type { SfmcSettings } from './types.js';
 import { DEFAULT_SETTINGS } from './types.js';
 
-import { validateAmpscript, extractAmpscriptFunctionCalls } from './validators/ampscript.js';
+import {
+    validateAmpscript,
+    extractAmpscriptFunctionCalls,
+    ESLINT_DUPLICATE_DIAG_CODES,
+} from './validators/ampscript.js';
 import type { AmpscriptCallSite } from './validators/ampscript.js';
 import { validateSsjs } from './validators/ssjs.js';
 
@@ -90,7 +94,13 @@ export class SfmcLanguageService {
         if (doc.languageId === 'ssjs') {
             return validateSsjs(doc.text, settings);
         }
-        return validateAmpscript(doc.text, settings);
+        const diagnostics = validateAmpscript(doc.text, settings);
+        if (settings.disableLspDiagnosticsForEslintRules) {
+            return diagnostics.filter(
+                (d) => !d.code || !ESLINT_DUPLICATE_DIAG_CODES.has(String(d.code)),
+            );
+        }
+        return diagnostics;
     }
 
     // ── Completions ───────────────────────────────────────────────────────────
@@ -133,7 +143,7 @@ export class SfmcLanguageService {
             const localFns = extractLocalSsjsFunctions(doc.text);
             return getSsjsHover(line, position, localFns);
         }
-        return getAmpscriptHover(line, position);
+        return getAmpscriptHover(line, position, doc.text);
     }
 
     // ── Signature Help ────────────────────────────────────────────────────────

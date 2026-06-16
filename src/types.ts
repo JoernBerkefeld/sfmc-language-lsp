@@ -52,6 +52,14 @@ export interface SfmcSettings {
      *   and flags any SSJS content as unsupported (error).
      */
     targetPlatform?: 'engagement' | 'next';
+    /**
+     * When `true`, suppress LSP diagnostics that are already covered by
+     * eslint-plugin-sfmc rules, avoiding duplicate warnings when both the
+     * language server and ESLint are active. LSP-only diagnostics (e.g.
+     * delimiter balance, IF/ENDIF/FOR/NEXT balance, GTL blocks, MCN
+     * compatibility) are always shown regardless of this setting.
+     */
+    disableLspDiagnosticsForEslintRules?: boolean;
 }
 
 export const DEFAULT_SETTINGS: SfmcSettings = {
