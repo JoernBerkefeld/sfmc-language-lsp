@@ -163,3 +163,16 @@ declare module 'ssjs-data' {
     export const ECMASCRIPT_BUILTINS: SsjsDataBuiltin[];
     export const UNSUPPORTED_SYNTAX: Array<{ feature: string; message: string }>;
 }
+
+declare module 'ssjs-data/urls' {
+    export const GUIDE_BASE_URL: string;
+    export const MDN_BASE_URL: string;
+    export const ECMASCRIPT_URLS: Record<string, string>;
+    /**
+     * Derive the MDN documentation URL for an ECMAScript built-in.
+     * @param owner - The builtin's owner (e.g. 'Array.prototype', 'Math', 'Global').
+     * @param member - The method/property name (e.g. 'splice', 'PI', 'parseInt').
+     * @returns Fully-qualified MDN URL.
+     */
+    export function mdnBuiltinUrl(owner: string, member: string): string;
+}

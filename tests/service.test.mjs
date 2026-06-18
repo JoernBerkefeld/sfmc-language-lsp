@@ -612,6 +612,38 @@ describe('Hover', () => {
         assert.equal(hover, null, 'should not show hover for wrong-case function name');
     });
 
+    it('ECMAScript builtin hover includes both ssjs.guide and MDN links', () => {
+        const line = 'var x = Math.PI;';
+        const doc = { text: line, languageId: 'ssjs' };
+        // cursor on "PI"
+        const hover = service.getHover(doc, line, { line: 0, character: 13 });
+        assert.ok(hover !== null, 'expected hover for Math.PI');
+        const value = hover.contents.value;
+        assert.ok(
+            value.includes('[ssjs.guide reference](https://ssjs.guide/ecmascript-builtins/'),
+            `expected ssjs.guide link, got: ${value}`,
+        );
+        assert.ok(
+            value.includes('[MDN](https://developer.mozilla.org/'),
+            `expected MDN link, got: ${value}`,
+        );
+    });
+
+    it('ECMAScript prototype-method hover links to MDN deep page', () => {
+        const line = 'var y = arr.slice(0, 1);';
+        const doc = { text: line, languageId: 'ssjs' };
+        // cursor on "slice"
+        const hover = service.getHover(doc, line, { line: 0, character: 14 });
+        assert.ok(hover !== null, 'expected hover for Array.prototype.slice');
+        const value = hover.contents.value;
+        assert.ok(
+            value.includes(
+                '[MDN](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/slice)',
+            ),
+            `expected MDN deep link for slice, got: ${value}`,
+        );
+    });
+
     it('returns null hover on object part of qualified call (Bug #1)', () => {
         // Bug #1: cursor on "Platform" in "Platform.Load" (twoPartPattern) should not
         // show Platform.Load method hover — only fire when cursor is on the member name

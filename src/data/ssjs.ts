@@ -26,6 +26,7 @@ import {
     SCRIPT_UTIL_REQUEST_METHODS,
     ECMASCRIPT_BUILTINS,
 } from 'ssjs-data';
+import { ECMASCRIPT_URLS, GUIDE_BASE_URL, mdnBuiltinUrl } from 'ssjs-data/urls';
 
 export interface SsjsFunctionParam {
     name: string;
@@ -58,6 +59,8 @@ export interface EcmascriptBuiltin {
     returnType?: string;
     syntax?: string;
     example?: string;
+    guideUrl?: string;
+    mdnUrl?: string;
 }
 
 export interface SsjsObject {
@@ -200,12 +203,17 @@ export const requiresCoreLoadGlobals: Set<string> = new Set(
 
 // ── ECMAScript 3/5 built-in methods ──────────────────────────────────────────
 
-export const ecmascriptBuiltins: EcmascriptBuiltin[] = ECMASCRIPT_BUILTINS.map((b) => ({
-    name: b.name,
-    owner: b.owner,
-    description: b.description,
-    ...(b.params && { params: b.params }),
-    ...(b.returnType && { returnType: b.returnType }),
-    ...(b.syntax && { syntax: b.syntax }),
-    ...(b.example && { example: b.example }),
-}));
+export const ecmascriptBuiltins: EcmascriptBuiltin[] = ECMASCRIPT_BUILTINS.map((b) => {
+    const relUrl = ECMASCRIPT_URLS[b.owner];
+    return {
+        name: b.name,
+        owner: b.owner,
+        description: b.description,
+        ...(b.params && { params: b.params }),
+        ...(b.returnType && { returnType: b.returnType }),
+        ...(b.syntax && { syntax: b.syntax }),
+        ...(b.example && { example: b.example }),
+        ...(relUrl && { guideUrl: `${GUIDE_BASE_URL}${relUrl}` }),
+        mdnUrl: mdnBuiltinUrl(b.owner, b.name),
+    };
+});

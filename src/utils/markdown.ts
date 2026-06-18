@@ -178,6 +178,13 @@ export function buildEcmascriptBuiltinMarkdown(builtin: EcmascriptBuiltin): stri
         lines.push('', '**Example:**', '```javascript', builtin.example, '```');
     }
 
+    if (builtin.guideUrl || builtin.mdnUrl) {
+        const parts: string[] = [];
+        if (builtin.guideUrl) parts.push(`[ssjs.guide reference](${builtin.guideUrl})`);
+        if (builtin.mdnUrl) parts.push(`[MDN](${builtin.mdnUrl})`);
+        lines.push('', parts.join(' / '));
+    }
+
     return lines.join('\n');
 }
 
