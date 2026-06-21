@@ -30,6 +30,13 @@ const ampSig = (textUpToCursor) =>
  */
 const ampValidate = (text) => service.validate({ text, languageId: 'ampscript' });
 
+/**
+ * Helper: validate an SSJS snippet.
+ * @param {string} text - SSJS source.
+ * @returns {import('../dist/esm/index.js').Diagnostic[]} Diagnostics.
+ */
+const ssjsValidate = (text) => service.validate({ text, languageId: 'ssjs' });
+
 // ── Validation — AMPscript ─────────────────────────────────────────────────
 
 describe('AMPscript validation', () => {
@@ -1274,5 +1281,36 @@ describe('Signature Help — default values', () => {
                 `expected **Default:** in param doc, got: ${text}`,
             );
         }
+    });
+});
+
+// ── SSJS ES6 pattern diagnostics ───────────────────────────────────────────
+
+describe('SSJS generator-function diagnostic', () => {
+    it('flags a real generator declaration (function*)', () => {
+        const diags = ssjsValidate('function* gen() { yield 1; }');
+        assert.ok(
+            diags.some((d) => d.message.includes('Generator functions are not supported')),
+            `expected generator diagnostic, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('flags a named generator (function *name)', () => {
+        const diags = ssjsValidate('function *gen() {}');
+        assert.ok(
+            diags.some((d) => d.message.includes('Generator functions are not supported')),
+            `expected generator diagnostic, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('does not flag a function followed by a JSDoc block on the next line (Bug 9)', () => {
+        const text = ['function foo() {}', '', '/**', ' * docs', ' */', 'function bar() {}'].join(
+            '\n',
+        );
+        const diags = ssjsValidate(text);
+        assert.ok(
+            !diags.some((d) => d.message.includes('Generator functions are not supported')),
+            `expected no generator diagnostic, got: ${JSON.stringify(diags)}`,
+        );
     });
 });

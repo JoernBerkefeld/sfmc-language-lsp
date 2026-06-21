@@ -172,7 +172,11 @@ export function validateSsjs(
             message: "'for...of' loops are not supported in SFMC SSJS. Use a regular for loop.",
         },
         {
-            pattern: /\bfunction\s*\*/g,
+            // Match a generator only on a single line (function* or function *name).
+            // Using [ \t]* instead of \s* prevents the keyword `function` and a `*`
+            // on a later line (e.g. the first `*` of a following JSDoc block) from
+            // being treated as a generator declaration.
+            pattern: /\bfunction[ \t]*\*/g,
             message: 'Generator functions are not supported in SFMC SSJS.',
         },
         {
