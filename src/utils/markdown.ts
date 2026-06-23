@@ -160,6 +160,9 @@ export function buildEcmascriptBuiltinMarkdown(builtin: EcmascriptBuiltin): stri
         const returnType = builtin.returnType ?? 'any';
         const sig = `(method) ${builtin.syntax ?? `${builtin.name}(${paramParts.join(', ')}): ${returnType}`}`;
         lines.push('```typescript', sig, '```', '', builtin.description, '');
+        if (builtin.caveat) {
+            lines.push(`> ⚠️ **Caveat:** ${builtin.caveat}`, '');
+        }
         for (const p of builtin.params) {
             const opt = p.optional ? ' *(optional)*' : '';
             lines.push(`*@param* \`${p.name}\`${opt} — ${p.description}\n`);
@@ -169,6 +172,9 @@ export function buildEcmascriptBuiltinMarkdown(builtin: EcmascriptBuiltin): stri
         }
     } else {
         lines.push(`**${builtin.syntax ?? builtin.name}**\n\n${builtin.description}`);
+        if (builtin.caveat) {
+            lines.push(`\n> ⚠️ **Caveat:** ${builtin.caveat}`);
+        }
         if (builtin.returnType && builtin.returnType !== 'void') {
             lines.push(`\n*@return* \`${builtin.returnType}\``);
         }
