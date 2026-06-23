@@ -130,10 +130,21 @@ declare module 'ssjs-data' {
         name: string;
         owner: string;
         description: string;
+        caveat?: string;
         params?: SsjsDataParam[];
         returnType?: string;
         syntax?: string;
         example?: string;
+    }
+    export interface SsjsDataKnownUnsupported {
+        member: string;
+        owner: string;
+        esVersion: 3 | 5 | 6;
+        isStatic: boolean;
+        isProperty?: boolean;
+        category: 'unavailable' | 'broken';
+        hasPolyfill: boolean;
+        suggestion: string;
     }
     export const SSJS_GLOBALS: SsjsDataFunction[];
     export const SSJS_GLOBALS_MAP: Record<string, SsjsDataFunction>;
@@ -161,6 +172,9 @@ declare module 'ssjs-data' {
     export const SCRIPT_UTIL_CONSTRUCTORS: SsjsDataFunction[];
     export const SCRIPT_UTIL_REQUEST_METHODS: SsjsDataFunction[];
     export const ECMASCRIPT_BUILTINS: SsjsDataBuiltin[];
+    export const KNOWN_UNSUPPORTED: SsjsDataKnownUnsupported[];
+    export const knownUnsupportedByPrototypeName: Map<string, SsjsDataKnownUnsupported>;
+    export const knownUnsupportedByStaticName: Map<string, SsjsDataKnownUnsupported>;
     export const UNSUPPORTED_SYNTAX: Array<{ feature: string; message: string }>;
 }
 

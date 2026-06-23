@@ -556,6 +556,69 @@ describe('SSJS validation', () => {
             'DataExtension.Init() before Platform.Load should still be flagged',
         );
     });
+
+    // ── Known-unsupported ECMAScript members ─────────────────────────────────
+
+    it('reports JSON.parse as an unsupported static member (Error)', () => {
+        const doc = { text: 'var o = JSON.parse(str);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.message.includes('JSON.parse'));
+        assert.ok(d, 'expected diagnostic for JSON.parse');
+        assert.equal(d.severity, 1, 'expected Error severity');
+        assert.ok(d.message.includes('ParseJSON'), 'expected suggestion to mention ParseJSON');
+    });
+
+    it('reports Object.keys as an unsupported static member', () => {
+        const doc = { text: 'var k = Object.keys(obj);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.some((d) => d.message.includes('Object.keys')));
+    });
+
+    it('reports Math.trunc as an unsupported static member', () => {
+        const doc = { text: 'var n = Math.trunc(4.7);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.some((d) => d.message.includes('Math.trunc')));
+    });
+
+    it('reports Array.from as an unsupported static member', () => {
+        const doc = { text: 'var a = Array.from("ab");', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.some((d) => d.message.includes('Array.from')));
+    });
+
+    it('does not flag a supported static member (Math.floor)', () => {
+        const doc = { text: 'var n = Math.floor(4.7);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(!diags.some((d) => d.message.includes('not available')));
+    });
+
+    it('reports a prototype member .includes() as a Warning', () => {
+        const doc = { text: 'var b = name.includes("x");', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.message.includes('String.prototype.includes'));
+        assert.ok(d, 'expected diagnostic for .includes()');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+    });
+
+    it('reports a prototype member .flat() as a Warning', () => {
+        const doc = { text: 'var f = arr.flat();', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.some((d) => d.message.includes('Array.prototype.flat') && d.severity === 2),
+        );
+    });
+
+    it('does not flag unsupported members inside comments', () => {
+        const doc = {
+            text: '// var o = JSON.parse(str);\nvar b = name.includes("x"); // .includes',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(
+            !diags.some((d) => d.message.includes('JSON.parse')),
+            'JSON.parse in comment must be ignored',
+        );
+    });
 });
 
 // ── Completions ────────────────────────────────────────────────────────────

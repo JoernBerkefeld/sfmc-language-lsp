@@ -9,6 +9,8 @@ import {
     dateTimeTimezoneMethods,
     errorUtilMethods,
     requiresCoreLoadGlobals,
+    knownUnsupportedStaticLookup,
+    knownUnsupportedPrototypeLookup,
 } from '../data/ssjs.js';
 
 /**
@@ -206,6 +208,58 @@ export function validateSsjs(
                     end: offsetToPosition(text, match.index + match[0].length),
                 },
                 message,
+                source: 'ssjs',
+            });
+        }
+    }
+
+    // 4. Known-unsupported ECMAScript built-in members (confirmed absent/broken
+    //    in the SFMC engine and not covered by a shipped polyfill).
+
+    // 4a. Static members — flagged as errors because the owner prefix is explicit
+    //     (e.g. JSON.parse, Object.keys, Math.trunc, Array.from, Number.isInteger).
+    if (knownUnsupportedStaticLookup.size > 0) {
+        const staticPattern = /\b([A-Z]\w*)\s*\.\s*([A-Za-z_$][\w$]*)/g;
+        let staticMatch: RegExpExecArray | null;
+        while ((staticMatch = staticPattern.exec(text)) !== null && problems < max) {
+            if (isInCommentRange(staticMatch.index, commentRanges)) continue;
+            const key = `${staticMatch[1]}.${staticMatch[2]}`.toLowerCase();
+            const entry = knownUnsupportedStaticLookup.get(key);
+            if (!entry) continue;
+            problems++;
+            diagnostics.push({
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, staticMatch.index),
+                    end: offsetToPosition(text, staticMatch.index + staticMatch[0].length),
+                },
+                message: `${entry.owner}.${entry.member} is not available in SFMC SSJS. ${entry.suggestion}`,
+                source: 'ssjs',
+            });
+        }
+    }
+
+    // 4b. Prototype (instance) members — flagged as warnings because a regex
+    //     cannot prove the receiver type (e.g. ".includes(", ".flat(",
+    //     ".trimStart("). Only call-shaped uses (member followed by "(") are
+    //     considered to reduce false positives on property reads.
+    if (knownUnsupportedPrototypeLookup.size > 0) {
+        const protoPattern = /\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
+        let protoMatch: RegExpExecArray | null;
+        while ((protoMatch = protoPattern.exec(text)) !== null && problems < max) {
+            if (isInCommentRange(protoMatch.index, commentRanges)) continue;
+            const entry = knownUnsupportedPrototypeLookup.get(protoMatch[1].toLowerCase());
+            if (!entry) continue;
+            // Skip if preceded by a known static owner — that case is handled by 4a.
+            problems++;
+            const memberStart = protoMatch.index + protoMatch[0].indexOf(protoMatch[1]);
+            diagnostics.push({
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, memberStart),
+                    end: offsetToPosition(text, memberStart + protoMatch[1].length),
+                },
+                message: `${entry.owner.replace('.prototype', '')}.prototype.${entry.member} is not available in SFMC SSJS (when called on a ${entry.owner.replace('.prototype', '')}). ${entry.suggestion}`,
                 source: 'ssjs',
             });
         }
