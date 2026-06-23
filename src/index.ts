@@ -24,7 +24,7 @@ import {
     ESLINT_DUPLICATE_DIAG_CODES,
 } from './validators/ampscript.js';
 import type { AmpscriptCallSite } from './validators/ampscript.js';
-import { validateSsjs } from './validators/ssjs.js';
+import { validateSsjs, SSJS_ESLINT_DUPLICATE_DIAG_CODES } from './validators/ssjs.js';
 
 import {
     getAmpscriptCompletions,
@@ -42,6 +42,7 @@ import { getSsjsSignatureHelp } from './signature/ssjs.js';
 import { extractLocalSsjsFunctions, getSsjsDefinition } from './definitions/ssjs.js';
 
 import { getAmpscriptCodeActions } from './codeActions/ampscript.js';
+import { getSsjsCodeActions } from './codeActions/ssjs.js';
 
 import { ampscriptFunctions, functionLookup, ampscriptKeywords } from './data/ampscript.js';
 import {
@@ -92,7 +93,13 @@ export class SfmcLanguageService {
      */
     validate(doc: DocumentContext, settings: SfmcSettings = DEFAULT_SETTINGS): Diagnostic[] {
         if (doc.languageId === 'ssjs') {
-            return validateSsjs(doc.text, settings);
+            const ssjsDiagnostics = validateSsjs(doc.text, settings);
+            if (settings.disableLspDiagnosticsForEslintRules) {
+                return ssjsDiagnostics.filter(
+                    (d) => !d.code || !SSJS_ESLINT_DUPLICATE_DIAG_CODES.has(String(d.code)),
+                );
+            }
+            return ssjsDiagnostics;
         }
         const diagnostics = validateAmpscript(doc.text, settings);
         if (settings.disableLspDiagnosticsForEslintRules) {
@@ -187,7 +194,9 @@ export class SfmcLanguageService {
      * @returns Array of code actions.
      */
     getCodeActions(doc: DocumentContext, diagnostics: Diagnostic[]): CodeAction[] {
-        if (doc.languageId === 'ssjs') return [];
+        if (doc.languageId === 'ssjs') {
+            return getSsjsCodeActions(doc.text, doc.uri ?? '', diagnostics);
+        }
         return getAmpscriptCodeActions(doc.text, doc.uri ?? '', diagnostics);
     }
 

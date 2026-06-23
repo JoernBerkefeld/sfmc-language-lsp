@@ -26,6 +26,7 @@ import {
     SCRIPT_UTIL_REQUEST_METHODS,
     ECMASCRIPT_BUILTINS,
     KNOWN_UNSUPPORTED,
+    POLYFILLABLE_METHODS,
 } from 'ssjs-data';
 import { ECMASCRIPT_URLS, GUIDE_BASE_URL, mdnBuiltinUrl } from 'ssjs-data/urls';
 
@@ -56,6 +57,7 @@ export interface EcmascriptBuiltin {
     name: string;
     owner: string;
     description: string;
+    caveat?: string;
     params?: SsjsFunctionParam[];
     returnType?: string;
     syntax?: string;
@@ -73,6 +75,17 @@ export interface KnownUnsupportedMember {
     category: 'unavailable' | 'broken';
     hasPolyfill: boolean;
     suggestion: string;
+}
+
+export interface PolyfillableMethod {
+    method: string;
+    owner: string;
+    esVersion: 3 | 5 | 6;
+    isStatic: boolean;
+    category: 'unavailable' | 'broken';
+    ambiguousWithString?: boolean;
+    description: string;
+    polyfill: string;
 }
 
 export interface SsjsObject {
@@ -221,6 +234,7 @@ export const ecmascriptBuiltins: EcmascriptBuiltin[] = ECMASCRIPT_BUILTINS.map((
         name: b.name,
         owner: b.owner,
         description: b.description,
+        ...(b.caveat && { caveat: b.caveat }),
         ...(b.params && { params: b.params }),
         ...(b.returnType && { returnType: b.returnType }),
         ...(b.syntax && { syntax: b.syntax }),
@@ -259,4 +273,41 @@ export const knownUnsupportedStaticLookup = new Map<string, KnownUnsupportedMemb
  */
 export const knownUnsupportedPrototypeLookup = new Map<string, KnownUnsupportedMember>(
     knownUnsupportedMembers.filter((m) => !m.isStatic).map((m) => [m.member.toLowerCase(), m]),
+);
+
+// ── Polyfillable ECMAScript members ──────────────────────────────────────────
+
+/**
+ * ECMAScript members empirically confirmed ABSENT or BROKEN in the SFMC SSJS
+ * engine but for which a verified polyfill exists in ssjs-data. Consumed by
+ * validateSsjs to warn when authored/generated SSJS references one and to offer
+ * an "insert polyfill" code action carrying the polyfill source.
+ */
+export const polyfillableMethods: PolyfillableMethod[] = POLYFILLABLE_METHODS.map((m) => ({
+    ...m,
+}));
+
+/**
+ * Static polyfillable members keyed by `Owner.method` (lowercased), e.g.
+ * `array.isarray`, `array.of`, `math.max`. Flagged unambiguously on an
+ * explicit owner match.
+ */
+export const polyfillableStaticLookup = new Map<string, PolyfillableMethod>(
+    polyfillableMethods
+        .filter((m) => m.isStatic)
+        .map((m) => [`${m.owner}.${m.method}`.toLowerCase(), m]),
+);
+
+/**
+ * Prototype (instance) polyfillable members keyed by method name (lowercased),
+ * e.g. `foreach`, `map`, `filter`. Members also valid on String.prototype in
+ * ES3 (`ambiguousWithString`, e.g. slice/indexOf/lastIndexOf) are EXCLUDED to
+ * avoid false-positive squiggles on string receivers — a regex validator cannot
+ * prove the receiver type. Those still surface via hover caveats and (with AST)
+ * the eslint plugin.
+ */
+export const polyfillablePrototypeLookup = new Map<string, PolyfillableMethod>(
+    polyfillableMethods
+        .filter((m) => !m.isStatic && !m.ambiguousWithString)
+        .map((m) => [m.method.toLowerCase(), m]),
 );

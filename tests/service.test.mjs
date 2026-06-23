@@ -619,6 +619,116 @@ describe('SSJS validation', () => {
             'JSON.parse in comment must be ignored',
         );
     });
+
+    it('tags known-unsupported diagnostics with the ssjs/known-unsupported code', () => {
+        const doc = { text: 'var o = JSON.parse(str);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.message.includes('JSON.parse'));
+        assert.ok(d, 'expected diagnostic for JSON.parse');
+        assert.equal(d.code, 'ssjs/known-unsupported');
+    });
+});
+
+// ── Polyfillable ECMAScript members ──────────────────────────────────────────
+
+describe('SSJS polyfillable diagnostics', () => {
+    it('reports a static polyfillable member (Array.isArray) as a Warning with polyfill data', () => {
+        const doc = { text: 'var b = Array.isArray(x);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find(
+            (d) => d.code === 'ssjs/polyfillable' && d.message.includes('Array.isArray'),
+        );
+        assert.ok(d, 'expected polyfillable diagnostic for Array.isArray');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.ok(d.data && typeof d.data.polyfill === 'string' && d.data.polyfill.length > 0);
+        assert.equal(d.data.owner, 'Array');
+        assert.equal(d.data.method, 'isArray');
+    });
+
+    it('reports a prototype polyfillable member (.forEach) as a Warning with polyfill data', () => {
+        const doc = { text: 'arr.forEach(fn);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find(
+            (d) => d.code === 'ssjs/polyfillable' && d.message.includes('forEach'),
+        );
+        assert.ok(d, 'expected polyfillable diagnostic for .forEach');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.ok(d.data && typeof d.data.polyfill === 'string' && d.data.polyfill.length > 0);
+    });
+
+    it('does not flag ambiguous-with-string members (.slice) to avoid string false positives', () => {
+        const doc = { text: 'var s = str.slice(1, 3);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            !diags.some((d) => d.code === 'ssjs/polyfillable' && d.message.includes('slice')),
+            '.slice() must not be flagged by the polyfillable warning',
+        );
+    });
+});
+
+// ── SSJS eslint-overlap filtering ────────────────────────────────────────────
+
+describe('SSJS disableLspDiagnosticsForEslintRules', () => {
+    it('suppresses known-unsupported + polyfillable diagnostics when enabled', () => {
+        const doc = {
+            text: 'var o = JSON.parse(str);\nvar b = Array.isArray(x);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc, {
+            maxNumberOfProblems: 100,
+            disableLspDiagnosticsForEslintRules: true,
+        });
+        assert.ok(!diags.some((d) => d.code === 'ssjs/known-unsupported'));
+        assert.ok(!diags.some((d) => d.code === 'ssjs/polyfillable'));
+    });
+
+    it('still reports known-unsupported diagnostics when disabled (default)', () => {
+        const doc = { text: 'var o = JSON.parse(str);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.some((d) => d.code === 'ssjs/known-unsupported'));
+    });
+});
+
+// ── SSJS code actions ────────────────────────────────────────────────────────
+
+describe('SSJS insert-polyfill code action', () => {
+    it('offers an insert-polyfill action for a polyfillable diagnostic', () => {
+        const doc = {
+            text: 'var b = Array.isArray(x);',
+            languageId: 'ssjs',
+            uri: 'file:///t.ssjs',
+        };
+        const diags = service.validate(doc);
+        const polyDiag = diags.find((d) => d.code === 'ssjs/polyfillable');
+        assert.ok(polyDiag, 'expected a polyfillable diagnostic');
+        const actions = service.getCodeActions(doc, [polyDiag]);
+        const action = actions.find((a) => a.title.includes('Insert polyfill'));
+        assert.ok(action, 'expected an insert-polyfill code action');
+        assert.ok(action.edit?.changes?.['file:///t.ssjs']?.length === 1);
+        const newText = action.edit.changes['file:///t.ssjs'][0].newText;
+        assert.ok(newText.length > 0 && newText.includes('Array'), 'expected polyfill text');
+    });
+
+    it('does not offer the action when the polyfill is already present', () => {
+        const diagsProbe = service.validate({ text: 'Array.isArray(x);', languageId: 'ssjs' });
+        const probe = diagsProbe.find((d) => d.code === 'ssjs/polyfillable');
+        const marker = probe.data.polyfill
+            .split('\n')
+            .find((l) => l.trim().length > 0)
+            .trim();
+        const doc = {
+            text: `${marker}\nvar b = Array.isArray(x);`,
+            languageId: 'ssjs',
+            uri: 'file:///t.ssjs',
+        };
+        const diags = service.validate(doc);
+        const polyDiag = diags.find((d) => d.code === 'ssjs/polyfillable');
+        const actions = service.getCodeActions(doc, [polyDiag]);
+        assert.ok(
+            !actions.some((a) => a.title.includes('Insert polyfill')),
+            'must not offer insert-polyfill when already present',
+        );
+    });
 });
 
 // ── Completions ────────────────────────────────────────────────────────────
@@ -714,6 +824,21 @@ describe('Hover', () => {
         );
     });
 
+    it('ECMAScript builtin hover surfaces the SFMC engine caveat below the description', () => {
+        const line = 'var y = arr.slice(0, 1);';
+        const doc = { text: line, languageId: 'ssjs' };
+        // cursor on "slice" — Array.prototype.slice carries a caveat in ssjs-data
+        const hover = service.getHover(doc, line, { line: 0, character: 14 });
+        assert.ok(hover !== null, 'expected hover for Array.prototype.slice');
+        const value = hover.contents.value;
+        assert.match(value, /Caveat:/, `expected caveat label in hover, got: ${value}`);
+        assert.match(
+            value,
+            /no-argument form/i,
+            `expected slice caveat text in hover, got: ${value}`,
+        );
+    });
+
     it('returns null hover on object part of qualified call (Bug #1)', () => {
         // Bug #1: cursor on "Platform" in "Platform.Load" (twoPartPattern) should not
         // show Platform.Load method hover — only fire when cursor is on the member name
@@ -789,7 +914,7 @@ describe('Code Actions', () => {
         assert.ok(actions.some((a) => a.title.includes('block comment')));
     });
 
-    it('returns empty code actions for SSJS', () => {
+    it('returns empty code actions for SSJS with no diagnostics', () => {
         const doc = { text: 'var x = 1;', languageId: 'ssjs', uri: 'file:///test.ssjs' };
         const actions = service.getCodeActions(doc, []);
         assert.deepEqual(actions, []);

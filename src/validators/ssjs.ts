@@ -11,7 +11,37 @@ import {
     requiresCoreLoadGlobals,
     knownUnsupportedStaticLookup,
     knownUnsupportedPrototypeLookup,
+    polyfillableStaticLookup,
+    polyfillablePrototypeLookup,
 } from '../data/ssjs.js';
+
+// Diagnostic codes that code actions identify and act on, and that overlap with
+// eslint-plugin-sfmc rules. When `disableLspDiagnosticsForEslintRules` is enabled
+// these codes are filtered out (the eslint plugin reports the same problems via AST).
+export const DIAG_CODE_SSJS_KNOWN_UNSUPPORTED = 'ssjs/known-unsupported';
+export const DIAG_CODE_SSJS_POLYFILLABLE = 'ssjs/polyfillable';
+export const DIAG_CODE_SSJS_MCN_NOT_SUPPORTED = 'ssjs/mcn-not-supported';
+
+/**
+ * SSJS diagnostic codes that duplicate eslint-plugin-sfmc rules (the
+ * `ssjs/no-unavailable-method` rule covers both polyfillable and
+ * known-unsupported members) and can be suppressed via the
+ * `disableLspDiagnosticsForEslintRules` setting.
+ */
+export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
+    DIAG_CODE_SSJS_KNOWN_UNSUPPORTED,
+    DIAG_CODE_SSJS_POLYFILLABLE,
+]);
+
+/**
+ * Payload attached to `ssjs/polyfillable` diagnostics so the code action can
+ * insert the polyfill without re-deriving it from ssjs-data.
+ */
+export interface PolyfillDiagnosticData {
+    owner: string;
+    method: string;
+    polyfill: string;
+}
 
 /**
  * Validate an SSJS document and return LSP Diagnostics.
@@ -235,6 +265,7 @@ export function validateSsjs(
                 },
                 message: `${entry.owner}.${entry.member} is not available in SFMC SSJS. ${entry.suggestion}`,
                 source: 'ssjs',
+                code: DIAG_CODE_SSJS_KNOWN_UNSUPPORTED,
             });
         }
     }
@@ -261,6 +292,74 @@ export function validateSsjs(
                 },
                 message: `${entry.owner.replace('.prototype', '')}.prototype.${entry.member} is not available in SFMC SSJS (when called on a ${entry.owner.replace('.prototype', '')}). ${entry.suggestion}`,
                 source: 'ssjs',
+                code: DIAG_CODE_SSJS_KNOWN_UNSUPPORTED,
+            });
+        }
+    }
+
+    // 4c. Polyfillable members — flagged as warnings. These are absent/broken in
+    //     the SFMC engine but a verified polyfill exists in ssjs-data, so the
+    //     diagnostic carries the polyfill source in `data` for an "insert
+    //     polyfill" code action.
+    //
+    // 4c-i. Static polyfillable members (e.g. Array.isArray, Array.of, Math.max)
+    //       — matched on an explicit owner prefix.
+    if (polyfillableStaticLookup.size > 0) {
+        const staticPolyPattern = /\b([A-Z]\w*)\s*\.\s*([A-Za-z_$][\w$]*)/g;
+        let m: RegExpExecArray | null;
+        while ((m = staticPolyPattern.exec(text)) !== null && problems < max) {
+            if (isInCommentRange(m.index, commentRanges)) continue;
+            const entry = polyfillableStaticLookup.get(`${m[1]}.${m[2]}`.toLowerCase());
+            if (!entry) continue;
+            problems++;
+            const data: PolyfillDiagnosticData = {
+                owner: entry.owner,
+                method: entry.method,
+                polyfill: entry.polyfill,
+            };
+            diagnostics.push({
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, m.index),
+                    end: offsetToPosition(text, m.index + m[0].length),
+                },
+                message: `${entry.owner}.${entry.method} is not available in SFMC SSJS, but a polyfill exists. Insert the polyfill to use it safely.`,
+                source: 'ssjs',
+                code: DIAG_CODE_SSJS_POLYFILLABLE,
+                data,
+            });
+        }
+    }
+
+    // 4c-ii. Prototype polyfillable members (e.g. .forEach, .map, .filter).
+    //        Members also valid on String.prototype in ES3 (ambiguousWithString,
+    //        e.g. slice/indexOf/lastIndexOf) are EXCLUDED from the lookup to avoid
+    //        false positives on string receivers — only call-shaped uses match.
+    if (polyfillablePrototypeLookup.size > 0) {
+        const protoPolyPattern = /\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
+        let m: RegExpExecArray | null;
+        while ((m = protoPolyPattern.exec(text)) !== null && problems < max) {
+            if (isInCommentRange(m.index, commentRanges)) continue;
+            const entry = polyfillablePrototypeLookup.get(m[1].toLowerCase());
+            if (!entry) continue;
+            problems++;
+            const memberStart = m.index + m[0].indexOf(m[1]);
+            const owner = entry.owner.replace('.prototype', '');
+            const data: PolyfillDiagnosticData = {
+                owner: entry.owner,
+                method: entry.method,
+                polyfill: entry.polyfill,
+            };
+            diagnostics.push({
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, memberStart),
+                    end: offsetToPosition(text, memberStart + m[1].length),
+                },
+                message: `${owner}.prototype.${entry.method} is not available in SFMC SSJS (when called on a ${owner}), but a polyfill exists. Insert the polyfill to use it safely.`,
+                source: 'ssjs',
+                code: DIAG_CODE_SSJS_POLYFILLABLE,
+                data,
             });
         }
     }
@@ -280,7 +379,7 @@ export function validateSsjs(
             message:
                 'SSJS is not supported in Marketing Cloud Next. Rewrite this code in AMPscript.',
             source: 'ssjs',
-            code: 'ssjs/mcn-not-supported',
+            code: DIAG_CODE_SSJS_MCN_NOT_SUPPORTED,
         });
     }
 
