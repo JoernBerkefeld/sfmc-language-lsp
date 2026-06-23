@@ -12,6 +12,7 @@ import {
     requiresCoreLoadGlobals,
     polyfillableStaticLookup,
     polyfillablePrototypeLookup,
+    replaceableStaticLookup,
 } from '../data/ssjs.js';
 
 // Diagnostic codes that code actions identify and act on, and that overlap with
@@ -24,13 +25,20 @@ import {
 // diagnostic when a verified polyfill exists, so the user can act on it.
 export const DIAG_CODE_SSJS_POLYFILL_REQUIRED = 'ssjs/polyfill-required';
 export const DIAG_CODE_SSJS_MCN_NOT_SUPPORTED = 'ssjs/mcn-not-supported';
+// Static members with no polyfill but a direct Platform.Function replacement
+// (e.g. JSON.parse → Platform.Function.ParseJSON). TypeScript also flags these
+// (JSON is undefined), but we additionally offer a "replace with …" quick-fix.
+export const DIAG_CODE_SSJS_REPLACE_WITH_PLATFORM_FUNCTION = 'ssjs/replace-with-platform-function';
 
 /**
  * SSJS diagnostic codes that duplicate eslint-plugin-sfmc rules (the
  * `ssjs/no-unavailable-method` rule covers polyfill-required members) and can
  * be suppressed via the `disableLspDiagnosticsForEslintRules` setting.
  */
-export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([DIAG_CODE_SSJS_POLYFILL_REQUIRED]);
+export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
+    DIAG_CODE_SSJS_POLYFILL_REQUIRED,
+    DIAG_CODE_SSJS_REPLACE_WITH_PLATFORM_FUNCTION,
+]);
 
 /**
  * Payload attached to `ssjs/polyfill-required` diagnostics so the code action
@@ -40,6 +48,33 @@ export interface PolyfillDiagnosticData {
     owner: string;
     method: string;
     polyfill: string;
+}
+
+/**
+ * Payload attached to `ssjs/replace-with-platform-function` diagnostics so the
+ * code action can rewrite the call (e.g. `JSON.parse` → `Platform.Function.ParseJSON`).
+ */
+export interface ReplaceDiagnosticData {
+    owner: string;
+    member: string;
+    replacement: string;
+}
+
+/**
+ * Build the `ssjs/polyfill-required` diagnostic message, tailored to whether the
+ * member is absent from the SFMC engine (`category: 'unavailable'`) or present
+ * but returns wrong results (`category: 'broken'`).
+ * @param qualifiedName - Fully-qualified member, e.g. `Array.isArray` or `String.prototype.search`.
+ * @param category - Whether the member is unavailable or merely broken in the engine.
+ * @returns The diagnostic message string.
+ */
+function polyfillRequiredMessage(
+    qualifiedName: string,
+    category: 'unavailable' | 'broken',
+): string {
+    return category === 'broken'
+        ? `${qualifiedName} is broken in the SFMC SSJS engine and returns wrong results, but a polyfill exists. Insert the polyfill to use it safely.`
+        : `${qualifiedName} is not available in SFMC SSJS, but a polyfill exists. Insert the polyfill to use it safely.`;
 }
 
 /**
@@ -273,9 +308,40 @@ export function validateSsjs(
                     start: offsetToPosition(text, m.index),
                     end: offsetToPosition(text, m.index + m[0].length),
                 },
-                message: `${entry.owner}.${entry.method} is not available in SFMC SSJS, but a polyfill exists. Insert the polyfill to use it safely.`,
+                message: polyfillRequiredMessage(`${entry.owner}.${entry.method}`, entry.category),
                 source: 'ssjs',
                 code: DIAG_CODE_SSJS_POLYFILL_REQUIRED,
+                data,
+            });
+        }
+    }
+
+    // 4a-ii. Replaceable static members (no polyfill, but a direct
+    //        Platform.Function alternative exists, e.g. JSON.parse →
+    //        Platform.Function.ParseJSON). Emit a diagnostic carrying the
+    //        replacement so the editor can offer a "replace with …" quick-fix.
+    if (replaceableStaticLookup.size > 0) {
+        const replacePattern = /\b([A-Z]\w*)\s*\.\s*([A-Za-z_$][\w$]*)/g;
+        let m: RegExpExecArray | null;
+        while ((m = replacePattern.exec(text)) !== null && problems < max) {
+            if (isInCommentRange(m.index, commentRanges)) continue;
+            const entry = replaceableStaticLookup.get(`${m[1]}.${m[2]}`.toLowerCase());
+            if (!entry) continue;
+            problems++;
+            const data: ReplaceDiagnosticData = {
+                owner: entry.owner,
+                member: entry.member,
+                replacement: entry.replacement,
+            };
+            diagnostics.push({
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, m.index),
+                    end: offsetToPosition(text, m.index + m[0].length),
+                },
+                message: `${entry.owner}.${entry.member} is not available in SFMC SSJS. Use ${entry.replacement} instead.`,
+                source: 'ssjs',
+                code: DIAG_CODE_SSJS_REPLACE_WITH_PLATFORM_FUNCTION,
                 data,
             });
         }
@@ -307,7 +373,10 @@ export function validateSsjs(
                     start: offsetToPosition(text, memberStart),
                     end: offsetToPosition(text, memberStart + m[1].length),
                 },
-                message: `${owner}.prototype.${entry.method} is not available in SFMC SSJS (when called on a ${owner}), but a polyfill exists. Insert the polyfill to use it safely.`,
+                message: polyfillRequiredMessage(
+                    `${owner}.prototype.${entry.method}`,
+                    entry.category,
+                ),
                 source: 'ssjs',
                 code: DIAG_CODE_SSJS_POLYFILL_REQUIRED,
                 data,

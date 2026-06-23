@@ -565,9 +565,8 @@ describe('SSJS validation', () => {
         assert.ok(!diags.some((d) => d.message.includes('not available')));
     });
 
-    it('does not emit an ssjs diagnostic for no-polyfill members (JSON.parse, Object.keys, Math.trunc, Array.from)', () => {
+    it('does not emit an ssjs diagnostic for no-polyfill members (Object.keys, Math.trunc, Array.from)', () => {
         for (const text of [
-            'var o = JSON.parse(str);',
             'var k = Object.keys(obj);',
             'var n = Math.trunc(4.7);',
             'var a = Array.from("ab");',
@@ -582,22 +581,22 @@ describe('SSJS validation', () => {
 
     it('does not flag unsupported members inside comments', () => {
         const doc = {
-            text: '// var o = JSON.parse(str);\nvar b = name.includes("x"); // .includes',
+            text: '// var k = Object.keys(obj);\nvar b = name.includes("x"); // .includes',
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.message.includes('JSON.parse')),
-            'JSON.parse in comment must be ignored',
+            !diags.some((d) => d.message.includes('Object.keys')),
+            'Object.keys in comment must be ignored',
         );
     });
 
     it('does NOT emit a custom diagnostic for no-polyfill members (TypeScript owns them)', () => {
-        // JSON.parse is unsupported with no shipped polyfill — TS flags it, we do not.
-        const doc = { text: 'var o = JSON.parse(str);', languageId: 'ssjs' };
+        // Object.keys is unsupported with no shipped polyfill — TS flags it, we do not.
+        const doc = { text: 'var k = Object.keys(obj);', languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.source === 'ssjs' && d.message.includes('JSON.parse')),
+            !diags.some((d) => d.source === 'ssjs' && d.message.includes('Object.keys')),
             'no-polyfill members must not produce an ssjs diagnostic',
         );
     });
@@ -639,6 +638,36 @@ describe('SSJS polyfill-required diagnostics', () => {
         );
     });
 
+    it('uses "not available" wording for an unavailable member (Array.isArray)', () => {
+        const doc = { text: 'var b = Array.isArray(x);', languageId: 'ssjs' };
+        const d = service
+            .validate(doc)
+            .find(
+                (d) => d.code === 'ssjs/polyfill-required' && d.message.includes('Array.isArray'),
+            );
+        assert.ok(d, 'expected polyfill-required diagnostic for Array.isArray');
+        assert.ok(
+            d.message.includes('is not available in SFMC SSJS'),
+            `expected "not available" wording, got: ${d.message}`,
+        );
+    });
+
+    it('uses "broken" wording for a broken member (String.prototype.search)', () => {
+        const doc = { text: 'var i = str.search(/x/);', languageId: 'ssjs' };
+        const d = service
+            .validate(doc)
+            .find((d) => d.code === 'ssjs/polyfill-required' && d.message.includes('search'));
+        assert.ok(d, 'expected polyfill-required diagnostic for String.search');
+        assert.ok(
+            d.message.includes('is broken in the SFMC SSJS engine'),
+            `expected "broken" wording, got: ${d.message}`,
+        );
+        assert.ok(
+            !d.message.includes('when called on a'),
+            `expected no "(when called on a …)" phrase, got: ${d.message}`,
+        );
+    });
+
     it('suppresses the diagnostic once the polyfill is already present in the document', () => {
         const probe = service
             .validate({ text: 'Array.isArray(x);', languageId: 'ssjs' })
@@ -666,6 +695,59 @@ describe('SSJS polyfill-required diagnostics', () => {
     });
 });
 
+// ── Replace-with-Platform.Function diagnostics ───────────────────────────────
+
+describe('SSJS replace-with-platform-function diagnostics', () => {
+    it('reports JSON.parse with a replacement to Platform.Function.ParseJSON', () => {
+        const doc = { text: 'var o = JSON.parse(str);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find(
+            (d) =>
+                d.code === 'ssjs/replace-with-platform-function' &&
+                d.message.includes('JSON.parse'),
+        );
+        assert.ok(d, 'expected replace diagnostic for JSON.parse');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.equal(d.data.owner, 'JSON');
+        assert.equal(d.data.member, 'parse');
+        assert.equal(d.data.replacement, 'Platform.Function.ParseJSON');
+    });
+
+    it('reports JSON.stringify with a replacement to Platform.Function.Stringify', () => {
+        const doc = { text: 'var s = JSON.stringify(obj);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find(
+            (d) =>
+                d.code === 'ssjs/replace-with-platform-function' &&
+                d.message.includes('JSON.stringify'),
+        );
+        assert.ok(d, 'expected replace diagnostic for JSON.stringify');
+        assert.equal(d.data.replacement, 'Platform.Function.Stringify');
+    });
+
+    it('does not flag JSON.parse inside a comment', () => {
+        const doc = { text: '// var o = JSON.parse(str);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(!diags.some((d) => d.code === 'ssjs/replace-with-platform-function'));
+    });
+
+    it('offers a replace code action for the replace diagnostic', () => {
+        const doc = {
+            text: 'var o = JSON.parse(str);',
+            languageId: 'ssjs',
+            uri: 'file:///t.ssjs',
+        };
+        const diags = service.validate(doc);
+        const replaceDiag = diags.find((d) => d.code === 'ssjs/replace-with-platform-function');
+        assert.ok(replaceDiag, 'expected a replace diagnostic');
+        const actions = service.getCodeActions(doc, [replaceDiag]);
+        const action = actions.find((a) => a.title.includes('Platform.Function.ParseJSON'));
+        assert.ok(action, 'expected a replace code action');
+        const edit = action.edit.changes['file:///t.ssjs'][0];
+        assert.equal(edit.newText, 'Platform.Function.ParseJSON');
+    });
+});
+
 // ── SSJS eslint-overlap filtering ────────────────────────────────────────────
 
 describe('SSJS disableLspDiagnosticsForEslintRules', () => {
@@ -676,6 +758,15 @@ describe('SSJS disableLspDiagnosticsForEslintRules', () => {
             disableLspDiagnosticsForEslintRules: true,
         });
         assert.ok(!diags.some((d) => d.code === 'ssjs/polyfill-required'));
+    });
+
+    it('suppresses replace-with-platform-function diagnostics when enabled', () => {
+        const doc = { text: 'var o = JSON.parse(str);', languageId: 'ssjs' };
+        const diags = service.validate(doc, {
+            maxNumberOfProblems: 100,
+            disableLspDiagnosticsForEslintRules: true,
+        });
+        assert.ok(!diags.some((d) => d.code === 'ssjs/replace-with-platform-function'));
     });
 
     it('still reports polyfill-required diagnostics when disabled (default)', () => {
@@ -703,6 +794,42 @@ describe('SSJS insert-polyfill code action', () => {
         assert.ok(action.edit?.changes?.['file:///t.ssjs']?.length === 1);
         const newText = action.edit.changes['file:///t.ssjs'][0].newText;
         assert.ok(newText.length > 0 && newText.includes('Array'), 'expected polyfill text');
+    });
+
+    it('inserts the polyfill after a leading /* global */ directive', () => {
+        const doc = {
+            text: '/* global DEBUG, deKey */\nvar b = Array.isArray(x);',
+            languageId: 'ssjs',
+            uri: 'file:///t.ssjs',
+        };
+        const diags = service.validate(doc);
+        const polyDiag = diags.find((d) => d.code === 'ssjs/polyfill-required');
+        assert.ok(polyDiag, 'expected a polyfill-required diagnostic');
+        const action = service
+            .getCodeActions(doc, [polyDiag])
+            .find((a) => a.title.includes('Insert polyfill'));
+        assert.ok(action, 'expected an insert-polyfill code action');
+        const edit = action.edit.changes['file:///t.ssjs'][0];
+        assert.deepEqual(
+            edit.range.start,
+            { line: 1, character: 0 },
+            'polyfill must be inserted on the line after the /* global */ directive',
+        );
+    });
+
+    it('inserts the polyfill at the top when there is no /* global */ directive', () => {
+        const doc = {
+            text: 'var b = Array.isArray(x);',
+            languageId: 'ssjs',
+            uri: 'file:///t.ssjs',
+        };
+        const diags = service.validate(doc);
+        const polyDiag = diags.find((d) => d.code === 'ssjs/polyfill-required');
+        const action = service
+            .getCodeActions(doc, [polyDiag])
+            .find((a) => a.title.includes('Insert polyfill'));
+        const edit = action.edit.changes['file:///t.ssjs'][0];
+        assert.deepEqual(edit.range.start, { line: 0, character: 0 });
     });
 
     it('does not offer the action when the polyfill is already present', () => {
