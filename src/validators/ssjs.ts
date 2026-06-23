@@ -4,13 +4,12 @@ import type { SfmcSettings } from '../types.js';
 import { DEFAULT_SETTINGS } from '../types.js';
 import { buildCommentRanges, isInCommentRange } from '../utils/comments.js';
 import { offsetToPosition } from '../utils/positions.js';
+import { isPolyfillPresent } from '../utils/polyfill.js';
 import {
     httpHeaderMethods,
     dateTimeTimezoneMethods,
     errorUtilMethods,
     requiresCoreLoadGlobals,
-    knownUnsupportedStaticLookup,
-    knownUnsupportedPrototypeLookup,
     polyfillableStaticLookup,
     polyfillablePrototypeLookup,
 } from '../data/ssjs.js';
@@ -18,24 +17,24 @@ import {
 // Diagnostic codes that code actions identify and act on, and that overlap with
 // eslint-plugin-sfmc rules. When `disableLspDiagnosticsForEslintRules` is enabled
 // these codes are filtered out (the eslint plugin reports the same problems via AST).
-export const DIAG_CODE_SSJS_KNOWN_UNSUPPORTED = 'ssjs/known-unsupported';
-export const DIAG_CODE_SSJS_POLYFILLABLE = 'ssjs/polyfillable';
+//
+// Methods that are simply absent in the SFMC engine and have NO polyfill are
+// intentionally NOT diagnosed here — TypeScript's own diagnostics (e.g.
+// `sfmc-ts(2550)` / `sfmc-ts(2304)`) already flag those. We only emit a
+// diagnostic when a verified polyfill exists, so the user can act on it.
+export const DIAG_CODE_SSJS_POLYFILL_REQUIRED = 'ssjs/polyfill-required';
 export const DIAG_CODE_SSJS_MCN_NOT_SUPPORTED = 'ssjs/mcn-not-supported';
 
 /**
  * SSJS diagnostic codes that duplicate eslint-plugin-sfmc rules (the
- * `ssjs/no-unavailable-method` rule covers both polyfillable and
- * known-unsupported members) and can be suppressed via the
- * `disableLspDiagnosticsForEslintRules` setting.
+ * `ssjs/no-unavailable-method` rule covers polyfill-required members) and can
+ * be suppressed via the `disableLspDiagnosticsForEslintRules` setting.
  */
-export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
-    DIAG_CODE_SSJS_KNOWN_UNSUPPORTED,
-    DIAG_CODE_SSJS_POLYFILLABLE,
-]);
+export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([DIAG_CODE_SSJS_POLYFILL_REQUIRED]);
 
 /**
- * Payload attached to `ssjs/polyfillable` diagnostics so the code action can
- * insert the polyfill without re-deriving it from ssjs-data.
+ * Payload attached to `ssjs/polyfill-required` diagnostics so the code action
+ * can insert the polyfill without re-deriving it from ssjs-data.
  */
 export interface PolyfillDiagnosticData {
     owner: string;
@@ -243,67 +242,17 @@ export function validateSsjs(
         }
     }
 
-    // 4. Known-unsupported ECMAScript built-in members (confirmed absent/broken
-    //    in the SFMC engine and not covered by a shipped polyfill).
-
-    // 4a. Static members — flagged as errors because the owner prefix is explicit
-    //     (e.g. JSON.parse, Object.keys, Math.trunc, Array.from, Number.isInteger).
-    if (knownUnsupportedStaticLookup.size > 0) {
-        const staticPattern = /\b([A-Z]\w*)\s*\.\s*([A-Za-z_$][\w$]*)/g;
-        let staticMatch: RegExpExecArray | null;
-        while ((staticMatch = staticPattern.exec(text)) !== null && problems < max) {
-            if (isInCommentRange(staticMatch.index, commentRanges)) continue;
-            const key = `${staticMatch[1]}.${staticMatch[2]}`.toLowerCase();
-            const entry = knownUnsupportedStaticLookup.get(key);
-            if (!entry) continue;
-            problems++;
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, staticMatch.index),
-                    end: offsetToPosition(text, staticMatch.index + staticMatch[0].length),
-                },
-                message: `${entry.owner}.${entry.member} is not available in SFMC SSJS. ${entry.suggestion}`,
-                source: 'ssjs',
-                code: DIAG_CODE_SSJS_KNOWN_UNSUPPORTED,
-            });
-        }
-    }
-
-    // 4b. Prototype (instance) members — flagged as warnings because a regex
-    //     cannot prove the receiver type (e.g. ".includes(", ".flat(",
-    //     ".trimStart("). Only call-shaped uses (member followed by "(") are
-    //     considered to reduce false positives on property reads.
-    if (knownUnsupportedPrototypeLookup.size > 0) {
-        const protoPattern = /\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
-        let protoMatch: RegExpExecArray | null;
-        while ((protoMatch = protoPattern.exec(text)) !== null && problems < max) {
-            if (isInCommentRange(protoMatch.index, commentRanges)) continue;
-            const entry = knownUnsupportedPrototypeLookup.get(protoMatch[1].toLowerCase());
-            if (!entry) continue;
-            // Skip if preceded by a known static owner — that case is handled by 4a.
-            problems++;
-            const memberStart = protoMatch.index + protoMatch[0].indexOf(protoMatch[1]);
-            diagnostics.push({
-                severity: DiagnosticSeverity.Warning,
-                range: {
-                    start: offsetToPosition(text, memberStart),
-                    end: offsetToPosition(text, memberStart + protoMatch[1].length),
-                },
-                message: `${entry.owner.replace('.prototype', '')}.prototype.${entry.member} is not available in SFMC SSJS (when called on a ${entry.owner.replace('.prototype', '')}). ${entry.suggestion}`,
-                source: 'ssjs',
-                code: DIAG_CODE_SSJS_KNOWN_UNSUPPORTED,
-            });
-        }
-    }
-
-    // 4c. Polyfillable members — flagged as warnings. These are absent/broken in
-    //     the SFMC engine but a verified polyfill exists in ssjs-data, so the
-    //     diagnostic carries the polyfill source in `data` for an "insert
-    //     polyfill" code action.
+    // 4. Polyfill-required ECMAScript built-in members. These are absent/broken
+    //    in the SFMC engine but a verified polyfill exists in ssjs-data, so the
+    //    diagnostic carries the polyfill source in `data` for an "insert
+    //    polyfill" code action. Members with NO polyfill are deliberately left
+    //    to TypeScript's own diagnostics and are not reported here.
     //
-    // 4c-i. Static polyfillable members (e.g. Array.isArray, Array.of, Math.max)
-    //       — matched on an explicit owner prefix.
+    //    When the polyfill is already present in the document the diagnostic is
+    //    suppressed entirely (no squiggle) — the method is now safe to use.
+    //
+    // 4a. Static polyfillable members (e.g. Array.isArray, Array.of, Math.max)
+    //     — matched on an explicit owner prefix.
     if (polyfillableStaticLookup.size > 0) {
         const staticPolyPattern = /\b([A-Z]\w*)\s*\.\s*([A-Za-z_$][\w$]*)/g;
         let m: RegExpExecArray | null;
@@ -311,6 +260,7 @@ export function validateSsjs(
             if (isInCommentRange(m.index, commentRanges)) continue;
             const entry = polyfillableStaticLookup.get(`${m[1]}.${m[2]}`.toLowerCase());
             if (!entry) continue;
+            if (isPolyfillPresent(text, entry.polyfill)) continue;
             problems++;
             const data: PolyfillDiagnosticData = {
                 owner: entry.owner,
@@ -325,16 +275,16 @@ export function validateSsjs(
                 },
                 message: `${entry.owner}.${entry.method} is not available in SFMC SSJS, but a polyfill exists. Insert the polyfill to use it safely.`,
                 source: 'ssjs',
-                code: DIAG_CODE_SSJS_POLYFILLABLE,
+                code: DIAG_CODE_SSJS_POLYFILL_REQUIRED,
                 data,
             });
         }
     }
 
-    // 4c-ii. Prototype polyfillable members (e.g. .forEach, .map, .filter).
-    //        Members also valid on String.prototype in ES3 (ambiguousWithString,
-    //        e.g. slice/indexOf/lastIndexOf) are EXCLUDED from the lookup to avoid
-    //        false positives on string receivers — only call-shaped uses match.
+    // 4b. Prototype polyfillable members (e.g. .forEach, .map, .filter).
+    //     Members also valid on String.prototype in ES3 (ambiguousWithString,
+    //     e.g. slice/indexOf/lastIndexOf) are EXCLUDED from the lookup to avoid
+    //     false positives on string receivers — only call-shaped uses match.
     if (polyfillablePrototypeLookup.size > 0) {
         const protoPolyPattern = /\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
         let m: RegExpExecArray | null;
@@ -342,6 +292,7 @@ export function validateSsjs(
             if (isInCommentRange(m.index, commentRanges)) continue;
             const entry = polyfillablePrototypeLookup.get(m[1].toLowerCase());
             if (!entry) continue;
+            if (isPolyfillPresent(text, entry.polyfill)) continue;
             problems++;
             const memberStart = m.index + m[0].indexOf(m[1]);
             const owner = entry.owner.replace('.prototype', '');
@@ -358,7 +309,7 @@ export function validateSsjs(
                 },
                 message: `${owner}.prototype.${entry.method} is not available in SFMC SSJS (when called on a ${owner}), but a polyfill exists. Insert the polyfill to use it safely.`,
                 source: 'ssjs',
-                code: DIAG_CODE_SSJS_POLYFILLABLE,
+                code: DIAG_CODE_SSJS_POLYFILL_REQUIRED,
                 data,
             });
         }
