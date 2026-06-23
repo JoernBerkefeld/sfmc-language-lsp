@@ -26,6 +26,7 @@ import {
     SCRIPT_UTIL_REQUEST_METHODS,
     ECMASCRIPT_BUILTINS,
     POLYFILLABLE_METHODS,
+    KNOWN_UNSUPPORTED,
 } from 'ssjs-data';
 import { ECMASCRIPT_URLS, GUIDE_BASE_URL, mdnBuiltinUrl } from 'ssjs-data/urls';
 
@@ -267,4 +268,34 @@ export const polyfillablePrototypeLookup = new Map<string, PolyfillableMethod>(
     polyfillableMethods
         .filter((m) => !m.isStatic && !m.ambiguousWithString)
         .map((m) => [m.method.toLowerCase(), m]),
+);
+
+// ── Replaceable static members (Platform.Function alternative) ───────────────
+
+export interface ReplaceableMethod {
+    member: string;
+    owner: string;
+    replacement: string;
+    suggestion: string;
+}
+
+/**
+ * Static members with NO polyfill that have a direct `Platform.Function.*`
+ * replacement (e.g. `JSON.parse` → `Platform.Function.ParseJSON`). Keyed by
+ * `Owner.member` (lowercased). Consumed by validateSsjs to emit a
+ * `ssjs/replace-with-platform-function` diagnostic carrying the replacement,
+ * so the editor can offer a "replace with …" quick-fix.
+ */
+export const replaceableStaticLookup = new Map<string, ReplaceableMethod>(
+    (KNOWN_UNSUPPORTED as Array<(typeof KNOWN_UNSUPPORTED)[number] & { replacement?: string }>)
+        .filter((m) => m.isStatic && typeof m.replacement === 'string')
+        .map((m) => [
+            `${m.owner}.${m.member}`.toLowerCase(),
+            {
+                member: m.member,
+                owner: m.owner,
+                replacement: m.replacement as string,
+                suggestion: m.suggestion,
+            },
+        ]),
 );
