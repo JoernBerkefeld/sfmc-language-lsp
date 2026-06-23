@@ -557,34 +557,7 @@ describe('SSJS validation', () => {
         );
     });
 
-    // ── Known-unsupported ECMAScript members ─────────────────────────────────
-
-    it('reports JSON.parse as an unsupported static member (Error)', () => {
-        const doc = { text: 'var o = JSON.parse(str);', languageId: 'ssjs' };
-        const diags = service.validate(doc);
-        const d = diags.find((d) => d.message.includes('JSON.parse'));
-        assert.ok(d, 'expected diagnostic for JSON.parse');
-        assert.equal(d.severity, 1, 'expected Error severity');
-        assert.ok(d.message.includes('ParseJSON'), 'expected suggestion to mention ParseJSON');
-    });
-
-    it('reports Object.keys as an unsupported static member', () => {
-        const doc = { text: 'var k = Object.keys(obj);', languageId: 'ssjs' };
-        const diags = service.validate(doc);
-        assert.ok(diags.some((d) => d.message.includes('Object.keys')));
-    });
-
-    it('reports Math.trunc as an unsupported static member', () => {
-        const doc = { text: 'var n = Math.trunc(4.7);', languageId: 'ssjs' };
-        const diags = service.validate(doc);
-        assert.ok(diags.some((d) => d.message.includes('Math.trunc')));
-    });
-
-    it('reports Array.from as an unsupported static member', () => {
-        const doc = { text: 'var a = Array.from("ab");', languageId: 'ssjs' };
-        const diags = service.validate(doc);
-        assert.ok(diags.some((d) => d.message.includes('Array.from')));
-    });
+    // ── No-polyfill ECMAScript members (handled by TypeScript, not by us) ─────
 
     it('does not flag a supported static member (Math.floor)', () => {
         const doc = { text: 'var n = Math.floor(4.7);', languageId: 'ssjs' };
@@ -592,20 +565,19 @@ describe('SSJS validation', () => {
         assert.ok(!diags.some((d) => d.message.includes('not available')));
     });
 
-    it('reports a prototype member .includes() as a Warning', () => {
-        const doc = { text: 'var b = name.includes("x");', languageId: 'ssjs' };
-        const diags = service.validate(doc);
-        const d = diags.find((d) => d.message.includes('String.prototype.includes'));
-        assert.ok(d, 'expected diagnostic for .includes()');
-        assert.equal(d.severity, 2, 'expected Warning severity');
-    });
-
-    it('reports a prototype member .flat() as a Warning', () => {
-        const doc = { text: 'var f = arr.flat();', languageId: 'ssjs' };
-        const diags = service.validate(doc);
-        assert.ok(
-            diags.some((d) => d.message.includes('Array.prototype.flat') && d.severity === 2),
-        );
+    it('does not emit an ssjs diagnostic for no-polyfill members (JSON.parse, Object.keys, Math.trunc, Array.from)', () => {
+        for (const text of [
+            'var o = JSON.parse(str);',
+            'var k = Object.keys(obj);',
+            'var n = Math.trunc(4.7);',
+            'var a = Array.from("ab");',
+        ]) {
+            const diags = service.validate({ text, languageId: 'ssjs' });
+            assert.ok(
+                !diags.some((d) => d.source === 'ssjs' && d.message.includes('not available')),
+                `no-polyfill member must not produce an ssjs diagnostic: ${text}`,
+            );
+        }
     });
 
     it('does not flag unsupported members inside comments', () => {
@@ -620,25 +592,27 @@ describe('SSJS validation', () => {
         );
     });
 
-    it('tags known-unsupported diagnostics with the ssjs/known-unsupported code', () => {
+    it('does NOT emit a custom diagnostic for no-polyfill members (TypeScript owns them)', () => {
+        // JSON.parse is unsupported with no shipped polyfill — TS flags it, we do not.
         const doc = { text: 'var o = JSON.parse(str);', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.message.includes('JSON.parse'));
-        assert.ok(d, 'expected diagnostic for JSON.parse');
-        assert.equal(d.code, 'ssjs/known-unsupported');
+        assert.ok(
+            !diags.some((d) => d.source === 'ssjs' && d.message.includes('JSON.parse')),
+            'no-polyfill members must not produce an ssjs diagnostic',
+        );
     });
 });
 
-// ── Polyfillable ECMAScript members ──────────────────────────────────────────
+// ── Polyfill-required ECMAScript members ─────────────────────────────────────
 
-describe('SSJS polyfillable diagnostics', () => {
+describe('SSJS polyfill-required diagnostics', () => {
     it('reports a static polyfillable member (Array.isArray) as a Warning with polyfill data', () => {
         const doc = { text: 'var b = Array.isArray(x);', languageId: 'ssjs' };
         const diags = service.validate(doc);
         const d = diags.find(
-            (d) => d.code === 'ssjs/polyfillable' && d.message.includes('Array.isArray'),
+            (d) => d.code === 'ssjs/polyfill-required' && d.message.includes('Array.isArray'),
         );
-        assert.ok(d, 'expected polyfillable diagnostic for Array.isArray');
+        assert.ok(d, 'expected polyfill-required diagnostic for Array.isArray');
         assert.equal(d.severity, 2, 'expected Warning severity');
         assert.ok(d.data && typeof d.data.polyfill === 'string' && d.data.polyfill.length > 0);
         assert.equal(d.data.owner, 'Array');
@@ -649,9 +623,9 @@ describe('SSJS polyfillable diagnostics', () => {
         const doc = { text: 'arr.forEach(fn);', languageId: 'ssjs' };
         const diags = service.validate(doc);
         const d = diags.find(
-            (d) => d.code === 'ssjs/polyfillable' && d.message.includes('forEach'),
+            (d) => d.code === 'ssjs/polyfill-required' && d.message.includes('forEach'),
         );
-        assert.ok(d, 'expected polyfillable diagnostic for .forEach');
+        assert.ok(d, 'expected polyfill-required diagnostic for .forEach');
         assert.equal(d.severity, 2, 'expected Warning severity');
         assert.ok(d.data && typeof d.data.polyfill === 'string' && d.data.polyfill.length > 0);
     });
@@ -660,8 +634,34 @@ describe('SSJS polyfillable diagnostics', () => {
         const doc = { text: 'var s = str.slice(1, 3);', languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.code === 'ssjs/polyfillable' && d.message.includes('slice')),
-            '.slice() must not be flagged by the polyfillable warning',
+            !diags.some((d) => d.code === 'ssjs/polyfill-required' && d.message.includes('slice')),
+            '.slice() must not be flagged by the polyfill-required warning',
+        );
+    });
+
+    it('suppresses the diagnostic once the polyfill is already present in the document', () => {
+        const probe = service
+            .validate({ text: 'Array.isArray(x);', languageId: 'ssjs' })
+            .find((d) => d.code === 'ssjs/polyfill-required');
+        // Marker = first code line, skipping the leading JSDoc block — matches
+        // polyfillMarker() in src/utils/polyfill.ts.
+        const marker = probe.data.polyfill
+            .split('\n')
+            .map((l) => l.trim())
+            .find(
+                (l) =>
+                    l.length > 0 &&
+                    !l.startsWith('/**') &&
+                    !l.startsWith('*') &&
+                    !l.startsWith('*/'),
+            );
+        const doc = { text: `${marker}\nvar b = Array.isArray(x);`, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(
+            !diags.some(
+                (d) => d.code === 'ssjs/polyfill-required' && d.message.includes('isArray'),
+            ),
+            'diagnostic must be suppressed when the polyfill is present',
         );
     });
 });
@@ -669,38 +669,34 @@ describe('SSJS polyfillable diagnostics', () => {
 // ── SSJS eslint-overlap filtering ────────────────────────────────────────────
 
 describe('SSJS disableLspDiagnosticsForEslintRules', () => {
-    it('suppresses known-unsupported + polyfillable diagnostics when enabled', () => {
-        const doc = {
-            text: 'var o = JSON.parse(str);\nvar b = Array.isArray(x);',
-            languageId: 'ssjs',
-        };
+    it('suppresses polyfill-required diagnostics when enabled', () => {
+        const doc = { text: 'var b = Array.isArray(x);', languageId: 'ssjs' };
         const diags = service.validate(doc, {
             maxNumberOfProblems: 100,
             disableLspDiagnosticsForEslintRules: true,
         });
-        assert.ok(!diags.some((d) => d.code === 'ssjs/known-unsupported'));
-        assert.ok(!diags.some((d) => d.code === 'ssjs/polyfillable'));
+        assert.ok(!diags.some((d) => d.code === 'ssjs/polyfill-required'));
     });
 
-    it('still reports known-unsupported diagnostics when disabled (default)', () => {
-        const doc = { text: 'var o = JSON.parse(str);', languageId: 'ssjs' };
+    it('still reports polyfill-required diagnostics when disabled (default)', () => {
+        const doc = { text: 'var b = Array.isArray(x);', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.some((d) => d.code === 'ssjs/known-unsupported'));
+        assert.ok(diags.some((d) => d.code === 'ssjs/polyfill-required'));
     });
 });
 
 // ── SSJS code actions ────────────────────────────────────────────────────────
 
 describe('SSJS insert-polyfill code action', () => {
-    it('offers an insert-polyfill action for a polyfillable diagnostic', () => {
+    it('offers an insert-polyfill action for a polyfill-required diagnostic', () => {
         const doc = {
             text: 'var b = Array.isArray(x);',
             languageId: 'ssjs',
             uri: 'file:///t.ssjs',
         };
         const diags = service.validate(doc);
-        const polyDiag = diags.find((d) => d.code === 'ssjs/polyfillable');
-        assert.ok(polyDiag, 'expected a polyfillable diagnostic');
+        const polyDiag = diags.find((d) => d.code === 'ssjs/polyfill-required');
+        assert.ok(polyDiag, 'expected a polyfill-required diagnostic');
         const actions = service.getCodeActions(doc, [polyDiag]);
         const action = actions.find((a) => a.title.includes('Insert polyfill'));
         assert.ok(action, 'expected an insert-polyfill code action');
@@ -711,18 +707,34 @@ describe('SSJS insert-polyfill code action', () => {
 
     it('does not offer the action when the polyfill is already present', () => {
         const diagsProbe = service.validate({ text: 'Array.isArray(x);', languageId: 'ssjs' });
-        const probe = diagsProbe.find((d) => d.code === 'ssjs/polyfillable');
+        const probe = diagsProbe.find((d) => d.code === 'ssjs/polyfill-required');
+        // Marker = first code line, skipping the leading JSDoc block — matches
+        // polyfillMarker() in src/utils/polyfill.ts.
         const marker = probe.data.polyfill
             .split('\n')
-            .find((l) => l.trim().length > 0)
-            .trim();
+            .map((l) => l.trim())
+            .find(
+                (l) =>
+                    l.length > 0 &&
+                    !l.startsWith('/**') &&
+                    !l.startsWith('*') &&
+                    !l.startsWith('*/'),
+            );
         const doc = {
             text: `${marker}\nvar b = Array.isArray(x);`,
             languageId: 'ssjs',
             uri: 'file:///t.ssjs',
         };
-        const diags = service.validate(doc);
-        const polyDiag = diags.find((d) => d.code === 'ssjs/polyfillable');
+        // The diagnostic itself is now suppressed, but even if a stale diagnostic
+        // were passed, the action must not be offered when the marker is present.
+        const polyDiag = {
+            code: 'ssjs/polyfill-required',
+            source: 'ssjs',
+            data: probe.data,
+            range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } },
+            message: probe.message,
+            severity: 2,
+        };
         const actions = service.getCodeActions(doc, [polyDiag]);
         assert.ok(
             !actions.some((a) => a.title.includes('Insert polyfill')),

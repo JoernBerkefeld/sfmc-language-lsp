@@ -25,7 +25,6 @@ import {
     SCRIPT_UTIL_CONSTRUCTORS,
     SCRIPT_UTIL_REQUEST_METHODS,
     ECMASCRIPT_BUILTINS,
-    KNOWN_UNSUPPORTED,
     POLYFILLABLE_METHODS,
 } from 'ssjs-data';
 import { ECMASCRIPT_URLS, GUIDE_BASE_URL, mdnBuiltinUrl } from 'ssjs-data/urls';
@@ -64,17 +63,6 @@ export interface EcmascriptBuiltin {
     example?: string;
     guideUrl?: string;
     mdnUrl?: string;
-}
-
-export interface KnownUnsupportedMember {
-    member: string;
-    owner: string;
-    esVersion: 3 | 5 | 6;
-    isStatic: boolean;
-    isProperty?: boolean;
-    category: 'unavailable' | 'broken';
-    hasPolyfill: boolean;
-    suggestion: string;
 }
 
 export interface PolyfillableMethod {
@@ -243,37 +231,6 @@ export const ecmascriptBuiltins: EcmascriptBuiltin[] = ECMASCRIPT_BUILTINS.map((
         mdnUrl: mdnBuiltinUrl(b.owner, b.name),
     };
 });
-
-// ── Known-unsupported ECMAScript members ─────────────────────────────────────
-
-/**
- * ECMAScript members empirically confirmed ABSENT or BROKEN in the SFMC SSJS
- * engine and not covered by a shipped polyfill. Consumed by validateSsjs to
- * warn when authored/generated SSJS references a member that fails at runtime.
- */
-export const knownUnsupportedMembers: KnownUnsupportedMember[] = KNOWN_UNSUPPORTED.map((m) => ({
-    ...m,
-}));
-
-/**
- * Static known-unsupported members keyed by `Owner.member` (lowercased), e.g.
- * `json.parse`, `object.keys`, `math.trunc`. These have an explicit owner
- * prefix in source so they can be flagged unambiguously.
- */
-export const knownUnsupportedStaticLookup = new Map<string, KnownUnsupportedMember>(
-    knownUnsupportedMembers
-        .filter((m) => m.isStatic)
-        .map((m) => [`${m.owner}.${m.member}`.toLowerCase(), m]),
-);
-
-/**
- * Prototype (instance) known-unsupported members keyed by member name
- * (lowercased), e.g. `includes`, `flat`, `trimstart`. Flagged as warnings
- * because a regex cannot prove the receiver's type.
- */
-export const knownUnsupportedPrototypeLookup = new Map<string, KnownUnsupportedMember>(
-    knownUnsupportedMembers.filter((m) => !m.isStatic).map((m) => [m.member.toLowerCase(), m]),
-);
 
 // ── Polyfillable ECMAScript members ──────────────────────────────────────────
 
