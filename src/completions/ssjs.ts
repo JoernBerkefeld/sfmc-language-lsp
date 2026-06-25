@@ -278,8 +278,29 @@ function buildSsjsCatalog(): CompletionItem[] {
         });
     }
 
+    // Static/namespace owners whose members are legitimately accessed as
+    // `Owner.member` (e.g. Math.floor, Date.now, Object.defineProperty).
+    const STATIC_ECMA_OWNERS = new Set(['Math', 'Date', 'Object']);
+
     for (const b of ecmascriptBuiltins) {
-        const label = `${b.owner.replace('.prototype', '')}.${b.name}`;
+        // Skip prototype/instance members. They are accessed on a VALUE
+        // (e.g. "foo".charAt, myArr.push, myRegExp.test) and are provided by
+        // the TypeScript service on the instance type — never as a top-level
+        // `Owner.member` identifier. Emitting them here produced misleading
+        // global completions like `String.charAt`, `Array.push`, and
+        // `RegExp.test` (RegExp's members live on the instance, not the
+        // constructor). The owner is either `X.prototype` or, for RegExp,
+        // the bare constructor name with instance-only members.
+        const isPrototypeMember = b.owner.endsWith('.prototype') || b.owner === 'RegExp';
+        if (isPrototypeMember) {
+            continue;
+        }
+
+        // `Global` owner members are bare global identifiers (parseInt,
+        // isNaN, RegExp constructor) — NOT `Global.parseInt`.
+        const isStaticOwner = STATIC_ECMA_OWNERS.has(b.owner);
+        const label = isStaticOwner ? `${b.owner}.${b.name}` : b.name;
+
         items.push({
             label,
             kind: CompletionItemKind.Method,
