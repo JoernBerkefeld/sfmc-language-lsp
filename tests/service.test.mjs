@@ -1641,3 +1641,48 @@ describe('SSJS generator-function diagnostic', () => {
         );
     });
 });
+
+// ── SSJS ECMAScript builtin completion labels ──────────────────────────────
+
+const ssjsCompletionLabelSet = () =>
+    new Set(
+        service
+            .getCompletions({ text: '', languageId: 'ssjs' }, { line: 0, character: 0 })
+            .map((i) => i.label),
+    );
+
+describe('SSJS ECMAScript builtin completions', () => {
+    it('does not offer prototype/instance members as top-level globals', () => {
+        const labels = ssjsCompletionLabelSet();
+        // RegExp members live on the instance, not the constructor — never
+        // as `RegExp.test` / `RegExp.exec` / `RegExp.lastIndex` globals.
+        for (const bogus of [
+            'RegExp.test',
+            'RegExp.exec',
+            'RegExp.source',
+            'RegExp.global',
+            'RegExp.lastIndex',
+            'String.charAt',
+            'Array.push',
+            'Date.getFullYear',
+            'Global.parseInt',
+            'Global.RegExp',
+        ]) {
+            assert.ok(!labels.has(bogus), `did not expect bogus global completion "${bogus}"`);
+        }
+    });
+
+    it('offers Global members as bare identifiers', () => {
+        const labels = ssjsCompletionLabelSet();
+        for (const bare of ['parseInt', 'parseFloat', 'isNaN', 'isFinite', 'RegExp']) {
+            assert.ok(labels.has(bare), `expected bare global completion "${bare}"`);
+        }
+    });
+
+    it('offers static-owner members as Owner.member', () => {
+        const labels = ssjsCompletionLabelSet();
+        for (const qualified of ['Math.floor', 'Math.PI', 'Date.now', 'Object.defineProperty']) {
+            assert.ok(labels.has(qualified), `expected static completion "${qualified}"`);
+        }
+    });
+});
