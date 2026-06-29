@@ -5,6 +5,7 @@
 
 import type { AmpscriptFunction } from '../data/ampscript.js';
 import type { SsjsFunction, EcmascriptBuiltin } from '../data/ssjs.js';
+import type { HandlebarsHelper, HandlebarsBinding } from '../data/handlebars.js';
 
 export interface LocalSsjsFunction {
     name: string;
@@ -249,4 +250,97 @@ export function buildSsjsFunctionSnippet(fn: SsjsFunction): string {
     }
     const snippets = fn.params.map((p, i) => `\${${i + 1}:${p.name}}`);
     return `${prefix}${fn.name}(${snippets.join(', ')})`;
+}
+
+// ── Handlebars for Marketing Cloud Next ──────────────────────────────────────
+
+/** Human-readable label for a helper's origin. */
+const HBS_ORIGIN_LABEL: Record<HandlebarsHelper['origin'], string> = {
+    'handlebars-builtin': 'Handlebars built-in',
+    'mcn-helper': 'MCN helper',
+    'mcn-platform': 'Salesforce platform helper',
+};
+
+/**
+ * Build typed-signature Markdown for an MCN Handlebars helper.
+ * @param helper - Handlebars helper descriptor.
+ * @returns Markdown string with signature, description, params, and doc link.
+ */
+export function buildHandlebarsHelperMarkdown(helper: HandlebarsHelper): string {
+    const lines: string[] = [];
+
+    const paramParts = helper.params.map((p) => {
+        const opt = p.optional ? '?' : '';
+        const rest = p.variadic ? '...' : '';
+        return `${rest}${p.name}${opt}: ${p.type}`;
+    });
+    const sig = `(helper) ${helper.name}(${paramParts.join(', ')}): ${helper.returnType}`;
+    lines.push('```typescript', sig, '```', '', helper.description);
+
+    const typeLabel =
+        helper.helperType === 'both'
+            ? 'inline or block'
+            : helper.helperType === 'block'
+              ? 'block'
+              : 'inline';
+    const meta = `*${HBS_ORIGIN_LABEL[helper.origin]} · ${helper.category} · ${typeLabel} helper · MCN API v${helper.mcnSince}.0+*`;
+    lines.push('', meta);
+
+    if (helper.subexpressionOnly) {
+        lines.push('', '> Usable only as a subexpression, e.g. `(hash key=value)`.');
+    }
+
+    if (helper.params.length > 0) {
+        lines.push('');
+        for (const p of helper.params) {
+            const opt = p.optional ? ' *(optional)*' : '';
+            const variadic = p.variadic ? ' *(variadic)*' : '';
+            lines.push(`*@param* \`${p.name}\`${opt}${variadic} — ${p.description}\n`);
+        }
+    }
+
+    lines.push(
+        `*@return* \`${helper.returnType}\``,
+        '',
+        `[Salesforce Developers](${helper.docUrl})`,
+    );
+
+    return lines.join('\n');
+}
+
+/**
+ * Build Markdown documentation for a built-in `{!$...}` data binding.
+ * @param binding - Handlebars binding descriptor.
+ * @returns Markdown string with the token, description, and metadata.
+ */
+export function buildHandlebarsBindingMarkdown(binding: HandlebarsBinding): string {
+    const lines: string[] = [
+        '```handlebars',
+        binding.token,
+        '```',
+        '',
+        binding.description,
+        '',
+        `*Built-in binding · ${binding.namespace} namespace · MCN API v${binding.mcnSince}.0+*`,
+    ];
+    return lines.join('\n');
+}
+
+/**
+ * Build a snippet string for an MCN Handlebars helper.
+ *
+ * The snippet contains no `{{ }}` braces — completion is triggered while the
+ * cursor is already inside a mustache, and brace auto-closing behavior varies
+ * by editor, so emitting braces here risks producing broken fragments. Block
+ * helpers are prefixed with `#` (e.g. `#each collection`); inline helpers use
+ * the bare name (e.g. `add value1 value2`). Helpers declared as `both` default
+ * to the inline form.
+ * @param helper - Handlebars helper descriptor.
+ * @returns VS Code snippet string with tab-stop placeholders.
+ */
+export function buildHandlebarsHelperSnippet(helper: HandlebarsHelper): string {
+    const placeholders = helper.params.map((p, i) => `\${${i + 1}:${p.name}}`);
+    const args = placeholders.length > 0 ? ` ${placeholders.join(' ')}` : '';
+    const prefix = helper.helperType === 'block' ? '#' : '';
+    return `${prefix}${helper.name}${args}`;
 }

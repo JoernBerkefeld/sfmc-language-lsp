@@ -1,5 +1,6 @@
 import { CompletionItemKind, CompletionItemTag, InsertTextFormat, MarkupKind } from '../types.js';
-import type { CompletionItem, Position } from '../types.js';
+import type { CompletionItem, Position, SfmcSettings } from '../types.js';
+import { DEFAULT_SETTINGS } from '../types.js';
 import { isInsideAmpscript, isInsideGtl, getSanitizedAmpscriptText } from '../utils/regions.js';
 import { positionToOffset } from '../utils/positions.js';
 import { findFunctionContext } from '../utils/text.js';
@@ -103,13 +104,21 @@ function getEnumValueCompletions(textUpToCursor: string): CompletionItem[] | nul
  * Return AMPscript completions for the given document text and cursor position.
  * @param text - Full document text.
  * @param position - Cursor position.
+ * @param settings - Service settings (gates GTL completions to Engagement).
  * @returns Array of completion items.
  */
-export function getAmpscriptCompletions(text: string, position: Position): CompletionItem[] {
+export function getAmpscriptCompletions(
+    text: string,
+    position: Position,
+    settings: SfmcSettings = DEFAULT_SETTINGS,
+): CompletionItem[] {
     const offset = positionToOffset(text, position);
     const variableItems = buildVariableCompletionItems(text);
 
-    if (isInsideGtl(text, offset)) {
+    // GTL (Guide Template Language) exists only in Engagement. In Marketing
+    // Cloud Next, `{{ }}` is Handlebars and is handled by the Handlebars
+    // completion provider, so GTL completions must not fire here.
+    if (settings.targetPlatform !== 'next' && isInsideGtl(text, offset)) {
         return [...functionCompletionItems, ...variableItems, ...personalizationCompletionItems];
     }
 

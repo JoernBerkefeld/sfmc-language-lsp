@@ -18,6 +18,7 @@ import {
 } from '../data/ampscript.js';
 import type { AmpscriptDataRepeatGroup } from '../data/ampscript.js';
 import { validateGtlBlocks } from './gtl.js';
+import { validateMcnHandlebars } from './mcnHandlebars.js';
 import { buildVariableTypeMap } from '../utils/ampscriptVariableTracker.js';
 
 // Diagnostic codes that code actions identify and act on.
@@ -783,11 +784,12 @@ export function validateAmpscript(
         }
     }
 
-    // 12. GTL block balance
-    validateGtlBlocks(text, diagnostics, max - problems);
-
-    // 13. MCN compatibility — flag functions not supported in Marketing Cloud Next
+    // 12. Platform-specific templating validators. GTL (Guide Template Language)
+    //     and MCN Handlebars are mutually exclusive: GTL exists only in
+    //     Engagement, Handlebars only in Marketing Cloud Next.
     if (settings.targetPlatform === 'next') {
+        // 12a. MCN compatibility — flag AMPscript functions not supported in
+        //      Marketing Cloud Next.
         const callSites = extractAmpscriptFunctionCalls(text);
         for (const site of callSites) {
             if (problems >= max) break;
@@ -805,6 +807,13 @@ export function validateAmpscript(
                 });
             }
         }
+
+        // 12b. Handlebars for Marketing Cloud Next — syntax, unsupported
+        //      constructs, unknown helpers, and unknown built-in bindings.
+        validateMcnHandlebars(text, diagnostics, max - problems);
+    } else {
+        // 12c. GTL block balance (Engagement only).
+        validateGtlBlocks(text, diagnostics, max - problems);
     }
 
     return diagnostics;

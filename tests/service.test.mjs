@@ -1686,3 +1686,281 @@ describe('SSJS ECMAScript builtin completions', () => {
         }
     });
 });
+
+// ── MCN Handlebars — settings & helpers ────────────────────────────────────
+
+const nextSettings = { maxNumberOfProblems: 100, targetPlatform: 'next' };
+
+// ── MCN Handlebars validation ──────────────────────────────────────────────
+
+describe('MCN Handlebars validation (targetPlatform: next)', () => {
+    it('flags an unsupported construct (partial) as an error', () => {
+        const doc = { text: '{{> myPartial}}', languageId: 'ampscript' };
+        const diags = service.validate(doc, nextSettings);
+        const d = diags.find((x) => x.code === 'handlebars/unsupported-construct');
+        assert.ok(d, `expected unsupported-construct diagnostic, got: ${JSON.stringify(diags)}`);
+        assert.strictEqual(d.severity, 1 /* Error */);
+        assert.strictEqual(d.source, 'handlebars');
+    });
+
+    it('flags an unknown helper with a "did you mean" suggestion', () => {
+        const doc = { text: '{{eech items}}', languageId: 'ampscript' };
+        const diags = service.validate(doc, nextSettings);
+        const d = diags.find((x) => x.code === 'handlebars/unknown-helper');
+        assert.ok(d, `expected unknown-helper diagnostic, got: ${JSON.stringify(diags)}`);
+        assert.strictEqual(d.severity, 2 /* Warning */);
+        assert.ok(d.message.includes('each'), `expected suggestion of "each", got: ${d.message}`);
+    });
+
+    it('flags an unknown {!$...} built-in binding', () => {
+        const doc = { text: '{!$foo.Bar}', languageId: 'ampscript' };
+        const diags = service.validate(doc, nextSettings);
+        const d = diags.find((x) => x.code === 'handlebars/unknown-binding');
+        assert.ok(d, `expected unknown-binding diagnostic, got: ${JSON.stringify(diags)}`);
+        assert.strictEqual(d.severity, 2 /* Warning */);
+    });
+
+    it('does not flag a known helper invocation', () => {
+        const doc = { text: '{{add 1 2}}', languageId: 'ampscript' };
+        const diags = service.validate(doc, nextSettings);
+        assert.ok(
+            !diags.some((x) => String(x.code ?? '').startsWith('handlebars/')),
+            `expected no Handlebars diagnostics, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('does not flag a known {!$...} binding', () => {
+        const doc = { text: '{!$organization.Address}', languageId: 'ampscript' };
+        const diags = service.validate(doc, nextSettings);
+        assert.ok(!diags.some((x) => x.code === 'handlebars/unknown-binding'));
+    });
+
+    it('does NOT run Handlebars validation without targetPlatform:next', () => {
+        // A partial would be flagged under MCN, but not under Engagement (default).
+        const doc = { text: '{{> myPartial}}', languageId: 'ampscript' };
+        const diags = service.validate(doc);
+        assert.ok(
+            !diags.some((x) => String(x.code ?? '').startsWith('handlebars/')),
+            `Handlebars diagnostics must not fire without targetPlatform:next, got: ${JSON.stringify(diags)}`,
+        );
+    });
+});
+
+// ── MCN Handlebars completions ─────────────────────────────────────────────
+
+describe('MCN Handlebars completions (targetPlatform: next)', () => {
+    it('offers helper completions inside a {{ }} mustache', () => {
+        const doc = { text: '{{ }}', languageId: 'ampscript' };
+        const items = service.getCompletions(doc, { line: 0, character: 3 }, nextSettings);
+        assert.ok(
+            items.some((i) => i.label === 'add'),
+            `expected the "add" helper completion, got: ${JSON.stringify(items.map((i) => i.label))}`,
+        );
+    });
+
+    it('offers {!$...} binding completions after a {!$ token', () => {
+        const doc = { text: '{!$', languageId: 'ampscript' };
+        const items = service.getCompletions(doc, { line: 0, character: 3 }, nextSettings);
+        assert.ok(
+            items.some((i) => String(i.label).includes('organization.Address')),
+            `expected an organization.Address binding completion, got: ${JSON.stringify(items.map((i) => i.label))}`,
+        );
+    });
+
+    it('does NOT offer Handlebars completions without targetPlatform:next', () => {
+        const doc = { text: '{{ }}', languageId: 'ampscript' };
+        const items = service.getCompletions(doc, { line: 0, character: 3 });
+        assert.ok(
+            !items.some((i) => i.label === 'add'),
+            'Handlebars completions must not appear under Engagement (default)',
+        );
+    });
+
+    it('resolves documentation for a Handlebars helper completion', () => {
+        const doc = { text: '{{ }}', languageId: 'ampscript' };
+        const item = service
+            .getCompletions(doc, { line: 0, character: 3 }, nextSettings)
+            .find((i) => i.label === 'add');
+        assert.ok(item, 'expected an "add" completion item to resolve');
+        const resolved = service.resolveCompletion(item);
+        const value =
+            typeof resolved.documentation === 'string'
+                ? resolved.documentation
+                : (resolved.documentation?.value ?? '');
+        assert.ok(value.length > 0, 'expected resolved documentation markdown');
+    });
+});
+
+// ── MCN Handlebars hover ───────────────────────────────────────────────────
+
+describe('MCN Handlebars hover (targetPlatform: next)', () => {
+    it('returns hover for a known helper inside a mustache', () => {
+        const line = '{{#each items}}';
+        const doc = { text: line, languageId: 'ampscript' };
+        const hover = service.getHover(doc, line, { line: 0, character: 4 }, nextSettings);
+        assert.ok(hover, 'expected hover for the each helper');
+        assert.ok(hover.contents.value.toLowerCase().includes('each'));
+    });
+
+    it('returns hover for a {!$...} built-in binding', () => {
+        const line = '{!$organization.Address}';
+        const doc = { text: line, languageId: 'ampscript' };
+        const hover = service.getHover(doc, line, { line: 0, character: 6 }, nextSettings);
+        assert.ok(hover, 'expected hover for the organization.Address binding');
+    });
+
+    it('does NOT return Handlebars hover without targetPlatform:next', () => {
+        const line = '{{#each items}}';
+        const doc = { text: line, languageId: 'ampscript' };
+        const hover = service.getHover(doc, line, { line: 0, character: 4 });
+        assert.equal(hover, null, 'each is not an AMPscript function — hover must be null');
+    });
+});
+
+// ── MCN Handlebars signature help ──────────────────────────────────────────
+
+describe('MCN Handlebars signature help (targetPlatform: next)', () => {
+    it('returns signature help for a helper after its name', () => {
+        const text = '{{add ';
+        const doc = { text, languageId: 'ampscript' };
+        const sig = service.getSignatureHelp(doc, text, nextSettings);
+        assert.ok(sig, 'expected signature help for add');
+        assert.ok(
+            sig.signatures[0].label.includes('add'),
+            `expected the add signature label, got: ${sig.signatures[0].label}`,
+        );
+    });
+
+    it('advances activeParameter as arguments are typed', () => {
+        const doc = { text: '', languageId: 'ampscript' };
+        assert.strictEqual(
+            service.getSignatureHelp(doc, '{{add ', nextSettings).activeParameter,
+            0,
+            'first arg -> value1',
+        );
+        assert.strictEqual(
+            service.getSignatureHelp(doc, '{{add 1 ', nextSettings).activeParameter,
+            1,
+            'second arg -> value2',
+        );
+    });
+
+    it('does NOT return Handlebars signature help without targetPlatform:next', () => {
+        const text = '{{add ';
+        const doc = { text, languageId: 'ampscript' };
+        const sig = service.getSignatureHelp(doc, text);
+        assert.equal(sig, null, 'no paren-based call context — signature must be null');
+    });
+});
+
+// ── MCN Handlebars code actions ────────────────────────────────────────────
+
+describe('MCN Handlebars code actions (targetPlatform: next)', () => {
+    it('offers a "did you mean" replacement for an unknown helper', () => {
+        const doc = { text: '{{eech items}}', languageId: 'ampscript', uri: 'file:///t.amp' };
+        const diags = service.validate(doc, nextSettings);
+        const unknownHelper = diags.find((d) => d.code === 'handlebars/unknown-helper');
+        assert.ok(unknownHelper, 'expected an unknown-helper diagnostic');
+        const actions = service.getCodeActions(doc, [unknownHelper], nextSettings);
+        const action = actions.find((a) => a.title.includes("'each'"));
+        assert.ok(action, `expected a replace code action, got: ${JSON.stringify(actions)}`);
+        assert.strictEqual(action.edit.changes['file:///t.amp'][0].newText, 'each');
+    });
+
+    it('does NOT offer Handlebars code actions without targetPlatform:next', () => {
+        // Craft a handlebars-source diagnostic and confirm it is ignored under Engagement.
+        const doc = { text: '{{eech items}}', languageId: 'ampscript', uri: 'file:///t.amp' };
+        const fakeDiag = {
+            code: 'handlebars/unknown-helper',
+            source: 'handlebars',
+            data: { typed: 'eech', suggestion: 'each' },
+            range: { start: { line: 0, character: 2 }, end: { line: 0, character: 6 } },
+            message: "Unknown Handlebars helper 'eech'.",
+            severity: 2,
+        };
+        const actions = service.getCodeActions(doc, [fakeDiag]);
+        assert.ok(
+            !actions.some((a) => a.title.includes("'each'")),
+            'Handlebars code actions must not be offered under Engagement (default)',
+        );
+    });
+});
+
+// ── MCN Handlebars block scope ─────────────────────────────────────────────
+
+describe('MCN Handlebars block scope (targetPlatform: next)', () => {
+    it('offers block params in scope inside an #each ... as |item idx| body', () => {
+        // The body must contain a valid mustache so the document parses; an empty
+        // `{{ }}` is invalid Handlebars and would suppress all scope tracking.
+        const text = '{{#each items as |item idx|}}\n{{item}}\n{{/each}}';
+        const doc = { text, languageId: 'ampscript' };
+        // Cursor inside the inner {{item}} mustache on line 1.
+        const items = service.getCompletions(doc, { line: 1, character: 3 }, nextSettings);
+        const labels = items.map((i) => i.label);
+        assert.ok(labels.includes('item'), `expected block param "item", got: ${labels}`);
+        assert.ok(labels.includes('idx'), `expected block param "idx", got: ${labels}`);
+    });
+
+    it('offers loop variables (@index) in scope inside an #each body', () => {
+        const text = '{{#each items}}\n{{item}}\n{{/each}}';
+        const doc = { text, languageId: 'ampscript' };
+        const items = service.getCompletions(doc, { line: 1, character: 3 }, nextSettings);
+        assert.ok(
+            items.some((i) => i.label === '@index'),
+            'expected the @index loop variable inside an #each body',
+        );
+    });
+
+    it('does not offer block params outside the declaring block', () => {
+        const text = '{{#each items as |item|}}{{item}}{{/each}}\n{{add 1 2}}';
+        const doc = { text, languageId: 'ampscript' };
+        // Cursor on line 1 — after the block has closed.
+        const items = service.getCompletions(doc, { line: 1, character: 3 }, nextSettings);
+        assert.ok(
+            !items.some((i) => i.label === 'item'),
+            'block params must not leak outside their block',
+        );
+    });
+});
+
+// ── MCN Handlebars catalog accessors ───────────────────────────────────────
+
+describe('MCN Handlebars catalog accessors', () => {
+    it('lookupHandlebarsHelper returns a helper for a known name', () => {
+        const helper = service.lookupHandlebarsHelper('add');
+        assert.ok(helper, 'expected the add helper');
+        assert.strictEqual(helper.name, 'add');
+    });
+
+    it('lookupHandlebarsHelper is case-insensitive', () => {
+        assert.ok(service.lookupHandlebarsHelper('ADD'), 'expected case-insensitive lookup');
+    });
+
+    it('lookupHandlebarsHelper returns null for an unknown name', () => {
+        assert.equal(service.lookupHandlebarsHelper('doesNotExist'), null);
+    });
+
+    it('listHandlebarsHelpers returns a non-empty array', () => {
+        const helpers = service.listHandlebarsHelpers();
+        assert.ok(Array.isArray(helpers) && helpers.length > 0);
+        assert.ok(helpers.every((h) => typeof h.name === 'string'));
+    });
+
+    it('listHandlebarsBindings returns a non-empty array', () => {
+        const bindings = service.listHandlebarsBindings();
+        assert.ok(Array.isArray(bindings) && bindings.length > 0);
+        assert.ok(bindings.some((b) => b.name === 'organization.Address'));
+    });
+
+    it('listHandlebarsUnsupportedConstructs returns a non-empty array', () => {
+        const unsupported = service.listHandlebarsUnsupportedConstructs();
+        assert.ok(Array.isArray(unsupported) && unsupported.length > 0);
+        assert.ok(unsupported.some((u) => u.id === 'partial'));
+    });
+
+    it('getHandlebarsCompletionCatalog returns pre-built helper completion items', () => {
+        const catalog = service.getHandlebarsCompletionCatalog();
+        assert.ok(Array.isArray(catalog) && catalog.length > 0);
+        assert.ok(catalog.some((i) => i.label === 'add'));
+    });
+});

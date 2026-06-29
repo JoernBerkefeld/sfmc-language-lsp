@@ -18,6 +18,26 @@ MCN helper functions re-exported from `ampscript-data`:
 import { isMcnSupported, getMcnApiVersion, getMcnNotes, extractAmpscriptFunctionCalls } from 'sfmc-language-lsp';
 ```
 
+## MCN Handlebars support
+
+The combined `sfmc` language embeds the locked-down **MCN Handlebars** templating layer. When `targetPlatform` is `'next'`, `{{…}}` regions are validated for helper names, arity, block balance, and unsupported constructs (partials, decorators, and built-in helpers absent from the MCN engine). Handlebars completions, hover, signature help, and code actions are layered into the standard LSP entry points automatically.
+
+The catalog (sourced from [`handlebars-data`](https://www.npmjs.com/package/handlebars-data)) is also exposed via `sfmcLanguageService` accessors and the corresponding types:
+
+```js
+import { sfmcLanguageService } from 'sfmc-language-lsp';
+
+sfmcLanguageService.lookupHandlebarsHelper('uppercase');     // HandlebarsHelper | null (case-insensitive)
+sfmcLanguageService.listHandlebarsHelpers();                 // HandlebarsHelper[]
+sfmcLanguageService.listHandlebarsBindings();                // HandlebarsBinding[]
+sfmcLanguageService.listHandlebarsUnsupportedConstructs();   // HandlebarsUnsupportedConstruct[]
+sfmcLanguageService.getHandlebarsCompletionCatalog();        // CompletionItem[]
+```
+
+```ts
+import type { HandlebarsHelper, HandlebarsBinding, HandlebarsUnsupportedConstruct } from 'sfmc-language-lsp';
+```
+
 ## Install
 
 ```bash
