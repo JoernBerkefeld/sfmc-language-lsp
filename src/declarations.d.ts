@@ -53,6 +53,16 @@ declare module 'ampscript-data' {
         mcnSince: number | null;
         /** Behavioral difference notes for MCN, or null if none. */
         mcnNotes: string | null;
+        /**
+         * Name of the MCN Handlebars helper that replaces this AMPscript function
+         * when converting to Marketing Cloud Next, or null when there is no helper.
+         */
+        handlebarsEquivalent?: string | null;
+        /**
+         * True when the function is supported by AMPscript-in-MCN but has no
+         * Handlebars counterpart, so converting it to Handlebars requires a manual rewrite.
+         */
+        mcnHandlebarsGap?: boolean;
         /** True when the function is deprecated and should be avoided in new code. */
         deprecated?: boolean;
         /** Suggested replacement function name when this function is deprecated. */
@@ -187,6 +197,61 @@ declare module 'ssjs-data' {
     export const knownUnsupportedByPrototypeName: Map<string, SsjsDataKnownUnsupported>;
     export const knownUnsupportedByStaticName: Map<string, SsjsDataKnownUnsupported>;
     export const UNSUPPORTED_SYNTAX: Array<{ feature: string; message: string }>;
+}
+
+declare module 'handlebars-data' {
+    /** A single parameter of an MCN Handlebars helper. */
+    export interface HandlebarsDataParam {
+        name: string;
+        type: string;
+        description: string;
+        optional?: boolean;
+        variadic?: boolean;
+    }
+    /** A single MCN Handlebars helper definition, enriched with a doc URL. */
+    export interface HandlebarsDataHelper {
+        name: string;
+        category: string;
+        origin: 'handlebars-builtin' | 'mcn-helper' | 'mcn-platform';
+        helperType: 'inline' | 'block' | 'both';
+        mcnSince: number;
+        description: string;
+        params: HandlebarsDataParam[];
+        returnType: string;
+        /** True when the helper may only be used as a subexpression (e.g. `hash`). */
+        subexpressionOnly?: boolean;
+        /** URL to the official Salesforce developer documentation page. */
+        docUrl: string;
+    }
+    /** A Salesforce-only `{!$namespace.Field}` built-in binding. */
+    export interface HandlebarsDataBinding {
+        name: string;
+        token: string;
+        namespace: string;
+        mcnSince: number;
+        description: string;
+    }
+    /** A Handlebars construct that the locked-down MCN engine does not support. */
+    export interface HandlebarsDataUnsupportedConstruct {
+        id: string;
+        astNodeType: string;
+        helperName: string | null;
+        label: string;
+        message: string;
+    }
+    export const HELPERS: HandlebarsDataHelper[];
+    export const helperLookup: Map<string, HandlebarsDataHelper>;
+    export const helperNames: Set<string>;
+    export const CANONICAL_HELPERS: string[];
+    export function getHelper(name: string): HandlebarsDataHelper | undefined;
+    export function isHelper(name: string): boolean;
+    export function getHelperMcnSince(name: string): number | null;
+    export const BUILTIN_BINDINGS: HandlebarsDataBinding[];
+    export const bindingLookup: Map<string, HandlebarsDataBinding>;
+    export const bindingNames: Set<string>;
+    export function isBuiltinBinding(name: string): boolean;
+    export const UNSUPPORTED_CONSTRUCTS: HandlebarsDataUnsupportedConstruct[];
+    export const unsupportedByNodeType: Map<string, HandlebarsDataUnsupportedConstruct[]>;
 }
 
 declare module 'ssjs-data/urls' {

@@ -58,6 +58,56 @@ export function isInsideGtl(text: string, offset: number): boolean {
 }
 
 /**
+ * Returns true when the given character offset falls inside a Handlebars {{...}}
+ * expression (Handlebars for Marketing Cloud Next). The syntax is identical to
+ * GTL, but the two are mutually exclusive: GTL is detected only in Engagement
+ * mode, Handlebars only in MCN Next mode.
+ * @param text - Full document text.
+ * @param offset - Character offset to test.
+ * @returns True if the offset is inside a Handlebars expression.
+ */
+export function isInsideHandlebars(text: string, offset: number): boolean {
+    const before = text.slice(0, Math.max(0, offset));
+    const lastOpen = before.lastIndexOf('{{');
+    const lastClose = before.lastIndexOf('}}');
+    return lastOpen !== -1 && lastOpen > lastClose;
+}
+
+/**
+ * Returns a copy of the document where every AMPscript region (%%[...]%%,
+ * %%=...=%%, and <script language="ampscript"> bodies) is replaced with spaces,
+ * preserving offsets. HTML, Handlebars {{...}} expressions, and {!$...} bindings
+ * are kept verbatim so the Handlebars parser can run over a mixed document
+ * without choking on AMPscript syntax.
+ * @param text - Full document text.
+ * @returns Text with AMPscript regions blanked out.
+ */
+export function getSanitizedHandlebarsText(text: string): string {
+    const chars = Array.from(text);
+    const blankRange = (start: number, end: number): void => {
+        for (let i = start; i < end && i < chars.length; i++) {
+            if (chars[i] !== '\n' && chars[i] !== '\r') {
+                chars[i] = ' ';
+            }
+        }
+    };
+
+    const patterns = [
+        /%%\[[\s\S]*?\]%%/g,
+        /%%=[\s\S]*?=%%/g,
+        /<script\s[^>]*language\s*=\s*["']ampscript["'][^>]*>[\s\S]*?<\/script>/gi,
+    ];
+    for (const pattern of patterns) {
+        let match: RegExpExecArray | null;
+        while ((match = pattern.exec(text)) !== null) {
+            blankRange(match.index, match.index + match[0].length);
+        }
+    }
+
+    return chars.join('');
+}
+
+/**
  * Returns a sanitized copy of the document where only the code inside
  * AMPscript regions is preserved (strings blanked, comments blanked).
  * Everything outside AMPscript regions is replaced with spaces.

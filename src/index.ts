@@ -25,6 +25,7 @@ import {
 } from './validators/ampscript.js';
 import type { AmpscriptCallSite } from './validators/ampscript.js';
 import { validateSsjs, SSJS_ESLINT_DUPLICATE_DIAG_CODES } from './validators/ssjs.js';
+import { HBS_ESLINT_DUPLICATE_DIAG_CODES } from './validators/mcnHandlebars.js';
 
 import {
     getAmpscriptCompletions,
@@ -32,17 +33,28 @@ import {
     functionCompletionItems,
 } from './completions/ampscript.js';
 import { ssjsCompletionItems, buildLocalFunctionCompletionItems } from './completions/ssjs.js';
+import {
+    getHandlebarsCompletions,
+    resolveHandlebarsCompletion,
+    handlebarsHelperCompletionItems,
+} from './completions/mcnHandlebars.js';
 
 import { getAmpscriptHover } from './hover/ampscript.js';
 import { getSsjsHover } from './hover/ssjs.js';
+import { getHandlebarsHover } from './hover/mcnHandlebars.js';
 
 import { getAmpscriptSignatureHelp } from './signature/ampscript.js';
 import { getSsjsSignatureHelp } from './signature/ssjs.js';
+import {
+    findHandlebarsCallContext,
+    getHandlebarsSignatureHelp,
+} from './signature/mcnHandlebars.js';
 
 import { extractLocalSsjsFunctions, getSsjsDefinition } from './definitions/ssjs.js';
 
 import { getAmpscriptCodeActions } from './codeActions/ampscript.js';
 import { getSsjsCodeActions } from './codeActions/ssjs.js';
+import { getHandlebarsCodeActions } from './codeActions/mcnHandlebars.js';
 
 import { ampscriptFunctions, functionLookup, ampscriptKeywords } from './data/ampscript.js';
 import {
@@ -60,6 +72,17 @@ import {
     errorUtilMethods,
 } from './data/ssjs.js';
 import type { SsjsFunction } from './data/ssjs.js';
+import {
+    handlebarsHelperList,
+    handlebarsBindingList,
+    handlebarsUnsupportedList,
+    getHelper as getHandlebarsHelper,
+} from './data/handlebars.js';
+import type {
+    HandlebarsHelper,
+    HandlebarsBinding,
+    HandlebarsUnsupportedConstruct,
+} from './data/handlebars.js';
 import { findFunctionContext } from './utils/text.js';
 
 export type { DocumentContext, SfmcSettings } from './types.js';
@@ -74,6 +97,12 @@ export type {
     SsjsObject,
 } from './data/ssjs.js';
 export type { LocalSsjsFunction } from './utils/markdown.js';
+export type {
+    HandlebarsHelper,
+    HandlebarsBinding,
+    HandlebarsUnsupportedConstruct,
+    HandlebarsDataParam,
+} from './data/handlebars.js';
 
 /** Import DocumentContext type locally for use in this file */
 import type { DocumentContext } from './types.js';
@@ -104,7 +133,10 @@ export class SfmcLanguageService {
         const diagnostics = validateAmpscript(doc.text, settings);
         if (settings.disableLspDiagnosticsForEslintRules) {
             return diagnostics.filter(
-                (d) => !d.code || !ESLINT_DUPLICATE_DIAG_CODES.has(String(d.code)),
+                (d) =>
+                    !d.code ||
+                    (!ESLINT_DUPLICATE_DIAG_CODES.has(String(d.code)) &&
+                        !HBS_ESLINT_DUPLICATE_DIAG_CODES.has(String(d.code))),
             );
         }
         return diagnostics;
@@ -116,15 +148,29 @@ export class SfmcLanguageService {
      * Return completion items at the given cursor position.
      * @param doc - Document context with text and language ID.
      * @param position - Cursor position.
+     * @param settings - Service settings (gates MCN Handlebars completions).
      * @returns Array of LSP CompletionItem objects.
      */
-    getCompletions(doc: DocumentContext, position: Position): CompletionItem[] {
+    getCompletions(
+        doc: DocumentContext,
+        position: Position,
+        settings: SfmcSettings = DEFAULT_SETTINGS,
+    ): CompletionItem[] {
         if (doc.languageId === 'ssjs') {
             const localFns = extractLocalSsjsFunctions(doc.text);
             const localItems = buildLocalFunctionCompletionItems(localFns);
             return [...ssjsCompletionItems, ...localItems];
         }
-        return getAmpscriptCompletions(doc.text, position);
+        // MCN Handlebars completions are exclusive to Marketing Cloud Next and
+        // mutually exclusive with GTL. Inside a `{{ }}` mustache or `{!$ }`
+        // binding, return Handlebars items instead of AMPscript ones.
+        if (settings.targetPlatform === 'next') {
+            const hbsItems = getHandlebarsCompletions(doc.text, position);
+            if (hbsItems.length > 0) {
+                return hbsItems;
+            }
+        }
+        return getAmpscriptCompletions(doc.text, position, settings);
     }
 
     /**
@@ -133,6 +179,10 @@ export class SfmcLanguageService {
      * @returns The resolved completion item with documentation attached.
      */
     resolveCompletion(item: CompletionItem): CompletionItem {
+        const data = item.data as { type?: string } | undefined;
+        if (data?.type === 'hbs-helper' || data?.type === 'hbs-binding') {
+            return resolveHandlebarsCompletion(item);
+        }
         return resolveAmpscriptCompletion(item);
     }
 
@@ -143,12 +193,25 @@ export class SfmcLanguageService {
      * @param doc - Document context with text and language ID.
      * @param line - The current document line text.
      * @param position - The cursor position.
+     * @param settings - Service settings (gates MCN Handlebars hover).
      * @returns Hover object with Markdown documentation, or null.
      */
-    getHover(doc: DocumentContext, line: string, position: Position): Hover | null {
+    getHover(
+        doc: DocumentContext,
+        line: string,
+        position: Position,
+        settings: SfmcSettings = DEFAULT_SETTINGS,
+    ): Hover | null {
         if (doc.languageId === 'ssjs') {
             const localFns = extractLocalSsjsFunctions(doc.text);
             return getSsjsHover(line, position, localFns);
+        }
+        // MCN Handlebars hover is exclusive to Marketing Cloud Next and mutually
+        // exclusive with GTL. Try it first; fall back to AMPscript hover when the
+        // cursor is not on a Handlebars helper or binding.
+        if (settings.targetPlatform === 'next') {
+            const hbsHover = getHandlebarsHover(line, position, doc.text);
+            if (hbsHover) return hbsHover;
         }
         return getAmpscriptHover(line, position, doc.text);
     }
@@ -159,9 +222,26 @@ export class SfmcLanguageService {
      * Return signature help at the given cursor position.
      * @param doc - Document context with text and language ID.
      * @param textUpToCursor - The document text from the start up to the cursor.
+     * @param settings - Service settings (gates MCN Handlebars signature help).
      * @returns SignatureHelp object, or null if outside a function call.
      */
-    getSignatureHelp(doc: DocumentContext, textUpToCursor: string): SignatureHelp | null {
+    getSignatureHelp(
+        doc: DocumentContext,
+        textUpToCursor: string,
+        settings: SfmcSettings = DEFAULT_SETTINGS,
+    ): SignatureHelp | null {
+        // MCN Handlebars signature help is exclusive to Marketing Cloud Next.
+        // Handlebars helpers use whitespace-separated args inside `{{ }}`, so
+        // they need their own scope-aware context resolver, checked before the
+        // paren-based AMPscript/SSJS one.
+        if (doc.languageId === 'ampscript' && settings.targetPlatform === 'next') {
+            const hbsContext = findHandlebarsCallContext(textUpToCursor);
+            if (hbsContext) {
+                const hbsHelp = getHandlebarsSignatureHelp(hbsContext);
+                if (hbsHelp) return hbsHelp;
+            }
+        }
+
         const context = findFunctionContext(textUpToCursor);
         if (!context) return null;
 
@@ -191,13 +271,25 @@ export class SfmcLanguageService {
      * Return quick-fix code actions for the given diagnostics.
      * @param doc - Document context with text and language ID.
      * @param diagnostics - Diagnostics to generate actions for.
+     * @param settings - Service settings (gates MCN Handlebars code actions).
      * @returns Array of code actions.
      */
-    getCodeActions(doc: DocumentContext, diagnostics: Diagnostic[]): CodeAction[] {
+    getCodeActions(
+        doc: DocumentContext,
+        diagnostics: Diagnostic[],
+        settings: SfmcSettings = DEFAULT_SETTINGS,
+    ): CodeAction[] {
         if (doc.languageId === 'ssjs') {
             return getSsjsCodeActions(doc.text, doc.uri ?? '', diagnostics);
         }
-        return getAmpscriptCodeActions(doc.text, doc.uri ?? '', diagnostics);
+        // MCN Handlebars quick fixes (exclusive to Marketing Cloud Next) act on
+        // `handlebars`-source diagnostics; AMPscript quick fixes act on
+        // `ampscript`-source ones. Both can be offered for a mixed document.
+        const actions = getAmpscriptCodeActions(doc.text, doc.uri ?? '', diagnostics);
+        if (settings.targetPlatform === 'next') {
+            actions.push(...getHandlebarsCodeActions(doc.text, doc.uri ?? '', diagnostics));
+        }
+        return actions;
     }
 
     // ── Catalog / Lookup (for MCP tools and resources) ────────────────────────
@@ -326,6 +418,50 @@ export class SfmcLanguageService {
      */
     getAmpscriptFunctionCompletionItems(): CompletionItem[] {
         return functionCompletionItems;
+    }
+
+    // ── MCN Handlebars catalog access (for MCP tools and resources) ───────────
+
+    /**
+     * Look up an MCN Handlebars helper by name. Case-insensitive.
+     * @param name - Helper name to look up (camelCase invoke form).
+     * @returns The Handlebars helper descriptor, or null if not found.
+     */
+    lookupHandlebarsHelper(name: string): HandlebarsHelper | null {
+        return getHandlebarsHelper(name) ?? null;
+    }
+
+    /**
+     * Return all MCN Handlebars helpers from the catalog.
+     * @returns Array of all Handlebars helper descriptors.
+     */
+    listHandlebarsHelpers(): HandlebarsHelper[] {
+        return handlebarsHelperList;
+    }
+
+    /**
+     * Return all built-in `{!$...}` data bindings from the catalog.
+     * @returns Array of all Handlebars binding descriptors.
+     */
+    listHandlebarsBindings(): HandlebarsBinding[] {
+        return handlebarsBindingList;
+    }
+
+    /**
+     * Return all unsupported Handlebars constructs (partials, decorators, and
+     * built-in helpers absent from MCN's locked-down engine).
+     * @returns Array of unsupported-construct descriptors.
+     */
+    listHandlebarsUnsupportedConstructs(): HandlebarsUnsupportedConstruct[] {
+        return handlebarsUnsupportedList;
+    }
+
+    /**
+     * Return the pre-built MCN Handlebars helper completion items.
+     * @returns Array of pre-built Handlebars helper completion items.
+     */
+    getHandlebarsCompletionCatalog(): CompletionItem[] {
+        return handlebarsHelperCompletionItems;
     }
 
     // ── AMPscript call extraction (used by MCP tools) ─────────────────────────

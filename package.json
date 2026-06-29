@@ -54,7 +54,9 @@
         "format:check": "prettier --check ."
     },
     "dependencies": {
-        "ampscript-data": "^2.0.4",
+        "@handlebars/parser": "^1.1.0",
+        "ampscript-data": "^2.1.0",
+        "handlebars-data": "^0.1.0",
         "ssjs-data": "^0.12.1",
         "vscode-languageserver-types": "^3.17.5"
     },
