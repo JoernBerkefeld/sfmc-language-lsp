@@ -1807,6 +1807,25 @@ describe('MCN Handlebars hover (targetPlatform: next)', () => {
         const doc = { text: line, languageId: 'ampscript' };
         const hover = service.getHover(doc, line, { line: 0, character: 6 }, nextSettings);
         assert.ok(hover, 'expected hover for the organization.Address binding');
+        assert.ok(
+            hover.contents.value.includes(
+                '[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/guide/mcn-handlebars-guide-data-sources.html)',
+            ),
+            `expected a data-sources doc link, got: ${JSON.stringify(hover.contents.value)}`,
+        );
+    });
+
+    it('separates @return from the meta line for a parameterless helper', () => {
+        // `now` takes no arguments, so there are no @param lines. The @return
+        // line must still be its own paragraph, not glued to the meta line.
+        const line = '{{now}}';
+        const doc = { text: line, languageId: 'ampscript' };
+        const hover = service.getHover(doc, line, { line: 0, character: 3 }, nextSettings);
+        assert.ok(hover, 'expected hover for the now helper');
+        assert.ok(
+            hover.contents.value.includes('\n\n*@return*'),
+            `expected a blank line before @return, got: ${JSON.stringify(hover.contents.value)}`,
+        );
     });
 
     it('does NOT return Handlebars hover without targetPlatform:next', () => {

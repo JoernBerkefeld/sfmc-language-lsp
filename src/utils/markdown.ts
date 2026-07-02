@@ -297,6 +297,11 @@ export function buildHandlebarsHelperMarkdown(helper: HandlebarsHelper): string 
             const variadic = p.variadic ? ' *(variadic)*' : '';
             lines.push(`*@param* \`${p.name}\`${opt}${variadic} — ${p.description}\n`);
         }
+    } else {
+        // With no `@param` lines above, the preceding meta line would otherwise
+        // sit on the same rendered line as `@return` (a single newline is a
+        // Markdown soft break). Emit a blank line to force a paragraph break.
+        lines.push('');
     }
 
     lines.push(
@@ -322,6 +327,8 @@ export function buildHandlebarsBindingMarkdown(binding: HandlebarsBinding): stri
         binding.description,
         '',
         `*Built-in binding · ${binding.namespace} namespace · MCN API v${binding.mcnSince}.0+*`,
+        '',
+        `[Salesforce Developers](${binding.docUrl})`,
     ];
     return lines.join('\n');
 }
