@@ -230,6 +230,8 @@ declare module 'handlebars-data' {
         namespace: string;
         mcnSince: number;
         description: string;
+        /** URL to the official Salesforce developer documentation page. */
+        docUrl: string;
     }
     /** A Handlebars construct that the locked-down MCN engine does not support. */
     export interface HandlebarsDataUnsupportedConstruct {
