@@ -16,6 +16,9 @@ import type { HandlebarsHelper } from '../data/handlebars.js';
 /** Leading control sigils that may precede a helper name inside a mustache. */
 const SIGIL_PATTERN = /^[#^/>~&!]+/;
 
+/** Whitespace characters that separate Handlebars helper arguments. */
+const WHITESPACE_CHARS = [' ', '\t', '\n', '\r'];
+
 /** Resolved Handlebars helper call context at the cursor. */
 interface HandlebarsCallContext {
     /** The helper name leading the innermost active expression scope. */
@@ -89,7 +92,7 @@ export function findHandlebarsCallContext(textUpToCursor: string): HandlebarsCal
             }
             continue;
         }
-        if (c === ' ' || c === '\t' || c === '\n' || c === '\r') {
+        if (WHITESPACE_CHARS.includes(c)) {
             if (scope.current) {
                 scope.tokens.push(scope.current);
                 scope.current = '';

@@ -152,9 +152,9 @@ function unknownHelperDiagnostic(
         message: `Unknown Handlebars ${kind} '${helperName}'. It is not part of the Marketing Cloud Next catalog, and the MCN engine cannot register custom helpers.${hint}`,
         source: 'handlebars',
         code: DIAG_CODE_HBS_UNKNOWN_HELPER,
-        ...(suggestion
-            ? { data: { typed: helperName, suggestion } satisfies HandlebarsSuggestionData }
-            : {}),
+        ...(suggestion && {
+            data: { typed: helperName, suggestion } satisfies HandlebarsSuggestionData,
+        }),
     };
 }
 
@@ -182,8 +182,6 @@ export function validateMcnHandlebars(
         return;
     }
 
-    let problems = 0;
-
     // 1. Parse. A syntax error is terminal — we cannot walk a null AST.
     const { ast, error } = parseHandlebars(sanitized);
     if (error) {
@@ -196,6 +194,8 @@ export function validateMcnHandlebars(
         });
         return;
     }
+
+    let problems = 0;
 
     // 2. Walk the AST: unsupported constructs (Error) and unknown helpers (Warning).
     if (ast) {
@@ -254,14 +254,12 @@ export function validateMcnHandlebars(
                 message: `Unknown built-in binding '${match[0]}'. It is not a recognized Marketing Cloud Next data binding.${hint}`,
                 source: 'handlebars',
                 code: DIAG_CODE_HBS_UNKNOWN_BINDING,
-                ...(suggestionToken
-                    ? {
-                          data: {
-                              typed: match[0],
-                              suggestion: suggestionToken,
-                          } satisfies HandlebarsSuggestionData,
-                      }
-                    : {}),
+                ...(suggestionToken && {
+                    data: {
+                        typed: match[0],
+                        suggestion: suggestionToken,
+                    } satisfies HandlebarsSuggestionData,
+                }),
             });
         }
     }

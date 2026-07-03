@@ -213,16 +213,17 @@ function resolveActiveParameter(
     if (countParam) {
         const countParamIndex = fn.params.findIndex((p) => p.name === countParam);
         const rawCount = countParamIndex === -1 ? undefined : argValues?.[countParamIndex];
-        const count = rawCount === undefined ? Number.NaN : Number.parseInt(rawCount, 10);
+        const count = rawCount === undefined ? NaN : Math.trunc(Number(rawCount));
         if (Number.isFinite(count) && count > 0) {
             firstBlockLength = count * firstBlock.groupSize;
         }
     }
-    const firstBlockEnd = firstBlock.oneStart + firstBlockLength;
 
     if (paramIndex < firstBlock.oneStart) {
         return Math.min(paramIndex, lastParam);
     }
+
+    const firstBlockEnd = firstBlock.oneStart + firstBlockLength;
     if (paramIndex < firstBlockEnd) {
         return slotInBlock(firstBlock, paramIndex - firstBlock.oneStart);
     }

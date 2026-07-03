@@ -53,6 +53,11 @@ export default tseslint.config(
             'unicorn/prefer-spread': 'off',
             'unicorn/prefer-string-replace-all': 'error',
             'unicorn/prevent-abbreviations': 'off',
+            'unicorn/name-replacements': 'off',
+            // Opinionated boolean-naming rule (unicorn v70). Disabled because it
+            // would rename exported symbols (e.g. requiresCoreLoadGlobals) that
+            // are consumed by vscode-sfmc-language and mcp-server-sfmc.
+            'unicorn/consistent-boolean-name': 'off',
             'jsdoc/require-jsdoc': 'off',
             'jsdoc/require-param-type': 'off',
             'jsdoc/require-returns-type': 'off',

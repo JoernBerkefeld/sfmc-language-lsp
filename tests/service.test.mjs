@@ -114,7 +114,7 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
         const doc = { text: '%%[ set @x = Now() ]%%', languageId: 'ampscript' };
         const diags = service.validate(doc, nextSettings);
         assert.ok(
-            !diags.some((d) => d.code === 'ampscript/mcn-unsupported-function'),
+            diags.every((d) => d.code !== 'ampscript/mcn-unsupported-function'),
             'Now() is MCN-supported and should not be flagged',
         );
     });
@@ -132,7 +132,7 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
         const doc = { text: '%%[ InsertDE("MyDE", "Col", "Val") ]%%', languageId: 'ampscript' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.code === 'ampscript/mcn-unsupported-function'),
+            diags.every((d) => d.code !== 'ampscript/mcn-unsupported-function'),
             'MCN diagnostics should not fire without targetPlatform:next',
         );
     });
@@ -144,7 +144,7 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
             targetPlatform: 'engagement',
         });
         assert.ok(
-            !diags.some((d) => d.code === 'ampscript/mcn-unsupported-function'),
+            diags.every((d) => d.code !== 'ampscript/mcn-unsupported-function'),
             'MCN diagnostics should not fire with targetPlatform:engagement',
         );
     });
@@ -376,7 +376,7 @@ describe('MCN SSJS diagnostics (targetPlatform: next)', () => {
         const doc = { text: 'Platform.Function.Lookup("DE", "F", "K", "V");', languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.code === 'ssjs/mcn-not-supported'),
+            diags.every((d) => d.code !== 'ssjs/mcn-not-supported'),
             'MCN SSJS diagnostic should not fire without targetPlatform:next',
         );
     });
@@ -413,7 +413,7 @@ describe('SSJS validation', () => {
         const code = 'Platform.Load("core","1.1.5");\nvar de = DataExtension.Init("test");';
         const doc = { text: code, languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(!diags.some((d) => d.message.includes('Platform.Load("core"')));
+        assert.ok(diags.every((d) => !d.message.includes('Platform.Load("core"')));
     });
 
     it('warns about wrong Platform.Load version', () => {
@@ -462,7 +462,7 @@ describe('SSJS validation', () => {
         const doc = { text: code, languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.message.toLowerCase().includes('retrieve')),
+            diags.every((d) => !d.message.toLowerCase().includes('retrieve')),
             'api.retrieve should not produce a diagnostic',
         );
     });
@@ -473,7 +473,7 @@ describe('SSJS validation', () => {
         const doc = { text: code, languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.message.includes('Retrieve')),
+            diags.every((d) => !d.message.includes('Retrieve')),
             'tz.Retrieve should not be flagged (unknown prefix)',
         );
     });
@@ -484,7 +484,7 @@ describe('SSJS validation', () => {
         const doc = { text: code, languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.message.includes('Platform.Load')),
+            diags.every((d) => !d.message.includes('Platform.Load')),
             'core object in a comment should not be flagged',
         );
     });
@@ -493,7 +493,7 @@ describe('SSJS validation', () => {
         const doc = { text: '// Platform.Load("core","1.0");', languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.message.includes('"1.1.5"')),
+            diags.every((d) => !d.message.includes('"1.1.5"')),
             'version check in a comment should not produce a diagnostic',
         );
     });
@@ -523,7 +523,7 @@ describe('SSJS validation', () => {
         const doc = { text: code, languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.message.includes('Stringify')),
+            diags.every((d) => !d.message.includes('Stringify')),
             'bare Stringify() should not be flagged when Platform.Load precedes it',
         );
     });
@@ -532,7 +532,7 @@ describe('SSJS validation', () => {
         const doc = { text: '// var s = Stringify({ foo: 1 });', languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.message.includes('Stringify')),
+            diags.every((d) => !d.message.includes('Stringify')),
             'Stringify() in a comment should not be flagged',
         );
     });
@@ -562,7 +562,7 @@ describe('SSJS validation', () => {
     it('does not flag a supported static member (Math.floor)', () => {
         const doc = { text: 'var n = Math.floor(4.7);', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(!diags.some((d) => d.message.includes('not available')));
+        assert.ok(diags.every((d) => !d.message.includes('not available')));
     });
 
     it('does not emit an ssjs diagnostic for no-polyfill members (Object.keys, Math.trunc, Array.from)', () => {
@@ -573,7 +573,7 @@ describe('SSJS validation', () => {
         ]) {
             const diags = service.validate({ text, languageId: 'ssjs' });
             assert.ok(
-                !diags.some((d) => d.source === 'ssjs' && d.message.includes('not available')),
+                diags.every((d) => !(d.source === 'ssjs' && d.message.includes('not available'))),
                 `no-polyfill member must not produce an ssjs diagnostic: ${text}`,
             );
         }
@@ -586,7 +586,7 @@ describe('SSJS validation', () => {
         };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.message.includes('Object.keys')),
+            diags.every((d) => !d.message.includes('Object.keys')),
             'Object.keys in comment must be ignored',
         );
     });
@@ -596,7 +596,7 @@ describe('SSJS validation', () => {
         const doc = { text: 'var k = Object.keys(obj);', languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.source === 'ssjs' && d.message.includes('Object.keys')),
+            diags.every((d) => !(d.source === 'ssjs' && d.message.includes('Object.keys'))),
             'no-polyfill members must not produce an ssjs diagnostic',
         );
     });
@@ -633,7 +633,9 @@ describe('SSJS polyfill-required diagnostics', () => {
         const doc = { text: 'var s = str.slice(1, 3);', languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((d) => d.code === 'ssjs/polyfill-required' && d.message.includes('slice')),
+            diags.every(
+                (d) => !(d.code === 'ssjs/polyfill-required' && d.message.includes('slice')),
+            ),
             '.slice() must not be flagged by the polyfill-required warning',
         );
     });
@@ -687,8 +689,8 @@ describe('SSJS polyfill-required diagnostics', () => {
         const doc = { text: `${marker}\nvar b = Array.isArray(x);`, languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some(
-                (d) => d.code === 'ssjs/polyfill-required' && d.message.includes('isArray'),
+            diags.every(
+                (d) => !(d.code === 'ssjs/polyfill-required' && d.message.includes('isArray')),
             ),
             'diagnostic must be suppressed when the polyfill is present',
         );
@@ -728,7 +730,7 @@ describe('SSJS replace-with-platform-function diagnostics', () => {
     it('does not flag JSON.parse inside a comment', () => {
         const doc = { text: '// var o = JSON.parse(str);', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(!diags.some((d) => d.code === 'ssjs/replace-with-platform-function'));
+        assert.ok(diags.every((d) => d.code !== 'ssjs/replace-with-platform-function'));
     });
 
     it('offers a replace code action for the replace diagnostic', () => {
@@ -757,7 +759,7 @@ describe('SSJS disableLspDiagnosticsForEslintRules', () => {
             maxNumberOfProblems: 100,
             disableLspDiagnosticsForEslintRules: true,
         });
-        assert.ok(!diags.some((d) => d.code === 'ssjs/polyfill-required'));
+        assert.ok(diags.every((d) => d.code !== 'ssjs/polyfill-required'));
     });
 
     it('suppresses replace-with-platform-function diagnostics when enabled', () => {
@@ -766,7 +768,7 @@ describe('SSJS disableLspDiagnosticsForEslintRules', () => {
             maxNumberOfProblems: 100,
             disableLspDiagnosticsForEslintRules: true,
         });
-        assert.ok(!diags.some((d) => d.code === 'ssjs/replace-with-platform-function'));
+        assert.ok(diags.every((d) => d.code !== 'ssjs/replace-with-platform-function'));
     });
 
     it('still reports polyfill-required diagnostics when disabled (default)', () => {
@@ -864,7 +866,7 @@ describe('SSJS insert-polyfill code action', () => {
         };
         const actions = service.getCodeActions(doc, [polyDiag]);
         assert.ok(
-            !actions.some((a) => a.title.includes('Insert polyfill')),
+            actions.every((a) => !a.title.includes('Insert polyfill')),
             'must not offer insert-polyfill when already present',
         );
     });
@@ -1441,11 +1443,10 @@ describe('AMPscript enum-typed arguments', () => {
         // Every item must be an enum member (LSP CompletionItemKind.EnumMember = 20)
         // — no Add/Concat functions, no @vars.
         const ENUM_MEMBER_KIND = 20;
+        const kinds = [...new Set(items.map((i) => i.kind))];
         assert.ok(
             items.every((i) => i.kind === ENUM_MEMBER_KIND),
-            `expected only enum members, got kinds: ${JSON.stringify([
-                ...new Set(items.map((i) => i.kind)),
-            ])}`,
+            `expected only enum members, got kinds: ${JSON.stringify(kinds)}`,
         );
     });
 
@@ -1531,7 +1532,7 @@ describe('AMPscript deprecated function diagnostics', () => {
     it('does not flag non-deprecated functions', () => {
         const diags = ampValidate('%%[ set @x = Add(1,2) ]%%');
         assert.ok(
-            !diags.some((d) => d.code === 'ampscript/deprecated-function'),
+            diags.every((d) => d.code !== 'ampscript/deprecated-function'),
             `unexpected deprecated diagnostic: ${JSON.stringify(diags)}`,
         );
     });
@@ -1545,7 +1546,7 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
         const diags = service.validate(doc, settings);
         assert.ok(
-            !diags.some((d) => d.code === 'ampscript/unknown-function'),
+            diags.every((d) => d.code !== 'ampscript/unknown-function'),
             `expected unknown-function to be suppressed, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -1568,7 +1569,7 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
         const diags = service.validate(doc, settings);
         assert.ok(
-            !diags.some((d) => d.code === 'ampscript/enum-value'),
+            diags.every((d) => d.code !== 'ampscript/enum-value'),
             `expected enum-value to be suppressed, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -1636,7 +1637,7 @@ describe('SSJS generator-function diagnostic', () => {
         );
         const diags = ssjsValidate(text);
         assert.ok(
-            !diags.some((d) => d.message.includes('Generator functions are not supported')),
+            diags.every((d) => !d.message.includes('Generator functions are not supported')),
             `expected no generator diagnostic, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -1724,7 +1725,7 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
         const doc = { text: '{{add 1 2}}', languageId: 'ampscript' };
         const diags = service.validate(doc, nextSettings);
         assert.ok(
-            !diags.some((x) => String(x.code ?? '').startsWith('handlebars/')),
+            diags.every((x) => !String(x.code ?? '').startsWith('handlebars/')),
             `expected no Handlebars diagnostics, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -1732,7 +1733,7 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
     it('does not flag a known {!$...} binding', () => {
         const doc = { text: '{!$organization.Address}', languageId: 'ampscript' };
         const diags = service.validate(doc, nextSettings);
-        assert.ok(!diags.some((x) => x.code === 'handlebars/unknown-binding'));
+        assert.ok(diags.every((x) => x.code !== 'handlebars/unknown-binding'));
     });
 
     it('does NOT run Handlebars validation without targetPlatform:next', () => {
@@ -1740,7 +1741,7 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
         const doc = { text: '{{> myPartial}}', languageId: 'ampscript' };
         const diags = service.validate(doc);
         assert.ok(
-            !diags.some((x) => String(x.code ?? '').startsWith('handlebars/')),
+            diags.every((x) => !String(x.code ?? '').startsWith('handlebars/')),
             `Handlebars diagnostics must not fire without targetPlatform:next, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -1771,7 +1772,7 @@ describe('MCN Handlebars completions (targetPlatform: next)', () => {
         const doc = { text: '{{ }}', languageId: 'ampscript' };
         const items = service.getCompletions(doc, { line: 0, character: 3 });
         assert.ok(
-            !items.some((i) => i.label === 'add'),
+            items.every((i) => i.label !== 'add'),
             'Handlebars completions must not appear under Engagement (default)',
         );
     });
@@ -1899,7 +1900,7 @@ describe('MCN Handlebars code actions (targetPlatform: next)', () => {
         };
         const actions = service.getCodeActions(doc, [fakeDiag]);
         assert.ok(
-            !actions.some((a) => a.title.includes("'each'")),
+            actions.every((a) => !a.title.includes("'each'")),
             'Handlebars code actions must not be offered under Engagement (default)',
         );
     });
@@ -1936,7 +1937,7 @@ describe('MCN Handlebars block scope (targetPlatform: next)', () => {
         // Cursor on line 1 — after the block has closed.
         const items = service.getCompletions(doc, { line: 1, character: 3 }, nextSettings);
         assert.ok(
-            !items.some((i) => i.label === 'item'),
+            items.every((i) => i.label !== 'item'),
             'block params must not leak outside their block',
         );
     });

@@ -62,7 +62,10 @@ function blockHelperName(node: AST.BlockStatement): string | null {
     if (path.data || (path.depth ?? 0) > 0) return null;
     const parts = path.parts ?? [];
     if (parts.length !== 1) return null;
-    return parts[0]?.toLowerCase() ?? null;
+    // @handlebars/parser v2 types `parts` as (string | SubExpression)[]; a simple
+    // helper name is always a string part.
+    const first = parts[0];
+    return typeof first === 'string' ? first.toLowerCase() : null;
 }
 
 /**
@@ -164,5 +167,5 @@ export function getHandlebarsLocalsAtOffset(text: string, offset: number): Handl
             }
         }
     }
-    return [...byName.values()];
+    return Array.from(byName.values());
 }

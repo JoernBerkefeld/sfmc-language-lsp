@@ -37,11 +37,7 @@ export function isInsideAmpscript(text: string, offset: number): boolean {
     while ((match = scriptClosePattern.exec(before)) !== null) {
         lastScriptClose = match.index;
     }
-    if (lastScriptOpen !== -1 && lastScriptOpen > lastScriptClose) {
-        return true;
-    }
-
-    return false;
+    return lastScriptOpen !== -1 && lastScriptOpen > lastScriptClose;
 }
 
 /**

@@ -9,6 +9,7 @@ import {
     extractFunctionArguments,
     inferLiteralType,
 } from '../utils/text.js';
+import type { ArgumentSpan } from '../utils/text.js';
 import { offsetToPosition } from '../utils/positions.js';
 import {
     functionLookup,
@@ -16,10 +17,11 @@ import {
     canonicalFunctions,
     isMcnSupported,
 } from '../data/ampscript.js';
-import type { AmpscriptDataRepeatGroup } from '../data/ampscript.js';
+import type { AmpscriptDataRepeatGroup, AmpscriptFunctionParam } from '../data/ampscript.js';
 import { validateGtlBlocks } from './gtl.js';
 import { validateMcnHandlebars } from './mcnHandlebars.js';
 import { buildVariableTypeMap } from '../utils/ampscriptVariableTracker.js';
+import type { AmpscriptVarType } from '../utils/ampscriptVariableTracker.js';
 
 // Diagnostic codes that code actions identify and act on.
 export const DIAG_CODE_HTML_WRAPPED_COMMENT = 'ampscript/html-wrapped-comment';
@@ -173,7 +175,7 @@ function hasIncompleteRepeatGroup(
     if (countParam) {
         const countIndex = g1.startIndex - 1;
         const rawCount = argValues?.[countIndex];
-        const parsed = rawCount === undefined ? Number.NaN : Number.parseInt(rawCount, 10);
+        const parsed = rawCount === undefined ? NaN : Math.trunc(Number(rawCount));
         if (Number.isFinite(parsed) && parsed > 0) {
             searchGroups = parsed;
         }
@@ -193,6 +195,110 @@ function hasIncompleteRepeatGroup(
         return true;
     }
     return updateArgs % g2.groupSize !== 0;
+}
+
+const NON_PRIMITIVE_TYPES = new Set(['rowset', 'row', 'object']);
+
+/**
+ * Validate the arguments of a single AMPscript function call against the
+ * function's parameter catalog (enum membership and literal/variable types).
+ * Extracted into its own function so the per-argument loop is not nested inside
+ * the document-wide function-call scan (avoids `continue` in a nested loop).
+ * @param text - Full document text (for offset → position mapping).
+ * @param functionName - The function name as written in the source.
+ * @param params - Parameter definitions from the ampscript-data catalog.
+ * @param argSpans - Extracted argument spans for this call.
+ * @param variableTypeMap - Map of `varname` → inferred AMPscript type.
+ * @param budget - Maximum number of diagnostics still allowed for the document.
+ * @returns Diagnostics for the call's arguments (length ≤ budget).
+ */
+function collectArgumentDiagnostics(
+    text: string,
+    functionName: string,
+    params: AmpscriptFunctionParam[],
+    argSpans: ArgumentSpan[],
+    variableTypeMap: Map<string, AmpscriptVarType>,
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+
+    for (let ai = 0; ai < argSpans.length && diagnostics.length < budget; ai++) {
+        const param = params[ai];
+        if (!param) continue;
+
+        // Enum validation — when the argument is a static literal (string,
+        // number, or boolean) it must be one of the allowed enum values
+        // (case-insensitive). Variables (@x) and expressions are skipped because
+        // their value cannot be determined statically. Note: argSpans come from
+        // sanitized text where string contents are blanked, so read the raw
+        // literal from the original text by offset.
+        if (param.enum && param.enum.length > 0) {
+            const rawLiteral = text.slice(argSpans[ai].start, argSpans[ai].end).trim();
+            const literal = resolveStaticLiteral(rawLiteral);
+            if (
+                literal !== null &&
+                param.enum.every((v) => String(v).toLowerCase() !== literal.toLowerCase())
+            ) {
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, argSpans[ai].start),
+                        end: offsetToPosition(text, argSpans[ai].end),
+                    },
+                    message: `Argument '${param.name}' of '${functionName}' must be one of: ${param.enum.join(', ')}.`,
+                    source: 'ampscript',
+                    code: DIAG_CODE_ENUM_VALUE,
+                });
+            }
+            continue;
+        }
+
+        if (!param.type) continue;
+        const argText = argSpans[ai].value.trim();
+        const allowedTypes = param.type
+            .toLowerCase()
+            .split('|')
+            .map((t) => t.trim());
+
+        // Check literal type mismatch
+        const inferredLiteralType = inferLiteralType(argText);
+        if (inferredLiteralType && !allowedTypes.includes(inferredLiteralType)) {
+            diagnostics.push({
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, argSpans[ai].start),
+                    end: offsetToPosition(text, argSpans[ai].end),
+                },
+                message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but received a ${inferredLiteralType}.`,
+                source: 'ampscript',
+                code: DIAG_CODE_ARG_TYPE,
+            });
+            continue;
+        }
+
+        // Check variable type mismatch when param expects a non-primitive type
+        // (rowset, row, object) — only these are unambiguously typed from
+        // function return values.
+        const requiresNonPrimitive = allowedTypes.some((t) => NON_PRIMITIVE_TYPES.has(t));
+        if (requiresNonPrimitive && argText.startsWith('@')) {
+            const varName = argText.slice(1).toLowerCase();
+            const varType = variableTypeMap.get(varName);
+            if (varType !== undefined && !allowedTypes.includes(varType.toLowerCase())) {
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, argSpans[ai].start),
+                        end: offsetToPosition(text, argSpans[ai].end),
+                    },
+                    message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but '@${varName}' is a ${varType}.`,
+                    source: 'ampscript',
+                    code: DIAG_CODE_ARG_TYPE,
+                });
+            }
+        }
+    }
+
+    return diagnostics;
 }
 
 /**
@@ -280,12 +386,12 @@ export function validateAmpscript(
     for (const [lineIndex, line] of lines.entries()) {
         const lineLower = line.toLowerCase();
 
-        const ifLineCount = [...lineLower.matchAll(/\bif\b/g)].length;
+        const ifLineCount = (lineLower.match(/\bif\b/g) ?? []).length;
         for (let i = 0; i < ifLineCount; i++) {
             ifStack.push(lineIndex);
         }
-        const endifOnLine = [...lineLower.matchAll(/\bendif\b/g)];
-        for (let ei = 0; ei < endifOnLine.length; ei++) {
+        const endifLineCount = (lineLower.match(/\bendif\b/g) ?? []).length;
+        for (let ei = 0; ei < endifLineCount; ei++) {
             if (ifStack.length > 0) {
                 ifStack.pop();
             } else if (problems < max) {
@@ -302,12 +408,12 @@ export function validateAmpscript(
             }
         }
 
-        const forLineCount = [...lineLower.matchAll(/\bfor\b/g)].length;
+        const forLineCount = (lineLower.match(/\bfor\b/g) ?? []).length;
         for (let j = 0; j < forLineCount; j++) {
             forStack.push(lineIndex);
         }
-        const nextOnLine = [...lineLower.matchAll(/\bnext\b/g)];
-        for (let ni = 0; ni < nextOnLine.length; ni++) {
+        const nextLineCount = (lineLower.match(/\bnext\b/g) ?? []).length;
+        for (let ni = 0; ni < nextLineCount; ni++) {
             if (forStack.length > 0) {
                 forStack.pop();
             } else if (problems < max) {
@@ -380,8 +486,7 @@ export function validateAmpscript(
         if (fnEntry?.deprecated && problems < max) {
             problems++;
             const deprecatedData = fnEntry.deprecated as
-                | { reason?: string; replacement?: string }
-                | true;
+                true | { reason?: string; replacement?: string };
             const reason = typeof deprecatedData === 'object' ? (deprecatedData.reason ?? '') : '';
             const replacement =
                 typeof deprecatedData === 'object' ? (deprecatedData.replacement ?? '') : '';
@@ -454,100 +559,16 @@ export function validateAmpscript(
                     if (fnDef?.params && fnDef.params.length > 0) {
                         const argSpans = extractFunctionArguments(sanitizedText, openParenPos);
                         if (argSpans) {
-                            for (let ai = 0; ai < argSpans.length && problems < max; ai++) {
-                                const param = fnDef.params[ai];
-                                if (!param) continue;
-
-                                // Enum validation — when the argument is a static
-                                // literal (string, number, or boolean) it must be
-                                // one of the allowed enum values (case-insensitive).
-                                // Variables (@x) and expressions are skipped because
-                                // their value cannot be determined statically.
-                                // Note: argSpans come from sanitized text where
-                                // string contents are blanked, so read the raw
-                                // literal from the original text by offset.
-                                if (param.enum && param.enum.length > 0) {
-                                    const rawLiteral = text
-                                        .slice(argSpans[ai].start, argSpans[ai].end)
-                                        .trim();
-                                    const literal = resolveStaticLiteral(rawLiteral);
-                                    if (
-                                        literal !== null &&
-                                        !param.enum.some(
-                                            (v) =>
-                                                String(v).toLowerCase() === literal.toLowerCase(),
-                                        )
-                                    ) {
-                                        problems++;
-                                        diagnostics.push({
-                                            severity: DiagnosticSeverity.Error,
-                                            range: {
-                                                start: offsetToPosition(text, argSpans[ai].start),
-                                                end: offsetToPosition(text, argSpans[ai].end),
-                                            },
-                                            message: `Argument '${param.name}' of '${functionName}' must be one of: ${param.enum.join(', ')}.`,
-                                            source: 'ampscript',
-                                            code: DIAG_CODE_ENUM_VALUE,
-                                        });
-                                    }
-                                    continue;
-                                }
-
-                                if (!param.type) continue;
-                                const argText = argSpans[ai].value.trim();
-                                const allowedTypes = param.type
-                                    .toLowerCase()
-                                    .split('|')
-                                    .map((t) => t.trim());
-
-                                // Check literal type mismatch
-                                const inferredLiteralType = inferLiteralType(argText);
-                                if (
-                                    inferredLiteralType &&
-                                    !allowedTypes.includes(inferredLiteralType)
-                                ) {
-                                    problems++;
-                                    diagnostics.push({
-                                        severity: DiagnosticSeverity.Error,
-                                        range: {
-                                            start: offsetToPosition(text, argSpans[ai].start),
-                                            end: offsetToPosition(text, argSpans[ai].end),
-                                        },
-                                        message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but received a ${inferredLiteralType}.`,
-                                        source: 'ampscript',
-                                        code: DIAG_CODE_ARG_TYPE,
-                                    });
-                                    continue;
-                                }
-
-                                // Check variable type mismatch when param expects a
-                                // non-primitive type (rowset, row, object) — only
-                                // these are unambiguously typed from function return values.
-                                const NON_PRIMITIVE_TYPES = new Set(['rowset', 'row', 'object']);
-                                const requiresNonPrimitive = allowedTypes.some((t) =>
-                                    NON_PRIMITIVE_TYPES.has(t),
-                                );
-                                if (requiresNonPrimitive && argText.startsWith('@')) {
-                                    const varName = argText.slice(1).toLowerCase();
-                                    const varType = variableTypeMap.get(varName);
-                                    if (
-                                        varType !== undefined &&
-                                        !allowedTypes.includes(varType.toLowerCase())
-                                    ) {
-                                        problems++;
-                                        diagnostics.push({
-                                            severity: DiagnosticSeverity.Error,
-                                            range: {
-                                                start: offsetToPosition(text, argSpans[ai].start),
-                                                end: offsetToPosition(text, argSpans[ai].end),
-                                            },
-                                            message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but '@${varName}' is a ${varType}.`,
-                                            source: 'ampscript',
-                                            code: DIAG_CODE_ARG_TYPE,
-                                        });
-                                    }
-                                }
-                            }
+                            const argDiagnostics = collectArgumentDiagnostics(
+                                text,
+                                functionName,
+                                fnDef.params,
+                                argSpans,
+                                variableTypeMap,
+                                max - problems,
+                            );
+                            problems += argDiagnostics.length;
+                            diagnostics.push(...argDiagnostics);
                         }
                     }
                 }
@@ -574,23 +595,26 @@ export function validateAmpscript(
     }
 
     // 6. Smart/curly quotes inside AMPscript regions
-    const smartQuotePattern = /[\u2018\u2019\u201C\u201D\u201A\u201E\u2039\u203A]/g;
+    const smartQuotePattern =
+        /[\u{2018}\u{2019}\u{201C}\u{201D}\u{201A}\u{201E}\u{2039}\u{203A}]/gu;
     let sqMatch: RegExpExecArray | null;
     while ((sqMatch = smartQuotePattern.exec(text)) !== null && problems < max) {
-        if (isInsideAmpscript(text, sqMatch.index)) {
-            problems++;
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, sqMatch.index),
-                    end: offsetToPosition(text, sqMatch.index + 1),
-                },
-                message:
-                    'Smart/curly quote character detected. AMPscript only supports straight ASCII quotes (\' or ").',
-                source: 'ampscript',
-                code: DIAG_CODE_SMART_QUOTES,
-            });
+        if (!isInsideAmpscript(text, sqMatch.index)) {
+            continue;
         }
+
+        problems++;
+        diagnostics.push({
+            severity: DiagnosticSeverity.Error,
+            range: {
+                start: offsetToPosition(text, sqMatch.index),
+                end: offsetToPosition(text, sqMatch.index + 1),
+            },
+            message:
+                'Smart/curly quote character detected. AMPscript only supports straight ASCII quotes (\' or ").',
+            source: 'ampscript',
+            code: DIAG_CODE_SMART_QUOTES,
+        });
     }
 
     // 7. Bare subscriber attribute access warning

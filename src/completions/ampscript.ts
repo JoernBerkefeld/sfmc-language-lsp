@@ -19,7 +19,7 @@ export const functionCompletionItems: CompletionItem[] = ampscriptFunctions.map(
     detail: `(${fn.category}) ${fn.name}`,
     insertText: buildFunctionSnippet(fn),
     insertTextFormat: InsertTextFormat.Snippet,
-    ...(fn.deprecated ? { tags: [CompletionItemTag.Deprecated] } : {}),
+    ...(fn.deprecated && { tags: [CompletionItemTag.Deprecated] }),
     data: { type: 'function', index },
 }));
 

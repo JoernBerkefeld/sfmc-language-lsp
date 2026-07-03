@@ -9,7 +9,8 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const cjsRoot = path.join(__dirname, '..', 'dist', 'cjs');
 
 function collectJsFiles(dir, out = []) {
-    for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
+    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    for (const ent of entries) {
         const p = path.join(dir, ent.name);
         if (ent.isDirectory()) collectJsFiles(p, out);
         else if (ent.name.endsWith('.js')) out.push(p);
