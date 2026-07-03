@@ -78,6 +78,86 @@ function polyfillRequiredMessage(
 }
 
 /**
+ * Scan the document for calls to a single `requiresCoreLoad` method and return
+ * diagnostics for each occurrence that appears before the first Platform.Load.
+ * Extracted so the match loop is not nested inside the per-entry `for` loop
+ * (avoids `continue` in a nested loop).
+ * @param text - Full document text.
+ * @param entry - The method to scan for.
+ * @param entry.prefix - The owner prefix (e.g. `HTTPHeader`).
+ * @param entry.name - The method name (e.g. `Add`).
+ * @param commentRanges - Comment ranges to skip.
+ * @param platformLoadOffset - Offset of the first real Platform.Load call.
+ * @param budget - Maximum number of diagnostics still allowed.
+ * @returns Diagnostics for this method's early calls (length ≤ budget).
+ */
+function collectCoreLoadCallDiagnostics(
+    text: string,
+    entry: { prefix: string; name: string },
+    commentRanges: Array<[number, number]>,
+    platformLoadOffset: number,
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    const callPattern = new RegExp(
+        String.raw`\b${entry.prefix.replaceAll('.', String.raw`\.`)}\s*\.\s*${entry.name}\s*\(`,
+        'g',
+    );
+    let reqMatch: RegExpExecArray | null;
+    while ((reqMatch = callPattern.exec(text)) !== null && diagnostics.length < budget) {
+        if (isInCommentRange(reqMatch.index, commentRanges)) continue;
+        if (reqMatch.index < platformLoadOffset) {
+            diagnostics.push({
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, reqMatch.index),
+                    end: offsetToPosition(text, reqMatch.index + reqMatch[0].length - 1),
+                },
+                message: `Platform.Load("core", "1.1.5") must be called before using ${entry.prefix}.${entry.name}(). Without it, this call will fail at runtime.`,
+                source: 'ssjs',
+            });
+        }
+    }
+    return diagnostics;
+}
+
+/**
+ * Scan the document for a single unsupported ES6+ pattern and return a
+ * diagnostic for each non-comment occurrence. Extracted so the match loop is
+ * not nested inside the per-pattern `for` loop (avoids `continue` in a nested
+ * loop).
+ * @param text - Full document text.
+ * @param pattern - The ES6+ detection regex (global flag).
+ * @param message - The diagnostic message for this pattern.
+ * @param commentRanges - Comment ranges to skip.
+ * @param budget - Maximum number of diagnostics still allowed.
+ * @returns Diagnostics for this pattern (length ≤ budget).
+ */
+function collectEs6PatternDiagnostics(
+    text: string,
+    pattern: RegExp,
+    message: string,
+    commentRanges: Array<[number, number]>,
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null && diagnostics.length < budget) {
+        if (isInCommentRange(match.index, commentRanges)) continue;
+        diagnostics.push({
+            severity: DiagnosticSeverity.Error,
+            range: {
+                start: offsetToPosition(text, match.index),
+                end: offsetToPosition(text, match.index + match[0].length),
+            },
+            message,
+            source: 'ssjs',
+        });
+    }
+    return diagnostics;
+}
+
+/**
  * Validate an SSJS document and return LSP Diagnostics.
  * @param text - Full document text.
  * @param settings - Validation settings.
@@ -136,26 +216,16 @@ export function validateSsjs(
         .map((m) => ({ prefix: m.prefix ?? '', name: m.name }));
 
     for (const entry of requiresCoreLoadEntries) {
-        const callPattern = new RegExp(
-            String.raw`\b${entry.prefix.replaceAll('.', String.raw`\.`)}\s*\.\s*${entry.name}\s*\(`,
-            'g',
+        if (problems >= max) break;
+        const entryDiagnostics = collectCoreLoadCallDiagnostics(
+            text,
+            entry,
+            commentRanges,
+            platformLoadOffset,
+            max - problems,
         );
-        let reqMatch: RegExpExecArray | null;
-        while ((reqMatch = callPattern.exec(text)) !== null && problems < max) {
-            if (isInCommentRange(reqMatch.index, commentRanges)) continue;
-            if (reqMatch.index < platformLoadOffset) {
-                problems++;
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: offsetToPosition(text, reqMatch.index),
-                        end: offsetToPosition(text, reqMatch.index + reqMatch[0].length - 1),
-                    },
-                    message: `Platform.Load("core", "1.1.5") must be called before using ${entry.prefix}.${entry.name}(). Without it, this call will fail at runtime.`,
-                    source: 'ssjs',
-                });
-            }
-        }
+        problems += entryDiagnostics.length;
+        diagnostics.push(...entryDiagnostics);
     }
 
     // 1c. Bare-name globals that require Platform.Load (e.g. Stringify, Now, GUID)
@@ -261,20 +331,16 @@ export function validateSsjs(
     ];
 
     for (const { pattern, message } of es6Patterns) {
-        let match: RegExpExecArray | null;
-        while ((match = pattern.exec(text)) !== null && problems < max) {
-            if (isInCommentRange(match.index, commentRanges)) continue;
-            problems++;
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, match.index),
-                    end: offsetToPosition(text, match.index + match[0].length),
-                },
-                message,
-                source: 'ssjs',
-            });
-        }
+        if (problems >= max) break;
+        const patternDiagnostics = collectEs6PatternDiagnostics(
+            text,
+            pattern,
+            message,
+            commentRanges,
+            max - problems,
+        );
+        problems += patternDiagnostics.length;
+        diagnostics.push(...patternDiagnostics);
     }
 
     // 4. Polyfill-required ECMAScript built-in members. These are absent/broken

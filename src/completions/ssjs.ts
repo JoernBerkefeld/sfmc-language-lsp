@@ -30,19 +30,15 @@ import {
 export const ssjsCompletionItems: CompletionItem[] = buildSsjsCatalog();
 
 function buildSsjsCatalog(): CompletionItem[] {
-    const items: CompletionItem[] = [];
-
-    for (const fn of ssjsGlobals) {
-        items.push({
-            label: fn.name,
-            kind: CompletionItemKind.Function,
-            detail: `(global) ${fn.name}`,
-            documentation: { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(fn) },
-            insertText: buildSsjsFunctionSnippet(fn),
-            insertTextFormat: InsertTextFormat.Snippet,
-            data: { type: 'ssjs-global', name: fn.name },
-        });
-    }
+    const items: CompletionItem[] = Array.from(ssjsGlobals, (fn) => ({
+        label: fn.name,
+        kind: CompletionItemKind.Function,
+        detail: `(global) ${fn.name}`,
+        documentation: { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(fn) },
+        insertText: buildSsjsFunctionSnippet(fn),
+        insertTextFormat: InsertTextFormat.Snippet,
+        data: { type: 'ssjs-global', name: fn.name },
+    }));
 
     for (const fn of platformFunctions) {
         const doc = { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(fn) };

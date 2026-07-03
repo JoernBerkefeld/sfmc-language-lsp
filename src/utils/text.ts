@@ -2,6 +2,9 @@
  * General text-parsing utilities used across validators, completions, and hover providers.
  */
 
+const OPEN_BRACKETS = ['(', '[', '{'];
+const CLOSE_BRACKETS = [')', ']', '}'];
+
 /**
  * Returns all start offsets of `search` within `text`.
  * @param text - Source text to search.
@@ -75,10 +78,10 @@ export function extractFunctionArguments(
 
     for (let index = openParenPos + 1; index < text.length; index++) {
         const ch = text[index];
-        if (ch === '(' || ch === '[' || ch === '{') {
+        if (OPEN_BRACKETS.includes(ch)) {
             depth++;
             hasContent = true;
-        } else if (ch === ')' || ch === ']' || ch === '}') {
+        } else if (CLOSE_BRACKETS.includes(ch)) {
             depth--;
             if (depth === 0) {
                 const raw = text.slice(argStart, index);
@@ -182,9 +185,9 @@ function splitTopLevelArgs(argsText: string): string[] {
     let start = 0;
     for (let index = 0; index < argsText.length; index++) {
         const ch = argsText[index];
-        if (ch === '(' || ch === '[' || ch === '{') {
+        if (OPEN_BRACKETS.includes(ch)) {
             depth++;
-        } else if (ch === ')' || ch === ']' || ch === '}') {
+        } else if (CLOSE_BRACKETS.includes(ch)) {
             depth--;
         } else if (ch === ',' && depth === 0) {
             args.push(argsText.slice(start, index).trim());

@@ -45,7 +45,7 @@ export function closestMatch(word: string, candidates: Iterable<string>): string
     const maxDistance = lowerWord.length <= 4 ? 1 : 2;
 
     let best: string | null = null;
-    let bestDistance = Number.POSITIVE_INFINITY;
+    let bestDistance = Infinity;
 
     for (const candidate of candidates) {
         const distance = levenshtein(lowerWord, candidate.toLowerCase());
