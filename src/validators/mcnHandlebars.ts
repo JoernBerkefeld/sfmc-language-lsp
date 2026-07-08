@@ -57,11 +57,18 @@ export interface HandlebarsSuggestionData {
 
 /**
  * MCN Handlebars diagnostic codes that duplicate eslint-plugin-sfmc (`-next`
- * config) rules and can be suppressed via `disableLspDiagnosticsForEslintRules`.
+ * config) rules and can be suppressed via `disableLspDiagnosticsForEslintRules`:
+ *   - unsupported-construct → `hbs-no-unsupported-construct`
+ *   - unknown-helper → `hbs-no-unknown-helper`
+ *   - unknown-binding → `hbs-no-unknown-binding`
+ *
+ * `handlebars/syntax-error` is deliberately excluded: it is a parser-level error
+ * with no eslint-plugin-sfmc equivalent, so it must always surface.
  */
 export const HBS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_HBS_UNSUPPORTED_CONSTRUCT,
     DIAG_CODE_HBS_UNKNOWN_HELPER,
+    DIAG_CODE_HBS_UNKNOWN_BINDING,
 ]);
 
 /** Matches a `{!$namespace.Field}` built-in data binding token. */

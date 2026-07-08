@@ -103,6 +103,56 @@ describe('AMPscript validation', () => {
         const diags = service.validate(doc);
         assert.ok(diags.some((d) => d.code === 'ampscript/js-line-comment'));
     });
+
+    it('does not flag sibling AMPscript <script> blocks as nested', () => {
+        const text = [
+            '<script language="ampscript" runat="server">',
+            '    SET @a = "one"',
+            '</script>',
+            '<script language="ampscript" runat="server">',
+            '    SET @b = "two"',
+            '</script>',
+        ].join('\n');
+        const doc = { text, languageId: 'html' };
+        const diags = service.validate(doc);
+        assert.equal(
+            diags.filter((d) => d.code === 'ampscript/nested-script-tag').length,
+            0,
+            'sibling script blocks must not be flagged',
+        );
+    });
+
+    it('flags a genuinely nested AMPscript <script> opener exactly once', () => {
+        const text = [
+            '<script language="ampscript" runat="server">',
+            '    SET @a = "one"',
+            '    <script language="ampscript" runat="server">',
+            '        SET @b = "two"',
+            '    </script>',
+            '</script>',
+        ].join('\n');
+        const doc = { text, languageId: 'html' };
+        const diags = service.validate(doc);
+        const nested = diags.filter((d) => d.code === 'ampscript/nested-script-tag');
+        assert.equal(nested.length, 1, 'nested opener must be flagged once');
+        assert.equal(nested[0].range.start.line, 2, 'diagnostic on the inner opener line');
+    });
+
+    it('ignores <script language="ampscript"> quoted inside an HTML comment', () => {
+        const text = [
+            '<!-- example: <script language="ampscript"> ... </script> -->',
+            '<script language="ampscript" runat="server">',
+            '    SET @a = "one"',
+            '</script>',
+        ].join('\n');
+        const doc = { text, languageId: 'html' };
+        const diags = service.validate(doc);
+        assert.equal(
+            diags.filter((d) => d.code === 'ampscript/nested-script-tag').length,
+            0,
+            'commented-out script tags must not distort nesting depth',
+        );
+    });
 });
 
 // ── MCN diagnostics — AMPscript ──────────────────────────────────────────────
@@ -769,6 +819,25 @@ describe('SSJS disableLspDiagnosticsForEslintRules', () => {
             disableLspDiagnosticsForEslintRules: true,
         });
         assert.ok(diags.every((d) => d.code !== 'ssjs/replace-with-platform-function'));
+    });
+
+    it('suppresses mcn-not-supported diagnostic when enabled', () => {
+        const doc = { text: 'var x = Platform.Function.Now();', languageId: 'ssjs' };
+        const diags = service.validate(doc, {
+            maxNumberOfProblems: 100,
+            targetPlatform: 'next',
+            disableLspDiagnosticsForEslintRules: true,
+        });
+        assert.ok(diags.every((d) => d.code !== 'ssjs/mcn-not-supported'));
+    });
+
+    it('still reports mcn-not-supported diagnostic when disabled (default)', () => {
+        const doc = { text: 'var x = Platform.Function.Now();', languageId: 'ssjs' };
+        const diags = service.validate(doc, {
+            maxNumberOfProblems: 100,
+            targetPlatform: 'next',
+        });
+        assert.ok(diags.some((d) => d.code === 'ssjs/mcn-not-supported'));
     });
 
     it('still reports polyfill-required diagnostics when disabled (default)', () => {
@@ -1571,6 +1640,92 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         assert.ok(
             diags.every((d) => d.code !== 'ampscript/enum-value'),
             `expected enum-value to be suppressed, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('suppresses ampscript mcn-unsupported-function error when setting is enabled', () => {
+        // InsertDE is a valid AMPscript function but not supported in MCN.
+        const doc = { text: '%%[ InsertDE("MyDE", "Col", "Val") ]%%', languageId: 'ampscript' };
+        const settings = {
+            maxNumberOfProblems: 100,
+            targetPlatform: 'next',
+            disableLspDiagnosticsForEslintRules: true,
+        };
+        const diags = service.validate(doc, settings);
+        assert.ok(
+            diags.every((d) => d.code !== 'ampscript/mcn-unsupported-function'),
+            `expected mcn-unsupported-function to be suppressed, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('suppresses handlebars unknown-binding warning when setting is enabled', () => {
+        const doc = { text: '{!$foo.Bar}', languageId: 'ampscript' };
+        const settings = {
+            maxNumberOfProblems: 100,
+            targetPlatform: 'next',
+            disableLspDiagnosticsForEslintRules: true,
+        };
+        const diags = service.validate(doc, settings);
+        assert.ok(
+            diags.every((d) => d.code !== 'handlebars/unknown-binding'),
+            `expected unknown-binding to be suppressed, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('suppresses ssjs require-platform-load error when setting is enabled', () => {
+        const doc = { text: 'var de = DataExtension.Init("MyDE");', languageId: 'ssjs' };
+        const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
+        const diags = service.validate(doc, settings);
+        assert.ok(
+            diags.every((d) => d.code !== 'ssjs/require-platform-load'),
+            `expected require-platform-load to be suppressed, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('still reports require-platform-load error when setting is disabled (default)', () => {
+        const doc = { text: 'var de = DataExtension.Init("MyDE");', languageId: 'ssjs' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+        assert.ok(
+            diags.some((d) => d.code === 'ssjs/require-platform-load'),
+            `expected require-platform-load diagnostic, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('suppresses ssjs platform-load-version warning when setting is enabled', () => {
+        const doc = { text: 'Platform.Load("core", "1.1.1");', languageId: 'ssjs' };
+        const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
+        const diags = service.validate(doc, settings);
+        assert.ok(
+            diags.every((d) => d.code !== 'ssjs/platform-load-version'),
+            `expected platform-load-version to be suppressed, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('still reports platform-load-version warning when setting is disabled (default)', () => {
+        const doc = { text: 'Platform.Load("core", "1.1.1");', languageId: 'ssjs' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+        assert.ok(
+            diags.some((d) => d.code === 'ssjs/platform-load-version'),
+            `expected platform-load-version diagnostic, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('suppresses ssjs unsupported-syntax error when setting is enabled', () => {
+        const doc = { text: 'let x = 1;', languageId: 'ssjs' };
+        const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
+        const diags = service.validate(doc, settings);
+        assert.ok(
+            diags.every((d) => d.code !== 'ssjs/unsupported-syntax'),
+            `expected unsupported-syntax to be suppressed, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('still reports unsupported-syntax error when setting is disabled (default)', () => {
+        const doc = { text: 'let x = 1;', languageId: 'ssjs' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+        assert.ok(
+            diags.some((d) => d.code === 'ssjs/unsupported-syntax'),
+            `expected unsupported-syntax diagnostic, got: ${JSON.stringify(diags)}`,
         );
     });
 

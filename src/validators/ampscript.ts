@@ -40,6 +40,9 @@ export const DIAG_CODE_ARG_TYPE = 'ampscript/arg-type';
 export const DIAG_CODE_ENUM_VALUE = 'ampscript/enum-value';
 export const DIAG_CODE_SMART_QUOTES = 'ampscript/smart-quotes';
 export const DIAG_CODE_SET_NO_TARGET = 'ampscript/set-no-target';
+// Emitted only for Marketing Cloud Next targets; mirrors the eslint-plugin-sfmc
+// `amp-no-mcn-unsupported` rule (enabled in the `-next` configs).
+export const DIAG_CODE_MCN_UNSUPPORTED_FUNCTION = 'ampscript/mcn-unsupported-function';
 
 /**
  * Diagnostic codes that duplicate eslint-plugin-sfmc rules and can be
@@ -59,6 +62,7 @@ export const ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_NESTED_DELIMITER,
     DIAG_CODE_NESTED_DELIMITER_IN_SCRIPT,
     DIAG_CODE_DEPRECATED_FUNCTION,
+    DIAG_CODE_MCN_UNSUPPORTED_FUNCTION,
 ]);
 
 const ampscriptKeywordSet = new Set(ampscriptKeywords.map((kw) => kw.name.toLowerCase()));
@@ -686,45 +690,52 @@ export function validateAmpscript(
         });
     }
 
-    // 10. Nested <script language="ampscript"> inside an already-open block
+    // 10. Nested <script language="ampscript"> inside an already-open block.
+    // Scan every AMPscript <script> opener and </script> closer in document order
+    // and track nesting depth. An opener is only nested when depth > 0. Sibling
+    // blocks return depth to 0 between them, so they are not flagged, and each
+    // genuinely nested opener is reported exactly once.
+    // Mask HTML comments (with same-length whitespace) so <script> / </script>
+    // occurrences quoted inside comments do not distort the nesting depth. Offsets
+    // are preserved, so matches map straight back onto the original text.
+    const commentMaskedText = text.replaceAll(/<!--[\s\S]*?-->/g, (m) => ' '.repeat(m.length));
     const scriptOpenPattern = /<script\s[^>]*language\s*=\s*["']ampscript["'][^>]*>/gi;
     const scriptClosePattern = /<\/script>/gi;
-    const scriptOpens: number[] = [];
-    const scriptCloses: number[] = [];
+    type ScriptToken = { index: number; length: number; isOpen: boolean };
+    const scriptTokens: ScriptToken[] = [];
     {
         let sm: RegExpExecArray | null;
-        while ((sm = scriptOpenPattern.exec(text)) !== null) {
-            scriptOpens.push(sm.index);
+        while ((sm = scriptOpenPattern.exec(commentMaskedText)) !== null) {
+            scriptTokens.push({ index: sm.index, length: sm[0].length, isOpen: true });
         }
-        while ((sm = scriptClosePattern.exec(text)) !== null) {
-            scriptCloses.push(sm.index);
+        while ((sm = scriptClosePattern.exec(commentMaskedText)) !== null) {
+            scriptTokens.push({ index: sm.index, length: sm[0].length, isOpen: false });
         }
     }
-    for (let si = 0; si < scriptOpens.length && problems < max; si++) {
-        const openStart = scriptOpens[si];
-        const openTagEnd = text.indexOf('>', openStart) + 1;
-        const pairedClose = scriptCloses.find((c) => c > openTagEnd);
-        const searchEnd = pairedClose === undefined ? text.length : pairedClose;
-        const innerOpenPattern = /<script\s[^>]*language\s*=\s*["']ampscript["'][^>]*>/gi;
-        innerOpenPattern.lastIndex = openTagEnd;
-        let innerMatch: RegExpExecArray | null;
-        while (
-            (innerMatch = innerOpenPattern.exec(text)) !== null &&
-            innerMatch.index < searchEnd &&
-            problems < max
-        ) {
-            problems++;
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, innerMatch.index),
-                    end: offsetToPosition(text, innerMatch.index + innerMatch[0].length),
-                },
-                message:
-                    'Nested <script language="ampscript"> inside an already-open AMPscript block. Did you forget a </script> closing tag?',
-                source: 'ampscript',
-                code: DIAG_CODE_NESTED_SCRIPT_TAG,
-            });
+    scriptTokens.sort((a, b) => a.index - b.index);
+    let scriptDepth = 0;
+    for (const token of scriptTokens) {
+        if (problems >= max) {
+            break;
+        }
+        if (token.isOpen) {
+            if (scriptDepth > 0) {
+                problems++;
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, token.index),
+                        end: offsetToPosition(text, token.index + token.length),
+                    },
+                    message:
+                        'Nested <script language="ampscript"> inside an already-open AMPscript block. Did you forget a </script> closing tag?',
+                    source: 'ampscript',
+                    code: DIAG_CODE_NESTED_SCRIPT_TAG,
+                });
+            }
+            scriptDepth++;
+        } else {
+            scriptDepth = Math.max(0, scriptDepth - 1);
         }
     }
 
@@ -827,7 +838,7 @@ export function validateAmpscript(
                     },
                     message: `'${site.name}' is not supported in Marketing Cloud Next.`,
                     source: 'ampscript',
-                    code: 'ampscript/mcn-unsupported-function',
+                    code: DIAG_CODE_MCN_UNSUPPORTED_FUNCTION,
                 });
             }
         }

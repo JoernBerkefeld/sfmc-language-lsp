@@ -29,15 +29,33 @@ export const DIAG_CODE_SSJS_MCN_NOT_SUPPORTED = 'ssjs/mcn-not-supported';
 // (e.g. JSON.parse → Platform.Function.ParseJSON). TypeScript also flags these
 // (JSON is undefined), but we additionally offer a "replace with …" quick-fix.
 export const DIAG_CODE_SSJS_REPLACE_WITH_PLATFORM_FUNCTION = 'ssjs/replace-with-platform-function';
+// Core library object / requiresCoreLoad global used before a Platform.Load("core")
+// call. Mirrors the `ssjs-require-platform-load` rule.
+export const DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD = 'ssjs/require-platform-load';
+// Platform.Load("core", <version>) using a version other than the recommended
+// "1.1.5". Mirrors the `ssjs-prefer-platform-load-version` rule.
+export const DIAG_CODE_SSJS_PLATFORM_LOAD_VERSION = 'ssjs/platform-load-version';
+// ES6+ syntax not supported by the legacy SFMC SSJS engine (let/const, arrow
+// functions, generators, spread, destructuring, for…of, async/await, class).
+// Mirrors the `ssjs-no-unsupported-syntax` rule.
+export const DIAG_CODE_SSJS_UNSUPPORTED_SYNTAX = 'ssjs/unsupported-syntax';
 
 /**
- * SSJS diagnostic codes that duplicate eslint-plugin-sfmc rules (the
- * `ssjs/no-unavailable-method` rule covers polyfill-required members) and can
- * be suppressed via the `disableLspDiagnosticsForEslintRules` setting.
+ * SSJS diagnostic codes that duplicate eslint-plugin-sfmc rules and can be
+ * suppressed via the `disableLspDiagnosticsForEslintRules` setting:
+ *   - polyfill-required / replace-with-platform-function → `ssjs-no-unavailable-method`
+ *   - mcn-not-supported → `ssjs-no-mcn-unsupported` (enabled in the `-next` configs)
+ *   - require-platform-load → `ssjs-require-platform-load`
+ *   - platform-load-version → `ssjs-prefer-platform-load-version`
+ *   - unsupported-syntax → `ssjs-no-unsupported-syntax`
  */
 export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_POLYFILL_REQUIRED,
     DIAG_CODE_SSJS_REPLACE_WITH_PLATFORM_FUNCTION,
+    DIAG_CODE_SSJS_MCN_NOT_SUPPORTED,
+    DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD,
+    DIAG_CODE_SSJS_PLATFORM_LOAD_VERSION,
+    DIAG_CODE_SSJS_UNSUPPORTED_SYNTAX,
 ]);
 
 /**
@@ -115,6 +133,7 @@ function collectCoreLoadCallDiagnostics(
                 },
                 message: `Platform.Load("core", "1.1.5") must be called before using ${entry.prefix}.${entry.name}(). Without it, this call will fail at runtime.`,
                 source: 'ssjs',
+                code: DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD,
             });
         }
     }
@@ -152,6 +171,7 @@ function collectEs6PatternDiagnostics(
             },
             message,
             source: 'ssjs',
+            code: DIAG_CODE_SSJS_UNSUPPORTED_SYNTAX,
         });
     }
     return diagnostics;
@@ -202,6 +222,7 @@ export function validateSsjs(
                 },
                 message: `Platform.Load("core", "1.1.5") must be called before using ${coreMatch[1]}.Init(). Without it, this call will fail at runtime.`,
                 source: 'ssjs',
+                code: DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD,
             });
         }
     }
@@ -250,6 +271,7 @@ export function validateSsjs(
                     },
                     message: `Platform.Load("core", "1.1.5") must be called before using ${name}(). Without it, this call will fail at runtime.`,
                     source: 'ssjs',
+                    code: DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD,
                 });
             }
         }
@@ -273,6 +295,7 @@ export function validateSsjs(
                 },
                 message: `Platform.Load("Core", "${actualVersion}") should use version "1.1.5" to get the latest bug-fixes.`,
                 source: 'ssjs',
+                code: DIAG_CODE_SSJS_PLATFORM_LOAD_VERSION,
             });
         }
     }
