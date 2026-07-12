@@ -655,27 +655,27 @@ describe('SSJS validation', () => {
 // ── Polyfill-required ECMAScript members ─────────────────────────────────────
 
 describe('SSJS polyfill-required diagnostics', () => {
-    it('reports a static polyfillable member (Array.isArray) as a Warning with polyfill data', () => {
+    it('reports a static polyfillable member (Array.isArray) as an Error with polyfill data', () => {
         const doc = { text: 'var b = Array.isArray(x);', languageId: 'ssjs' };
         const diags = service.validate(doc);
         const d = diags.find(
             (d) => d.code === 'ssjs/polyfill-required' && d.message.includes('Array.isArray'),
         );
         assert.ok(d, 'expected polyfill-required diagnostic for Array.isArray');
-        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.equal(d.severity, 1, 'expected Error severity');
         assert.ok(d.data && typeof d.data.polyfill === 'string' && d.data.polyfill.length > 0);
         assert.equal(d.data.owner, 'Array');
         assert.equal(d.data.method, 'isArray');
     });
 
-    it('reports a prototype polyfillable member (.forEach) as a Warning with polyfill data', () => {
+    it('reports a prototype polyfillable member (.forEach) as an Error with polyfill data', () => {
         const doc = { text: 'arr.forEach(fn);', languageId: 'ssjs' };
         const diags = service.validate(doc);
         const d = diags.find(
             (d) => d.code === 'ssjs/polyfill-required' && d.message.includes('forEach'),
         );
         assert.ok(d, 'expected polyfill-required diagnostic for .forEach');
-        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.equal(d.severity, 1, 'expected Error severity');
         assert.ok(d.data && typeof d.data.polyfill === 'string' && d.data.polyfill.length > 0);
     });
 
@@ -743,6 +743,26 @@ describe('SSJS polyfill-required diagnostics', () => {
                 (d) => !(d.code === 'ssjs/polyfill-required' && d.message.includes('isArray')),
             ),
             'diagnostic must be suppressed when the polyfill is present',
+        );
+    });
+
+    it('suppresses the diagnostic when the polyfill carries a self-guard (X = X || function)', () => {
+        // Canonical ssjs-data polyfill form: `Array.isArray = Array.isArray || function (…)`.
+        // The self-guard must still count as "polyfill present".
+        const doc = {
+            text:
+                'Array.isArray = Array.isArray || function (value) {\n' +
+                "    return Object.prototype.toString.call(value) === '[object Array]';\n" +
+                '};\n' +
+                'var b = Array.isArray(x);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.every(
+                (d) => !(d.code === 'ssjs/polyfill-required' && d.message.includes('isArray')),
+            ),
+            'diagnostic must be suppressed when the self-guarded polyfill is present',
         );
     });
 });

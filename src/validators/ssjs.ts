@@ -392,7 +392,9 @@ export function validateSsjs(
                 polyfill: entry.polyfill,
             };
             diagnostics.push({
-                severity: DiagnosticSeverity.Warning,
+                // The member is absent/broken in the SFMC engine — code using it
+                // will fail at runtime without the polyfill, so this is an error.
+                severity: DiagnosticSeverity.Error,
                 range: {
                     start: offsetToPosition(text, m.index),
                     end: offsetToPosition(text, m.index + m[0].length),
@@ -457,7 +459,9 @@ export function validateSsjs(
                 polyfill: entry.polyfill,
             };
             diagnostics.push({
-                severity: DiagnosticSeverity.Warning,
+                // The member is absent/broken in the SFMC engine — code using it
+                // will fail at runtime without the polyfill, so this is an error.
+                severity: DiagnosticSeverity.Error,
                 range: {
                     start: offsetToPosition(text, memberStart),
                     end: offsetToPosition(text, memberStart + m[1].length),
