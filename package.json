@@ -58,24 +58,24 @@
         "ampscript-data": "^3.0.0",
         "handlebars-data": "^0.3.0",
         "ssjs-data": "^0.15.0",
-        "vscode-languageserver-types": "^3.17.5"
+        "vscode-languageserver-types": "^3.18.0"
     },
     "engines": {
         "node": ">=22.0.0"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
-        "eslint": "^10.1.0",
+        "eslint": "^10.7.0",
         "eslint-config-prettier": "^10.1.8",
-        "eslint-plugin-jsdoc": "^63.0.10",
-        "eslint-plugin-prettier": "^5.5.0",
-        "eslint-plugin-unicorn": "^70.0.0",
-        "globals": "^17.4.0",
+        "eslint-plugin-jsdoc": "^63.0.13",
+        "eslint-plugin-prettier": "^5.5.6",
+        "eslint-plugin-unicorn": "^71.1.0",
+        "globals": "^17.7.0",
         "husky": "^9.1.7",
-        "lint-staged": "^17.0.5",
-        "prettier": "^3.8.1",
+        "lint-staged": "^17.0.8",
+        "prettier": "^3.9.5",
         "typescript": "^5.9.3",
-        "typescript-eslint": "^8.57.2"
+        "typescript-eslint": "^8.63.0"
     },
     "lint-staged": {
         "*.{js,mjs,cjs,ts}": [
