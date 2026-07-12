@@ -39,6 +39,17 @@ export const DIAG_CODE_SSJS_PLATFORM_LOAD_VERSION = 'ssjs/platform-load-version'
 // functions, generators, spread, destructuring, for…of, async/await, class).
 // Mirrors the `ssjs-no-unsupported-syntax` rule.
 export const DIAG_CODE_SSJS_UNSUPPORTED_SYNTAX = 'ssjs/unsupported-syntax';
+// CLR-unsafe read of an HttpResponse `.headers` object (indexing, `.Get()`, or
+// `.Item()`) on a variable returned by `req.send()`. These throw "Use of Common
+// Language Runtime (CLR) is not allowed" at runtime — headers are only readable
+// by enumerating with for..in. Mirrors the `ssjs-no-clr-header-access` rule.
+export const DIAG_CODE_SSJS_CLR_HEADER_ACCESS = 'ssjs/clr-header-access';
+// Raw use of an HttpResponse `.content` CLR string without a `String()` wrap on a
+// variable returned by `req.send()`. `.content` is a CLR string, not a JavaScript
+// string, so passing it to ParseJSON(), a string method, or a concatenation is
+// unreliable — wrap it with `String(resp.content)` first. Mirrors the
+// `ssjs-require-string-clr-content` rule.
+export const DIAG_CODE_SSJS_CLR_CONTENT_ACCESS = 'ssjs/clr-content-access';
 
 /**
  * SSJS diagnostic codes that duplicate eslint-plugin-sfmc rules and can be
@@ -48,6 +59,8 @@ export const DIAG_CODE_SSJS_UNSUPPORTED_SYNTAX = 'ssjs/unsupported-syntax';
  *   - require-platform-load → `ssjs-require-platform-load`
  *   - platform-load-version → `ssjs-prefer-platform-load-version`
  *   - unsupported-syntax → `ssjs-no-unsupported-syntax`
+ *   - clr-header-access → `ssjs-no-clr-header-access`
+ *   - clr-content-access → `ssjs-require-string-clr-content`
  */
 export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_POLYFILL_REQUIRED,
@@ -56,6 +69,8 @@ export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD,
     DIAG_CODE_SSJS_PLATFORM_LOAD_VERSION,
     DIAG_CODE_SSJS_UNSUPPORTED_SYNTAX,
+    DIAG_CODE_SSJS_CLR_HEADER_ACCESS,
+    DIAG_CODE_SSJS_CLR_CONTENT_ACCESS,
 ]);
 
 /**
@@ -76,6 +91,27 @@ export interface ReplaceDiagnosticData {
     owner: string;
     member: string;
     replacement: string;
+}
+
+/**
+ * Payload attached to `ssjs/clr-header-access` diagnostics so the code action
+ * can rewrite the access to `getHeaderMap(<respName>)[<key>]` and insert the
+ * helper. `respName` is the response variable; `keyText` is the header-key
+ * expression source (e.g. `"Content-Type"`), or empty when none was found.
+ */
+export interface ClrHeaderAccessDiagnosticData {
+    respName: string;
+    keyText: string;
+}
+
+/**
+ * Payload attached to `ssjs/clr-content-access` diagnostics so the code action
+ * can wrap the flagged access in `String(...)`. `contentText` is the source of
+ * the flagged `<respName>.content` member expression (e.g. `resp.content`).
+ */
+export interface ClrContentAccessDiagnosticData {
+    respName: string;
+    contentText: string;
 }
 
 /**
@@ -174,6 +210,175 @@ function collectEs6PatternDiagnostics(
             code: DIAG_CODE_SSJS_UNSUPPORTED_SYNTAX,
         });
     }
+    return diagnostics;
+}
+
+/**
+ * Scan the document for CLR-unsafe reads of an HttpResponse `.headers` object.
+ *
+ * A response variable is one assigned from `<reqVar>.send()`, where `<reqVar>`
+ * was assigned from `new Script.Util.HttpRequest(...)` or `Script.Util.HttpGet(...)`.
+ * Reading `<respVar>.headers` by indexing (`resp.headers["x"]`), `.Get("x")`, or
+ * `.Item("x")` throws "Use of Common Language Runtime (CLR) is not allowed" at
+ * runtime — these are flagged with a quick-fix that inserts a `getHeaderMap()`
+ * helper and rewrites the read to `getHeaderMap(resp)[…]`.
+ * @param text - Full document text.
+ * @param commentRanges - Comment ranges to skip.
+ * @param budget - Maximum number of diagnostics still allowed.
+ * @returns Diagnostics for CLR header reads (length ≤ budget).
+ */
+function collectClrHeaderAccessDiagnostics(
+    text: string,
+    commentRanges: Array<[number, number]>,
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    if (budget <= 0) return diagnostics;
+
+    // 1. Collect request variables: `var req = new Script.Util.HttpRequest(...)`
+    //    or `var greq = Script.Util.HttpGet(...)` (HttpGet is often called sans new).
+    const requestVars = new Set<string>();
+    const reqPattern =
+        /\b(?:var\s+)?([A-Za-z_$][\w$]*)\s*=\s*(?:new\s+)?Script\s*\.\s*Util\s*\.\s*(?:HttpRequest|HttpGet)\s*\(/g;
+    let rm: RegExpExecArray | null;
+    while ((rm = reqPattern.exec(text)) !== null) {
+        if (isInCommentRange(rm.index, commentRanges)) continue;
+        requestVars.add(rm[1]);
+    }
+    if (requestVars.size === 0) return diagnostics;
+
+    // 2. Collect response variables: `var resp = <reqVar>.send()`.
+    const responseVars = new Set<string>();
+    const sendPattern =
+        /\b(?:var\s+)?([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$]*)\s*\.\s*send\s*\(/g;
+    let sm: RegExpExecArray | null;
+    while ((sm = sendPattern.exec(text)) !== null) {
+        if (isInCommentRange(sm.index, commentRanges)) continue;
+        if (requestVars.has(sm[2])) responseVars.add(sm[1]);
+    }
+    if (responseVars.size === 0) return diagnostics;
+
+    // 3a. Computed index read: `<resp>.headers["Content-Type"]`.
+    const indexPattern = /\b([A-Za-z_$][\w$]*)\s*\.\s*headers\s*\[\s*([^\]]*?)\s*\]/g;
+    let im: RegExpExecArray | null;
+    while ((im = indexPattern.exec(text)) !== null && diagnostics.length < budget) {
+        if (isInCommentRange(im.index, commentRanges)) continue;
+        if (!responseVars.has(im[1])) continue;
+        const data: ClrHeaderAccessDiagnosticData = { respName: im[1], keyText: im[2].trim() };
+        diagnostics.push({
+            severity: DiagnosticSeverity.Error,
+            range: {
+                start: offsetToPosition(text, im.index),
+                end: offsetToPosition(text, im.index + im[0].length),
+            },
+            message:
+                'Reading a header this way throws "Use of Common Language Runtime (CLR) is not allowed" at runtime. ' +
+                'HttpResponse headers are only readable by enumerating with for..in — use a getHeaderMap() helper.',
+            source: 'ssjs',
+            code: DIAG_CODE_SSJS_CLR_HEADER_ACCESS,
+            data,
+        });
+    }
+
+    // 3b. CLR method call: `<resp>.headers.Get("x")` / `<resp>.headers.Item("x")`.
+    const callPattern =
+        /\b([A-Za-z_$][\w$]*)\s*\.\s*headers\s*\.\s*(?:Get|Item)\s*\(\s*([^)]*?)\s*\)/g;
+    let cm: RegExpExecArray | null;
+    while ((cm = callPattern.exec(text)) !== null && diagnostics.length < budget) {
+        if (isInCommentRange(cm.index, commentRanges)) continue;
+        if (!responseVars.has(cm[1])) continue;
+        const data: ClrHeaderAccessDiagnosticData = { respName: cm[1], keyText: cm[2].trim() };
+        diagnostics.push({
+            severity: DiagnosticSeverity.Error,
+            range: {
+                start: offsetToPosition(text, cm.index),
+                end: offsetToPosition(text, cm.index + cm[0].length),
+            },
+            message:
+                'Reading a header this way throws "Use of Common Language Runtime (CLR) is not allowed" at runtime. ' +
+                'HttpResponse headers are only readable by enumerating with for..in — use a getHeaderMap() helper.',
+            source: 'ssjs',
+            code: DIAG_CODE_SSJS_CLR_HEADER_ACCESS,
+            data,
+        });
+    }
+
+    return diagnostics;
+}
+
+/**
+ * Scan the document for raw reads of an HttpResponse `.content` CLR string that
+ * are not wrapped in `String()`.
+ *
+ * A response variable is one assigned from `<reqVar>.send()`, where `<reqVar>`
+ * was assigned from `new Script.Util.HttpRequest(...)` or `Script.Util.HttpGet(...)`.
+ * `<respVar>.content` is a CLR string, not a JavaScript string, so using it
+ * directly (ParseJSON, string methods, concatenation, assignment) is unreliable.
+ * Reads that are already the direct argument of a `String(...)` call are skipped.
+ * Each flag carries a quick-fix that wraps the access in `String(...)`.
+ * @param text - Full document text.
+ * @param commentRanges - Comment ranges to skip.
+ * @param budget - Maximum number of diagnostics still allowed.
+ * @returns Diagnostics for raw content reads (length ≤ budget).
+ */
+function collectClrContentAccessDiagnostics(
+    text: string,
+    commentRanges: Array<[number, number]>,
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    if (budget <= 0) return diagnostics;
+
+    // 1. Collect request variables (same shape as the header rule).
+    const requestVars = new Set<string>();
+    const reqPattern =
+        /\b(?:var\s+)?([A-Za-z_$][\w$]*)\s*=\s*(?:new\s+)?Script\s*\.\s*Util\s*\.\s*(?:HttpRequest|HttpGet)\s*\(/g;
+    let rm: RegExpExecArray | null;
+    while ((rm = reqPattern.exec(text)) !== null) {
+        if (isInCommentRange(rm.index, commentRanges)) continue;
+        requestVars.add(rm[1]);
+    }
+    if (requestVars.size === 0) return diagnostics;
+
+    // 2. Collect response variables: `var resp = <reqVar>.send()`.
+    const responseVars = new Set<string>();
+    const sendPattern =
+        /\b(?:var\s+)?([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$]*)\s*\.\s*send\s*\(/g;
+    let sm: RegExpExecArray | null;
+    while ((sm = sendPattern.exec(text)) !== null) {
+        if (isInCommentRange(sm.index, commentRanges)) continue;
+        if (requestVars.has(sm[2])) responseVars.add(sm[1]);
+    }
+    if (responseVars.size === 0) return diagnostics;
+
+    // 3. Raw `.content` read (word boundary after `content` so we don't match a
+    //    longer identifier like `contentType`). Skip when the immediately
+    //    preceding non-space token is `String(` — that is the verified-safe wrap.
+    const contentPattern = /\b([A-Za-z_$][\w$]*)\s*\.\s*content\b/g;
+    let em: RegExpExecArray | null;
+    while ((em = contentPattern.exec(text)) !== null && diagnostics.length < budget) {
+        if (isInCommentRange(em.index, commentRanges)) continue;
+        if (!responseVars.has(em[1])) continue;
+        // Skip `String(<resp>.content)` — check the text right before the match.
+        const before = text.slice(Math.max(0, em.index - 8), em.index);
+        if (/String\s*\(\s*$/.test(before)) continue;
+        const contentText = em[0].replaceAll(/\s+/g, '');
+        const data: ClrContentAccessDiagnosticData = { respName: em[1], contentText };
+        diagnostics.push({
+            severity: DiagnosticSeverity.Error,
+            range: {
+                start: offsetToPosition(text, em.index),
+                end: offsetToPosition(text, em.index + em[0].length),
+            },
+            message:
+                'Reading `.content` directly is unreliable — it is a CLR string, not a JavaScript string. ' +
+                'Wrap it with `String(...)` before passing it to ParseJSON() or any string operation.',
+            source: 'ssjs',
+            code: DIAG_CODE_SSJS_CLR_CONTENT_ACCESS,
+            data,
+        });
+    }
+
     return diagnostics;
 }
 
@@ -475,6 +680,28 @@ export function validateSsjs(
                 data,
             });
         }
+    }
+
+    // 4c. CLR-unsafe reads of HttpResponse `.headers` (indexing / .Get() / .Item()).
+    if (problems < max) {
+        const headerDiagnostics = collectClrHeaderAccessDiagnostics(
+            text,
+            commentRanges,
+            max - problems,
+        );
+        problems += headerDiagnostics.length;
+        diagnostics.push(...headerDiagnostics);
+    }
+
+    // 4d. Raw reads of HttpResponse `.content` CLR string without a String() wrap.
+    if (problems < max) {
+        const contentDiagnostics = collectClrContentAccessDiagnostics(
+            text,
+            commentRanges,
+            max - problems,
+        );
+        problems += contentDiagnostics.length;
+        diagnostics.push(...contentDiagnostics);
     }
 
     // MCN compatibility — SSJS is not supported in Marketing Cloud Next.

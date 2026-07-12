@@ -820,6 +820,220 @@ describe('SSJS replace-with-platform-function diagnostics', () => {
     });
 });
 
+// ── SSJS CLR header access ───────────────────────────────────────────────────
+
+describe('SSJS clr-header-access diagnostics', () => {
+    const sendSetup =
+        'var req = new Script.Util.HttpRequest("https://x/y");\nvar resp = req.send();\n';
+    const getSetup = 'var greq = Script.Util.HttpGet("https://x/y");\nvar gresp = greq.send();\n';
+
+    it('flags indexed read of a tracked response header', () => {
+        const doc = {
+            text: `${sendSetup}var ct = resp.headers["Content-Type"];`,
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/clr-header-access');
+        assert.ok(d, 'expected clr-header-access diagnostic');
+        assert.equal(d.severity, 1, 'expected Error severity');
+        assert.equal(d.data.respName, 'resp');
+        assert.equal(d.data.keyText, '"Content-Type"');
+    });
+
+    it('flags .Get() call on a tracked HttpGet response header', () => {
+        const doc = {
+            text: `${getSetup}var loc = gresp.headers.Get("Location");`,
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/clr-header-access');
+        assert.ok(d, 'expected clr-header-access diagnostic');
+        assert.equal(d.data.respName, 'gresp');
+        assert.equal(d.data.keyText, '"Location"');
+    });
+
+    it('flags .Item() call on a tracked response header', () => {
+        const doc = {
+            text: `${sendSetup}var e = resp.headers.Item("Content-Encoding");`,
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.some((d) => d.code === 'ssjs/clr-header-access'));
+    });
+
+    it('does not flag .headers on an untracked object', () => {
+        const doc = {
+            text: 'var config = { headers: {} };\nvar x = config.headers["Content-Type"];',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-header-access'));
+    });
+
+    it('does not flag a for..in read of a tracked response', () => {
+        const doc = {
+            text: `${sendSetup}for (var k in resp.headers) { var v = String(k); }`,
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-header-access'));
+    });
+
+    it('does not flag inside a comment', () => {
+        const doc = {
+            text: `${sendSetup}// var ct = resp.headers["Content-Type"];`,
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-header-access'));
+    });
+
+    it('offers a getHeaderMap code action that rewrites and inserts the helper', () => {
+        const doc = {
+            text: `${sendSetup}var ct = resp.headers["Content-Type"];`,
+            languageId: 'ssjs',
+            uri: 'file:///h.ssjs',
+        };
+        const diags = service.validate(doc);
+        const diag = diags.find((d) => d.code === 'ssjs/clr-header-access');
+        assert.ok(diag, 'expected a clr-header-access diagnostic');
+        const actions = service.getCodeActions(doc, [diag]);
+        const action = actions.find((a) => a.title.includes('getHeaderMap'));
+        assert.ok(action, 'expected a getHeaderMap code action');
+        const edits = action.edit.changes['file:///h.ssjs'];
+        const rewrite = edits.find((e) => e.newText.includes('getHeaderMap(resp)'));
+        assert.ok(rewrite, 'expected rewrite edit');
+        assert.equal(rewrite.newText, 'getHeaderMap(resp)["Content-Type"]');
+        const helperInsert = edits.find((e) => e.newText.includes('function getHeaderMap('));
+        assert.ok(helperInsert, 'expected helper insertion edit');
+    });
+
+    it('does not insert the helper a second time when already present', () => {
+        const doc = {
+            text: `function getHeaderMap(resp) { return {}; }\n${sendSetup}var ct = resp.headers["Content-Type"];`,
+            languageId: 'ssjs',
+            uri: 'file:///h2.ssjs',
+        };
+        const diags = service.validate(doc);
+        const diag = diags.find((d) => d.code === 'ssjs/clr-header-access');
+        const actions = service.getCodeActions(doc, [diag]);
+        const action = actions.find((a) => a.title.includes('getHeaderMap'));
+        assert.ok(action);
+        const edits = action.edit.changes['file:///h2.ssjs'];
+        assert.ok(edits.every((e) => !e.newText.includes('function getHeaderMap(')));
+    });
+
+    it('suppresses clr-header-access diagnostics when eslint overlap disabled', () => {
+        const doc = {
+            text: `${sendSetup}var ct = resp.headers["Content-Type"];`,
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc, {
+            maxNumberOfProblems: 100,
+            disableLspDiagnosticsForEslintRules: true,
+        });
+        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-header-access'));
+    });
+});
+
+// ── SSJS CLR content access ──────────────────────────────────────────────────
+
+describe('SSJS clr-content-access diagnostics', () => {
+    const sendSetup =
+        'var req = new Script.Util.HttpRequest("https://x/y");\nvar resp = req.send();\n';
+    const getSetup = 'var greq = Script.Util.HttpGet("https://x/y");\nvar gresp = greq.send();\n';
+
+    it('flags a raw .content read passed to ParseJSON', () => {
+        const doc = {
+            text: `${sendSetup}var data = Platform.Function.ParseJSON(resp.content);`,
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/clr-content-access');
+        assert.ok(d, 'expected clr-content-access diagnostic');
+        assert.equal(d.severity, 1, 'expected Error severity');
+        assert.equal(d.data.respName, 'resp');
+        assert.equal(d.data.contentText, 'resp.content');
+    });
+
+    it('flags a raw .content read on an HttpGet response', () => {
+        const doc = {
+            text: `${getSetup}var body = gresp.content;`,
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/clr-content-access');
+        assert.ok(d, 'expected clr-content-access diagnostic');
+        assert.equal(d.data.respName, 'gresp');
+        assert.equal(d.data.contentText, 'gresp.content');
+    });
+
+    it('does not flag .content already wrapped in String()', () => {
+        const doc = {
+            text: `${sendSetup}var data = Platform.Function.ParseJSON(String(resp.content));`,
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-content-access'));
+    });
+
+    it('does not flag .content on an untracked object', () => {
+        const doc = {
+            text: 'var config = { content: "x" };\nvar x = config.content;',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-content-access'));
+    });
+
+    it('does not flag a longer identifier like .contentType', () => {
+        const doc = {
+            text: `${sendSetup}var ct = resp.contentType;`,
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-content-access'));
+    });
+
+    it('does not flag inside a comment', () => {
+        const doc = {
+            text: `${sendSetup}// var body = resp.content;`,
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-content-access'));
+    });
+
+    it('offers a String() wrap code action', () => {
+        const doc = {
+            text: `${sendSetup}var data = Platform.Function.ParseJSON(resp.content);`,
+            languageId: 'ssjs',
+            uri: 'file:///c.ssjs',
+        };
+        const diags = service.validate(doc);
+        const diag = diags.find((d) => d.code === 'ssjs/clr-content-access');
+        assert.ok(diag, 'expected a clr-content-access diagnostic');
+        const actions = service.getCodeActions(doc, [diag]);
+        const action = actions.find((a) => a.title.includes('String(resp.content)'));
+        assert.ok(action, 'expected a String() wrap code action');
+        const edits = action.edit.changes['file:///c.ssjs'];
+        assert.equal(edits.length, 1);
+        assert.equal(edits[0].newText, 'String(resp.content)');
+    });
+
+    it('suppresses clr-content-access diagnostics when eslint overlap disabled', () => {
+        const doc = {
+            text: `${sendSetup}var body = resp.content;`,
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc, {
+            maxNumberOfProblems: 100,
+            disableLspDiagnosticsForEslintRules: true,
+        });
+        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-content-access'));
+    });
+});
+
 // ── SSJS eslint-overlap filtering ────────────────────────────────────────────
 
 describe('SSJS disableLspDiagnosticsForEslintRules', () => {
