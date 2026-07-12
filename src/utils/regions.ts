@@ -79,7 +79,7 @@ export function isInsideHandlebars(text: string, offset: number): boolean {
  * @returns Text with AMPscript regions blanked out.
  */
 export function getSanitizedHandlebarsText(text: string): string {
-    const chars = Array.from(text);
+    const chars = [...text];
     const blankRange = (start: number, end: number): void => {
         for (let i = start; i < end && i < chars.length; i++) {
             if (chars[i] !== '\n' && chars[i] !== '\r') {

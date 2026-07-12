@@ -17,7 +17,7 @@ import type { HandlebarsHelper } from '../data/handlebars.js';
 const SIGIL_PATTERN = /^[#^/>~&!]+/;
 
 /** Whitespace characters that separate Handlebars helper arguments. */
-const WHITESPACE_CHARS = [' ', '\t', '\n', '\r'];
+const WHITESPACE_CHARS = new Set([' ', '\t', '\n', '\r']);
 
 /** Resolved Handlebars helper call context at the cursor. */
 interface HandlebarsCallContext {
@@ -92,7 +92,7 @@ export function findHandlebarsCallContext(textUpToCursor: string): HandlebarsCal
             }
             continue;
         }
-        if (WHITESPACE_CHARS.includes(c)) {
+        if (WHITESPACE_CHARS.has(c)) {
             if (scope.current) {
                 scope.tokens.push(scope.current);
                 scope.current = '';

@@ -167,5 +167,5 @@ export function getHandlebarsLocalsAtOffset(text: string, offset: number): Handl
             }
         }
     }
-    return Array.from(byName.values());
+    return [...byName.values()];
 }

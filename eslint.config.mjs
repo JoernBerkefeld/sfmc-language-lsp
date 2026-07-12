@@ -33,27 +33,22 @@ export default tseslint.config(
         },
         rules: {
             'no-console': 'warn',
-            'unicorn/better-regex': 'off',
-            'unicorn/catch-error-name': ['error', { name: 'ex' }],
-            'unicorn/explicit-length-check': 'off',
-            'unicorn/filename-case': 'off',
-            'unicorn/no-array-callback-reference': 'off',
-            'unicorn/no-array-reduce': 'off',
-            'unicorn/no-await-expression-member': 'off',
-            'unicorn/no-empty-file': 'off',
-            'unicorn/no-hex-escape': 'off',
-            'unicorn/no-nested-ternary': 'off',
+            // Kept off: `null` is part of exported return types (e.g.
+            // inferLiteralType(): … | null) and mirrors the LSP wire protocol,
+            // which distinguishes null from undefined. Switching to undefined would
+            // change public signatures consumed by vscode-sfmc-language and
+            // mcp-server-sfmc.
             'unicorn/no-null': 'off',
-            'unicorn/no-static-only-class': 'off',
-            'unicorn/no-unused-properties': 'warn',
-            'unicorn/numeric-separators-style': 'off',
-            'unicorn/prefer-array-some': 'off',
-            'unicorn/prefer-module': 'off',
-            'unicorn/prefer-set-has': 'off',
-            'unicorn/prefer-spread': 'off',
-            'unicorn/prefer-string-replace-all': 'error',
-            'unicorn/prevent-abbreviations': 'off',
+            // Kept off: source filenames like mcnHandlebars.ts are imported across
+            // this package and by downstream consumers; renaming to kebab-case would
+            // break those import paths.
+            'unicorn/filename-case': 'off',
+            // Kept off: re-enabling forces cosmetic renames of abbreviated
+            // identifiers with no runtime/contract benefit.
             'unicorn/name-replacements': 'off',
+            // Kept off: Iterator#toArray() is ES2025 and not available in the
+            // runtimes this language server targets; the spread form is required.
+            'unicorn/prefer-iterator-to-array': 'off',
             // Opinionated boolean-naming rule (unicorn v70). Disabled because it
             // would rename exported symbols (e.g. requiresCoreLoadGlobals) that
             // are consumed by vscode-sfmc-language and mcp-server-sfmc.

@@ -277,12 +277,12 @@ export function buildHandlebarsHelperMarkdown(helper: HandlebarsHelper): string 
     const sig = `(helper) ${helper.name}(${paramParts.join(', ')}): ${helper.returnType}`;
     lines.push('```typescript', sig, '```', '', helper.description);
 
-    const typeLabel =
-        helper.helperType === 'both'
-            ? 'inline or block'
-            : helper.helperType === 'block'
-              ? 'block'
-              : 'inline';
+    let typeLabel = 'inline';
+    if (helper.helperType === 'both') {
+        typeLabel = 'inline or block';
+    } else if (helper.helperType === 'block') {
+        typeLabel = 'block';
+    }
     const meta = `*${HBS_ORIGIN_LABEL[helper.origin]} · ${helper.category} · ${typeLabel} helper · MCN API v${helper.mcnSince}.0+*`;
     lines.push('', meta);
 

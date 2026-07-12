@@ -1259,17 +1259,17 @@ describe('extractAmpscriptFunctionCalls', () => {
     it('returns call sites for block %%[...]%% syntax', () => {
         const code = '%%[ SET @x = Add(1,2) SET @y = Concat("a","b") ]%%';
         const calls = extractAmpscriptFunctionCalls(code);
-        const names = calls.map((c) => c.name.toLowerCase());
-        assert.ok(names.includes('add'), 'expected Add');
-        assert.ok(names.includes('concat'), 'expected Concat');
+        const names = new Set(calls.map((c) => c.name.toLowerCase()));
+        assert.ok(names.has('add'), 'expected Add');
+        assert.ok(names.has('concat'), 'expected Concat');
     });
 
     it('returns call sites from HTML with embedded AMPscript', () => {
         const code = '<p>Hello</p>%%[ SET @x = Trim("  hi  ") ]%%<p>world</p>';
         const calls = extractAmpscriptFunctionCalls(code);
-        const names = calls.map((c) => c.name.toLowerCase());
-        assert.ok(names.includes('trim'), 'expected Trim from HTML context');
-        assert.ok(!names.includes('p'), 'HTML tags should not appear as function calls');
+        const names = new Set(calls.map((c) => c.name.toLowerCase()));
+        assert.ok(names.has('trim'), 'expected Trim from HTML context');
+        assert.ok(!names.has('p'), 'HTML tags should not appear as function calls');
     });
 
     it('returns empty array for code with no AMPscript function calls', () => {
@@ -1520,9 +1520,9 @@ describe('AMPscript enum-typed arguments', () => {
         const text = "%%=DatePart('2026-01-15',";
         const doc = { text, languageId: 'ampscript' };
         const items = service.getCompletions(doc, { line: 0, character: text.length });
-        const labels = items.map((i) => i.label);
-        assert.ok(labels.includes('monthName'), 'expected monthName enum completion');
-        assert.ok(labels.includes('Y'), 'expected Y enum completion');
+        const labels = new Set(items.map((i) => i.label));
+        assert.ok(labels.has('monthName'), 'expected monthName enum completion');
+        assert.ok(labels.has('Y'), 'expected Y enum completion');
     });
 
     it('returns ONLY enum values inside an enum argument (no functions/variables)', () => {

@@ -63,8 +63,8 @@ export function parseHandlebars(text: string): HandlebarsParseResult {
     try {
         const ast = parse(text);
         return { ast, error: null };
-    } catch (ex) {
-        return { ast: null, error: toSyntaxError(ex, text) };
+    } catch (error) {
+        return { ast: null, error: toSyntaxError(error, text) };
     }
 }
 

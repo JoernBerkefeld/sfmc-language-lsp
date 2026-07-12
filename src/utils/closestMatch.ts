@@ -25,7 +25,7 @@ export function levenshtein(a: string, b: string): number {
             const cost = a[i - 1] === b[j - 1] ? 0 : 1;
             curr[j] = Math.min(curr[j - 1] + 1, prev[j] + 1, prev[j - 1] + cost);
         }
-        prev = curr.slice();
+        prev = [...curr];
     }
     return prev[b.length];
 }
