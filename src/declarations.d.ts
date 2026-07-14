@@ -129,6 +129,10 @@ declare module 'ssjs-data' {
         isStatic?: boolean;
         deprecated?: boolean;
         requiresCoreLoad?: boolean;
+        /** True when the global is documented but throws a ReferenceError at runtime. */
+        notDefinedAtRuntime?: boolean;
+        /** Note describing the runtime-safe replacement for a phantom/differing global. */
+        officialDocsNote?: string;
         aliasOf?: string;
     }
     export interface SsjsDataObject {
@@ -168,6 +172,8 @@ declare module 'ssjs-data' {
     }
     export const SSJS_GLOBALS: SsjsDataFunction[];
     export const SSJS_GLOBALS_MAP: Record<string, SsjsDataFunction>;
+    export const notDefinedAtRuntimeGlobalNames: Set<string>;
+    export const notDefinedAtRuntimeGlobalLookup: Map<string, SsjsDataFunction>;
     export const PLATFORM_METHODS: SsjsDataFunction[];
     export const PLATFORM_FUNCTIONS: SsjsDataFunction[];
     export const platformFunctionLookup: Map<string, SsjsDataFunction>;

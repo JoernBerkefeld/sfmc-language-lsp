@@ -51,6 +51,8 @@ export interface SsjsFunction {
     example?: string;
     isStatic?: boolean;
     deprecated?: boolean;
+    notDefinedAtRuntime?: boolean;
+    officialDocsNote?: string;
     requiresCoreLoad?: boolean;
     aliasOf?: string;
 }
@@ -105,17 +107,21 @@ export const platformFunctionLookup = new Map<string, SsjsFunction>(
 
 // ── Global functions ─────────────────────────────────────────────────────────
 
-export const ssjsGlobals: SsjsFunction[] = SSJS_GLOBALS.filter((g) => g.type === 'function').map(
-    (g) => ({
-        name: g.name,
-        minArgs: g.minArgs ?? 1,
-        maxArgs: g.maxArgs ?? 1,
-        description: g.description,
-        ...(g.params && { params: g.params }),
-        ...(g.returnType && { returnType: g.returnType }),
-        ...(g.syntax && { syntax: g.syntax }),
-    }),
-);
+// Phantom globals (notDefinedAtRuntime, e.g. Redirect) are EXCLUDED here so the
+// LSP never offers them in completions/hover/signature help — they throw a
+// ReferenceError at runtime. The validator flags any usage separately.
+export const ssjsGlobals: SsjsFunction[] = SSJS_GLOBALS.filter(
+    (g) => g.type === 'function' && !g.notDefinedAtRuntime,
+).map((g) => ({
+    name: g.name,
+    minArgs: g.minArgs ?? 1,
+    maxArgs: g.maxArgs ?? 1,
+    description: g.description,
+    ...(g.deprecated && { deprecated: true }),
+    ...(g.params && { params: g.params }),
+    ...(g.returnType && { returnType: g.returnType }),
+    ...(g.syntax && { syntax: g.syntax }),
+}));
 
 // ── Variable/Response/Request objects ────────────────────────────────────────
 
@@ -215,6 +221,52 @@ export const scriptUtilRequestMethods: SsjsFunction[] = SCRIPT_UTIL_REQUEST_METH
  */
 export const requiresCoreLoadGlobals: Set<string> = new Set(
     SSJS_GLOBALS.filter((g) => g.requiresCoreLoad && g.type !== 'object').map((g) => g.name),
+);
+
+// ── Phantom (notDefinedAtRuntime) globals ────────────────────────────────────
+
+/**
+ * SSJS globals that are officially documented but proven NOT to exist at runtime
+ * (calling them throws a ReferenceError), e.g. `Redirect`. Keyed by the exact
+ * documented name so the validator can flag bare-name usage and suggest the
+ * supported `Platform.*` replacement carried on the entry.
+ */
+export const nonexistentGlobals = new Map<string, SsjsFunction>(
+    SSJS_GLOBALS.filter((g) => g.notDefinedAtRuntime).map((g) => [
+        g.name,
+        {
+            name: g.name,
+            minArgs: g.minArgs ?? 1,
+            maxArgs: g.maxArgs ?? 1,
+            description: g.description,
+            notDefinedAtRuntime: true,
+            ...(g.officialDocsNote && { officialDocsNote: g.officialDocsNote }),
+            ...(g.params && { params: g.params }),
+            ...(g.returnType && { returnType: g.returnType }),
+            ...(g.syntax && { syntax: g.syntax }),
+        },
+    ]),
+);
+
+// ── Deprecated bare-name globals ─────────────────────────────────────────────
+
+/**
+ * Bare-name SSJS globals flagged `deprecated` in ssjs-data (e.g. `ContentArea`,
+ * `ContentAreaByName`). Keyed by the exact documented name. Consumed by the
+ * validator to emit a deprecation warning on bare-name usage.
+ */
+export const deprecatedGlobals = new Map<string, SsjsFunction>(
+    SSJS_GLOBALS.filter((g) => g.deprecated && g.type === 'function').map((g) => [
+        g.name,
+        {
+            name: g.name,
+            minArgs: g.minArgs ?? 1,
+            maxArgs: g.maxArgs ?? 1,
+            description: g.description,
+            deprecated: true,
+            ...(g.aliasOf && { aliasOf: g.aliasOf }),
+        },
+    ]),
 );
 
 // ── ECMAScript 3/5 built-in methods ──────────────────────────────────────────

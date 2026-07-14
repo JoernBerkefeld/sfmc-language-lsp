@@ -472,6 +472,48 @@ describe('SSJS validation', () => {
         assert.ok(diags.some((d) => d.message.includes('"1.1.5"')));
     });
 
+    it('reports bare-name Redirect() as nonexistent-global Error', () => {
+        const doc = { text: 'Redirect("https://example.com", false);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/nonexistent-global');
+        assert.ok(d, 'expected nonexistent-global diagnostic for Redirect');
+        assert.equal(d.severity, 1, 'expected Error severity');
+        assert.ok(
+            d.message.includes('Platform.Response.Redirect'),
+            `expected replacement suggestion, got: ${d.message}`,
+        );
+    });
+
+    it('does not flag Platform.Response.Redirect (member call) as nonexistent-global', () => {
+        const doc = {
+            text: 'Platform.Response.Redirect("https://example.com", false);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/nonexistent-global'));
+    });
+
+    it('does not flag Redirect() inside a comment', () => {
+        const doc = { text: '// Redirect("https://example.com");', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/nonexistent-global'));
+    });
+
+    it('reports deprecated ErrorUtil.ThrowWSProxyError as deprecated Warning', () => {
+        const doc = { text: 'ErrorUtil.ThrowWSProxyError(result);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/deprecated');
+        assert.ok(d, 'expected deprecated diagnostic for ErrorUtil.ThrowWSProxyError');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.ok(d.message.includes('ThrowWSProxyError'));
+    });
+
+    it('does not flag ErrorUtil.ThrowWSProxyError inside a comment', () => {
+        const doc = { text: '// ErrorUtil.ThrowWSProxyError(result);', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/deprecated'));
+    });
+
     it('reports let/const as Error severity (not Warning)', () => {
         const doc = { text: 'let x = 1;', languageId: 'ssjs' };
         const diags = service.validate(doc);
@@ -1351,6 +1393,15 @@ describe('Completions', () => {
         assert.ok(items.length > 0);
         assert.ok(items.some((i) => i.label?.toString().startsWith('Platform')));
     });
+
+    it('does not offer phantom global Redirect in SSJS completions', () => {
+        const doc = { text: 'Red', languageId: 'ssjs' };
+        const items = service.getCompletions(doc, { line: 0, character: 3 });
+        assert.ok(
+            items.every((i) => i.label?.toString() !== 'Redirect'),
+            'Redirect must not be offered — it throws a ReferenceError at runtime',
+        );
+    });
 });
 
 // ── Hover ──────────────────────────────────────────────────────────────────
@@ -1443,6 +1494,19 @@ describe('Hover', () => {
             hover,
             null,
             'should not show method hover when cursor is on the namespace prefix',
+        );
+    });
+
+    it('hover for a deprecated ErrorUtil method shows a Deprecated banner', () => {
+        const line = 'ErrorUtil.ThrowWSProxyError(result);';
+        const doc = { text: line, languageId: 'ssjs' };
+        // cursor on "ThrowWSProxyError"
+        const hover = service.getHover(doc, line, { line: 0, character: 12 });
+        assert.ok(hover, 'expected hover for ErrorUtil.ThrowWSProxyError');
+        assert.match(
+            hover.contents.value,
+            /Deprecated/i,
+            `expected deprecation banner in hover, got: ${hover.contents.value}`,
         );
     });
 });

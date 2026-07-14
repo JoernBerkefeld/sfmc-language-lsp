@@ -137,6 +137,12 @@ export function buildSsjsFunctionMarkdown(fn: SsjsFunction): string {
         }
     }
 
+    if (fn.deprecated) {
+        const parts = ['⚠️ **Deprecated.**'];
+        if (fn.aliasOf) parts.push(`Use \`${fn.aliasOf}\` instead.`);
+        lines.push('', `> ${parts.join(' ')}`);
+    }
+
     if (fn.example) {
         lines.push('', '**Example:**', '```javascript', fn.example, '```');
     }

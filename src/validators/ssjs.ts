@@ -10,12 +10,14 @@ import {
     dateTimeTimezoneMethods,
     errorUtilMethods,
     requiresCoreLoadGlobals,
+    nonexistentGlobals,
+    deprecatedGlobals,
     polyfillableStaticLookup,
     polyfillablePrototypeLookup,
     replaceableStaticLookup,
     httpPropertyConstraintLookup,
 } from '../data/ssjs.js';
-import type { HttpPropertyValueConstraint } from '../data/ssjs.js';
+import type { HttpPropertyValueConstraint, SsjsFunction } from '../data/ssjs.js';
 
 // Diagnostic codes that code actions identify and act on, and that overlap with
 // eslint-plugin-sfmc rules. When `disableLspDiagnosticsForEslintRules` is enabled
@@ -57,6 +59,14 @@ export const DIAG_CODE_SSJS_CLR_CONTENT_ACCESS = 'ssjs/clr-content-access';
 // `req.emptyContentHandling = 5`, `req.retries = -2.45`, `req.method = 'POT'`).
 // Constraints live in ssjs-data. Mirrors the `ssjs-http-property-value` rule.
 export const DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY = 'ssjs/invalid-http-property-value';
+// Bare-name global that is officially documented but does NOT exist at runtime
+// (calling it throws a ReferenceError), e.g. `Redirect`. Driven by ssjs-data's
+// `notDefinedAtRuntime` flag. Mirrors the `ssjs-no-nonexistent-global` rule.
+export const DIAG_CODE_SSJS_NONEXISTENT_GLOBAL = 'ssjs/nonexistent-global';
+// Deprecated bare-name global or `ErrorUtil.*` method still callable but retired
+// (e.g. `ContentArea`, `ErrorUtil.ThrowWSProxyError`). Driven by ssjs-data's
+// `deprecated` flag. Mirrors the `ssjs-no-deprecated-function` rule.
+export const DIAG_CODE_SSJS_DEPRECATED = 'ssjs/deprecated';
 
 /**
  * SSJS diagnostic codes that duplicate eslint-plugin-sfmc rules and can be
@@ -69,6 +79,8 @@ export const DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY = 'ssjs/invalid-http-property-
  *   - clr-header-access → `ssjs-no-clr-header-access`
  *   - clr-content-access → `ssjs-require-string-clr-content`
  *   - invalid-http-property-value → `ssjs-http-property-value`
+ *   - nonexistent-global → `ssjs-no-nonexistent-global`
+ *   - deprecated → `ssjs-no-deprecated-function`
  */
 export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_POLYFILL_REQUIRED,
@@ -80,6 +92,8 @@ export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_CLR_HEADER_ACCESS,
     DIAG_CODE_SSJS_CLR_CONTENT_ACCESS,
     DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY,
+    DIAG_CODE_SSJS_NONEXISTENT_GLOBAL,
+    DIAG_CODE_SSJS_DEPRECATED,
 ]);
 
 /**
@@ -160,6 +174,19 @@ function polyfillRequiredMessage(
     return category === 'broken'
         ? `${qualifiedName} is broken in the SFMC SSJS engine and returns wrong results, but a polyfill exists. Insert the polyfill to use it safely.`
         : `${qualifiedName} is not available in SFMC SSJS, but a polyfill exists. Insert the polyfill to use it safely.`;
+}
+
+/**
+ * Extract a runtime-safe replacement suggestion for a phantom global from its
+ * data entry. Prefers the `Platform.*` call named in the officialDocsNote or
+ * description, falling back to a generic hint.
+ * @param entry - The phantom global entry (may be undefined).
+ * @returns A replacement suggestion (e.g. `Platform.Response.Redirect(...)`).
+ */
+function phantomReplacement(entry: SsjsFunction | undefined): string {
+    const source = `${entry?.officialDocsNote ?? ''} ${entry?.description ?? ''}`;
+    const match = source.match(/Platform\.[A-Za-z.]+\([^)]*\)/);
+    return match ? match[0] : 'a supported alternative';
 }
 
 /**
@@ -652,6 +679,94 @@ export function validateSsjs(
                     code: DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD,
                 });
             }
+        }
+    }
+
+    // 1d. Phantom globals: documented but do NOT exist at runtime (ReferenceError),
+    // e.g. Redirect(). Negative lookbehind for '.' so member calls like
+    // Platform.Response.Redirect() are NOT flagged — only bare-name calls.
+    if (nonexistentGlobals.size > 0) {
+        const phantomNames = [...nonexistentGlobals.keys()]
+            .map((n) => n.replaceAll('.', String.raw`\.`))
+            .join('|');
+        const phantomPattern = new RegExp(String.raw`(?<!\.)(\b(?:${phantomNames}))\s*\(`, 'g');
+        let phantomMatch: RegExpExecArray | null;
+        while ((phantomMatch = phantomPattern.exec(text)) !== null && problems < max) {
+            if (isInCommentRange(phantomMatch.index, commentRanges)) continue;
+            problems++;
+            const name = phantomMatch[1];
+            const entry = nonexistentGlobals.get(name);
+            const replacement = phantomReplacement(entry);
+            diagnostics.push({
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, phantomMatch.index),
+                    end: offsetToPosition(text, phantomMatch.index + name.length),
+                },
+                message: `${name}() does not exist at runtime (calling it throws a ReferenceError). Use ${replacement} instead.`,
+                source: 'ssjs',
+                code: DIAG_CODE_SSJS_NONEXISTENT_GLOBAL,
+            });
+        }
+    }
+
+    // 1e. Deprecated bare-name globals (e.g. ContentArea, ContentAreaByName).
+    // Still callable at runtime, so a Warning rather than an Error.
+    if (deprecatedGlobals.size > 0) {
+        const deprecatedNames = [...deprecatedGlobals.keys()]
+            .map((n) => n.replaceAll('.', String.raw`\.`))
+            .join('|');
+        const deprecatedPattern = new RegExp(
+            String.raw`(?<!\.)(\b(?:${deprecatedNames}))\s*\(`,
+            'g',
+        );
+        let deprecatedMatch: RegExpExecArray | null;
+        while ((deprecatedMatch = deprecatedPattern.exec(text)) !== null && problems < max) {
+            if (isInCommentRange(deprecatedMatch.index, commentRanges)) continue;
+            problems++;
+            const name = deprecatedMatch[1];
+            const entry = deprecatedGlobals.get(name);
+            const replacement = entry?.aliasOf
+                ? ` Use '${entry.aliasOf}' instead.`
+                : ' Use a supported alternative.';
+            diagnostics.push({
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, deprecatedMatch.index),
+                    end: offsetToPosition(text, deprecatedMatch.index + name.length),
+                },
+                message: `'${name}' is deprecated.${replacement}`,
+                source: 'ssjs',
+                code: DIAG_CODE_SSJS_DEPRECATED,
+            });
+        }
+    }
+
+    // 1f. Deprecated ErrorUtil methods (e.g. ErrorUtil.ThrowWSProxyError). Only
+    // exists under Platform.Load("Core", "1"); undefined in newer Core versions.
+    const deprecatedErrorUtil = errorUtilMethods.filter((m) => m.deprecated);
+    if (deprecatedErrorUtil.length > 0) {
+        const methodNames = deprecatedErrorUtil.map((m) => m.name).join('|');
+        const errorUtilPattern = new RegExp(
+            String.raw`\bErrorUtil\s*\.\s*(${methodNames})\s*\(`,
+            'g',
+        );
+        let euMatch: RegExpExecArray | null;
+        while ((euMatch = errorUtilPattern.exec(text)) !== null && problems < max) {
+            if (isInCommentRange(euMatch.index, commentRanges)) continue;
+            problems++;
+            const name = euMatch[1];
+            const nameStart = euMatch.index + euMatch[0].indexOf(name);
+            diagnostics.push({
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, nameStart),
+                    end: offsetToPosition(text, nameStart + name.length),
+                },
+                message: `'ErrorUtil.${name}' is deprecated — it only exists under Platform.Load("Core", "1") and is undefined in newer Core versions. Check 'result.Status' and 'throw new Error(...)' instead.`,
+                source: 'ssjs',
+                code: DIAG_CODE_SSJS_DEPRECATED,
+            });
         }
     }
 
