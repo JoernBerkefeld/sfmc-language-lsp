@@ -18,11 +18,19 @@ export function polyfillMarker(polyfill: string): string | undefined {
 
 /**
  * Build a regular expression that matches a polyfill's marker line in a
- * document, tolerating the optional self-guard the canonical polyfills ship
- * with. The canonical form assigns via `X = X || function (…)`, but authors
- * frequently drop the `X ||` safeguard (`X = function (…)`); both must count as
- * "polyfill present". Only the assignment marker (`… = … function …`) is
- * relaxed — non-assignment markers (e.g. `function bindFn(…) {`) match verbatim.
+ * document, tolerating both the optional self-guard the canonical polyfills
+ * ship with and minified reformatting.
+ *
+ * The canonical form assigns via `X = X || function (value) {`, but authors
+ * frequently drop the `X ||` safeguard (`X = function (value) {`) and/or minify
+ * the source, collapsing whitespace and renaming parameters
+ * (`X=function(v){`). All of these must count as "polyfill present".
+ *
+ * For assignment markers (`… = [X ||] function …`) the assignment target
+ * (`X =`) stays the strict anchor while the `function (params)` portion is
+ * matched loosely (any whitespace, any optional function name, any parameter
+ * list) and the body is ignored entirely. Non-assignment markers (e.g.
+ * `function bindFn(…) {`) match verbatim.
  * @param marker - The polyfill marker line from {@link polyfillMarker}.
  * @returns A RegExp matching the marker with or without the `X ||` safeguard.
  */
@@ -30,19 +38,21 @@ function markerToRegExp(marker: string): RegExp {
     const escape = (s: string): string => s.replaceAll(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
     // Split on the first `= … function` assignment so the middle (which may or
     // may not contain the `X ||` safeguard) can be made optional.
-    const assignMatch = /^(.*?=\s*)(?:[$A-Za-z_][\w$.]*\s*\|\|\s*)?(function\b.*)$/s.exec(marker);
+    const assignMatch = /^(.*?)=\s*(?:[$A-Za-z_][\w$.]*\s*\|\|\s*)?function\b/s.exec(marker);
     if (!assignMatch) {
         // Non-assignment marker — match verbatim.
         return new RegExp(escape(marker));
     }
-    const [, lhs, fn] = assignMatch;
-    // `<lhs> [<expr> ||] <function…>` — optional whitespace between tokens and an
-    // optional `X ||` safeguard, so both `X = X || function` and `X = function`
-    // match the same canonical polyfill.
+    const [, lhs] = assignMatch;
+    // Anchor on `<lhs> = [X ||] function <name?>(<any params>)`:
+    // - whitespace is collapsed to `\s*` so minified `X=function(v){` matches
+    //   canonical `X = X || function (value) {`;
+    // - the optional `X ||` safeguard is tolerated;
+    // - the parameter list and body are matched loosely (params renamed or
+    //   dropped in minification must still count as present).
     return new RegExp(
         escape(lhs.trimEnd()) +
-            String.raw`\s*(?:[$A-Za-z_][\w$.]*\s*\|\|\s*)?` +
-            escape(fn.trimStart()),
+            String.raw`\s*=\s*(?:[$A-Za-z_][\w$.]*\s*\|\|\s*)?function\s*\*?\s*[$A-Za-z_]*\s*\(`,
     );
 }
 

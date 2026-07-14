@@ -5,10 +5,12 @@ import {
     DIAG_CODE_SSJS_REPLACE_WITH_PLATFORM_FUNCTION,
     DIAG_CODE_SSJS_CLR_HEADER_ACCESS,
     DIAG_CODE_SSJS_CLR_CONTENT_ACCESS,
+    DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY,
     type PolyfillDiagnosticData,
     type ReplaceDiagnosticData,
     type ClrHeaderAccessDiagnosticData,
     type ClrContentAccessDiagnosticData,
+    type InvalidHttpPropertyDiagnosticData,
 } from '../validators/ssjs.js';
 import { polyfillMarker } from '../utils/polyfill.js';
 
@@ -125,6 +127,21 @@ function isClrContentAccessData(data: unknown): data is ClrContentAccessDiagnost
 }
 
 /**
+ * Type guard for the payload attached to `ssjs/invalid-http-property-value`
+ * diagnostics by the SSJS validator.
+ * @param data - The diagnostic's `data` field.
+ * @returns True when the payload carries a property name and a suggestions array.
+ */
+function isInvalidHttpPropertyData(data: unknown): data is InvalidHttpPropertyDiagnosticData {
+    return (
+        typeof data === 'object' &&
+        data !== null &&
+        typeof (data as InvalidHttpPropertyDiagnosticData).propName === 'string' &&
+        Array.isArray((data as InvalidHttpPropertyDiagnosticData).suggestions)
+    );
+}
+
+/**
  * Return quick-fix code actions for SSJS diagnostics. Currently offers an
  * "insert polyfill" action for `ssjs/polyfill-required` diagnostics, inserting
  * the verified polyfill source (from ssjs-data) at the top of the document.
@@ -215,6 +232,34 @@ export function getSsjsCodeActions(
                     },
                 },
             });
+            continue;
+        }
+
+        // "Replace with <allowed value>" — for invalid literal assignments to an
+        // HttpRequest/HttpGet property with an enum constraint. One action per
+        // allowed value; numeric constraints offer no replacement (empty list).
+        if (
+            diagnostic.code === DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY &&
+            isInvalidHttpPropertyData(diagnostic.data)
+        ) {
+            const { suggestions } = diagnostic.data;
+            for (const [index, suggestion] of suggestions.entries()) {
+                const title = suggestion.label
+                    ? `Replace with ${suggestion.code} (${suggestion.label})`
+                    : `Replace with ${suggestion.code}`;
+                actions.push({
+                    title,
+                    kind: CodeActionKind.QuickFix,
+                    isPreferred: index === 0,
+                    diagnostics: [diagnostic],
+                    edit: {
+                        changes: {
+                            // The diagnostic range covers just the invalid RHS literal.
+                            [uri]: [{ range: diagnostic.range, newText: suggestion.code }],
+                        },
+                    },
+                });
+            }
             continue;
         }
 

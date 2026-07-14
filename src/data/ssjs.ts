@@ -24,6 +24,8 @@ import {
     ERROR_UTIL_METHODS,
     SCRIPT_UTIL_CONSTRUCTORS,
     SCRIPT_UTIL_REQUEST_METHODS,
+    SCRIPT_UTIL_REQUEST_PROPERTIES,
+    SCRIPT_UTIL_HTTPGET_PROPERTIES,
     ECMASCRIPT_BUILTINS,
     POLYFILLABLE_METHODS,
     KNOWN_UNSUPPORTED,
@@ -298,4 +300,42 @@ export const replaceableStaticLookup = new Map<string, ReplaceableMethod>(
                 suggestion: m.suggestion,
             },
         ]),
+);
+
+// ── HttpRequest / HttpGet writable property value constraints ────────────────
+
+/**
+ * A value constraint on a writable HttpRequest / HttpGet instance property.
+ * `enum` — the value must be one of the listed literals (case-sensitive strings).
+ * `numeric` — the value must be a number of that kind (`integer` = whole number),
+ * optionally `>= min`.
+ */
+export interface HttpPropertyValueConstraint {
+    enum?: Array<string | number>;
+    enumLabels?: Record<string, string>;
+    numeric?: 'integer' | 'number';
+    min?: number;
+}
+
+/**
+ * Writable HttpRequest / HttpGet property that carries a value constraint,
+ * keyed by property name. Built once from ssjs-data (single source of truth) so
+ * the validator can flag invalid literal assignments such as
+ * `req.emptyContentHandling = 5` or `req.method = 'POT'`. When both HttpRequest
+ * and HttpGet define the same property, the constraints are identical, so a
+ * single map keyed by name is sufficient.
+ */
+export const httpPropertyConstraintLookup = new Map<string, HttpPropertyValueConstraint>(
+    [
+        ...(SCRIPT_UTIL_REQUEST_PROPERTIES as Array<{
+            name: string;
+            valueConstraint?: HttpPropertyValueConstraint;
+        }>),
+        ...(SCRIPT_UTIL_HTTPGET_PROPERTIES as Array<{
+            name: string;
+            valueConstraint?: HttpPropertyValueConstraint;
+        }>),
+    ]
+        .filter((p) => p.valueConstraint)
+        .map((p) => [p.name, p.valueConstraint as HttpPropertyValueConstraint]),
 );

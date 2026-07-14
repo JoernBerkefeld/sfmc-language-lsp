@@ -765,6 +765,47 @@ describe('SSJS polyfill-required diagnostics', () => {
             'diagnostic must be suppressed when the self-guarded polyfill is present',
         );
     });
+
+    it('suppresses the diagnostic when a minified static polyfill is present (collapsed whitespace + renamed params)', () => {
+        // Minified form (from a bundled polyfill file): no space after `function`,
+        // parameter renamed from `value` to `v`, guard `X = X || …` present.
+        const doc = {
+            text:
+                "Array.isArray=Array.isArray||function(v){return Object.prototype.toString.call(v)==='[object Array]';};\n" +
+                'var b = Array.isArray(x);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.every(
+                (d) => !(d.code === 'ssjs/polyfill-required' && d.message.includes('isArray')),
+            ),
+            'diagnostic must be suppressed when a minified polyfill is present',
+        );
+    });
+
+    it('suppresses the diagnostic for minified Math.max / Math.min polyfills', () => {
+        // Static Math polyfills minified onto one line without the `X ||` guard.
+        const doc = {
+            text:
+                'Math.max = function(){ if (arguments.length===0) return Number.NEGATIVE_INFINITY; };\n' +
+                'Math.min = function(){ if (arguments.length===0) return Number.POSITIVE_INFINITY; };\n' +
+                'var hi = Math.max(1, 2, 3);\n' +
+                'var lo = Math.min(1, 2, 3);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.every(
+                (d) =>
+                    !(
+                        d.code === 'ssjs/polyfill-required' &&
+                        (d.message.includes('Math.max') || d.message.includes('Math.min'))
+                    ),
+            ),
+            'minified Math.max / Math.min polyfills must count as present',
+        );
+    });
 });
 
 // ── Replace-with-Platform.Function diagnostics ───────────────────────────────
@@ -1031,6 +1072,115 @@ describe('SSJS clr-content-access diagnostics', () => {
             disableLspDiagnosticsForEslintRules: true,
         });
         assert.ok(diags.every((d) => d.code !== 'ssjs/clr-content-access'));
+    });
+});
+
+// ── SSJS invalid HttpRequest/HttpGet property value ──────────────────────────
+
+describe('SSJS invalid-http-property-value diagnostics', () => {
+    const reqSetup = 'var req = new Script.Util.HttpRequest("https://x/y");\n';
+    const getSetup = 'var greq = Script.Util.HttpGet("https://x/y");\n';
+
+    it('flags an out-of-range emptyContentHandling enum value', () => {
+        const doc = { text: `${reqSetup}req.emptyContentHandling = 5;`, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/invalid-http-property-value');
+        assert.ok(d, 'expected invalid-http-property-value diagnostic');
+        assert.equal(d.severity, 1, 'expected Error severity');
+        assert.equal(d.data.propName, 'emptyContentHandling');
+    });
+
+    it('flags a negative / non-integer retries value', () => {
+        const doc = { text: `${reqSetup}req.retries = -2.45;`, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/invalid-http-property-value');
+        assert.ok(d, 'expected invalid-http-property-value diagnostic');
+        assert.equal(d.data.propName, 'retries');
+    });
+
+    it('flags an invalid method enum value', () => {
+        const doc = { text: `${reqSetup}req.method = 'POT';`, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/invalid-http-property-value');
+        assert.ok(d, 'expected invalid-http-property-value diagnostic');
+        assert.equal(d.data.propName, 'method');
+        assert.ok(d.data.suggestions.length > 0, 'expected enum suggestions');
+    });
+
+    it('flags invalid values on an HttpGet instance', () => {
+        const doc = { text: `${getSetup}greq.emptyContentHandling = 9;`, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.some((d) => d.code === 'ssjs/invalid-http-property-value'));
+    });
+
+    it('does not flag a valid enum value', () => {
+        const doc = { text: `${reqSetup}req.method = 'POST';`, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-http-property-value'));
+    });
+
+    it('does not flag a valid numeric value', () => {
+        const doc = { text: `${reqSetup}req.retries = 3;`, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-http-property-value'));
+    });
+
+    it('does not flag non-literal (variable) assignments', () => {
+        const doc = { text: `${reqSetup}req.method = someVar;`, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-http-property-value'));
+    });
+
+    it('does not flag assignments on an untracked object', () => {
+        const doc = { text: 'other.method = "POT";', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-http-property-value'));
+    });
+
+    it('does not flag inside a comment', () => {
+        const doc = { text: `${reqSetup}// req.method = 'POT';`, languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-http-property-value'));
+    });
+
+    it('offers replacement code actions for an enum violation', () => {
+        const doc = {
+            text: `${reqSetup}req.method = 'POT';`,
+            languageId: 'ssjs',
+            uri: 'file:///p.ssjs',
+        };
+        const diags = service.validate(doc);
+        const diag = diags.find((d) => d.code === 'ssjs/invalid-http-property-value');
+        assert.ok(diag, 'expected an invalid-http-property-value diagnostic');
+        const actions = service.getCodeActions(doc, [diag]);
+        assert.ok(actions.length > 0, 'expected at least one replacement action');
+        // method has no enumLabels — plain "Replace with 'GET'" title.
+        assert.ok(actions.every((a) => /^Replace with '.+'$/.test(a.title)));
+    });
+
+    it('labels enum replacements with their meaning when enumLabels exist', () => {
+        const doc = {
+            text: `${reqSetup}req.emptyContentHandling = 5;`,
+            languageId: 'ssjs',
+            uri: 'file:///p.ssjs',
+        };
+        const diags = service.validate(doc);
+        const diag = diags.find((d) => d.code === 'ssjs/invalid-http-property-value');
+        assert.ok(diag, 'expected an invalid-http-property-value diagnostic');
+        const actions = service.getCodeActions(doc, [diag]);
+        const titles = new Set(actions.map((a) => a.title));
+        assert.ok(titles.has('Replace with 0 (continue)'));
+        assert.ok(titles.has('Replace with 1 (stop)'));
+        assert.ok(titles.has('Replace with 2 (continue to next subscriber - email sends only)'));
+    });
+
+    it('suppresses diagnostics when eslint overlap disabled', () => {
+        const doc = { text: `${reqSetup}req.method = 'POT';`, languageId: 'ssjs' };
+        const diags = service.validate(doc, {
+            maxNumberOfProblems: 100,
+            disableLspDiagnosticsForEslintRules: true,
+        });
+        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-http-property-value'));
     });
 });
 

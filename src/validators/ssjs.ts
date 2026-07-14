@@ -13,7 +13,9 @@ import {
     polyfillableStaticLookup,
     polyfillablePrototypeLookup,
     replaceableStaticLookup,
+    httpPropertyConstraintLookup,
 } from '../data/ssjs.js';
+import type { HttpPropertyValueConstraint } from '../data/ssjs.js';
 
 // Diagnostic codes that code actions identify and act on, and that overlap with
 // eslint-plugin-sfmc rules. When `disableLspDiagnosticsForEslintRules` is enabled
@@ -50,6 +52,11 @@ export const DIAG_CODE_SSJS_CLR_HEADER_ACCESS = 'ssjs/clr-header-access';
 // unreliable — wrap it with `String(resp.content)` first. Mirrors the
 // `ssjs-require-string-clr-content` rule.
 export const DIAG_CODE_SSJS_CLR_CONTENT_ACCESS = 'ssjs/clr-content-access';
+// Literal assignment to an HttpRequest/HttpGet writable property whose value
+// violates the property's allowed enum / integer / range constraint (e.g.
+// `req.emptyContentHandling = 5`, `req.retries = -2.45`, `req.method = 'POT'`).
+// Constraints live in ssjs-data. Mirrors the `ssjs-http-property-value` rule.
+export const DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY = 'ssjs/invalid-http-property-value';
 
 /**
  * SSJS diagnostic codes that duplicate eslint-plugin-sfmc rules and can be
@@ -61,6 +68,7 @@ export const DIAG_CODE_SSJS_CLR_CONTENT_ACCESS = 'ssjs/clr-content-access';
  *   - unsupported-syntax → `ssjs-no-unsupported-syntax`
  *   - clr-header-access → `ssjs-no-clr-header-access`
  *   - clr-content-access → `ssjs-require-string-clr-content`
+ *   - invalid-http-property-value → `ssjs-http-property-value`
  */
 export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_POLYFILL_REQUIRED,
@@ -71,6 +79,7 @@ export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_UNSUPPORTED_SYNTAX,
     DIAG_CODE_SSJS_CLR_HEADER_ACCESS,
     DIAG_CODE_SSJS_CLR_CONTENT_ACCESS,
+    DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY,
 ]);
 
 /**
@@ -112,6 +121,28 @@ export interface ClrHeaderAccessDiagnosticData {
 export interface ClrContentAccessDiagnosticData {
     respName: string;
     contentText: string;
+}
+
+/**
+ * A single replacement offered by the `ssjs/invalid-http-property-value` quick-fix.
+ * `code` is the source-ready literal to insert (already quoted for string enums,
+ * e.g. `'GET'`, or a numeric literal like `0`); `label` is an optional short
+ * human-readable meaning shown in the action title (e.g. `continue` for `0`).
+ */
+export interface InvalidHttpPropertySuggestion {
+    code: string;
+    label?: string;
+}
+
+/**
+ * Payload attached to `ssjs/invalid-http-property-value` diagnostics so the code
+ * action can offer valid replacement values. `propName` is the property (e.g.
+ * `method`); `suggestions` are the replacements to offer, each with its
+ * source-ready `code` and an optional descriptive `label`.
+ */
+export interface InvalidHttpPropertyDiagnosticData {
+    propName: string;
+    suggestions: InvalidHttpPropertySuggestion[];
 }
 
 /**
@@ -375,6 +406,148 @@ function collectClrContentAccessDiagnostics(
                 'Wrap it with `String(...)` before passing it to ParseJSON() or any string operation.',
             source: 'ssjs',
             code: DIAG_CODE_SSJS_CLR_CONTENT_ACCESS,
+            data,
+        });
+    }
+
+    return diagnostics;
+}
+
+/**
+ * Parse an assignment RHS literal source into a typed value, or `undefined` when
+ * the source is not a plain string/number/boolean literal (variables, expressions,
+ * template strings, etc. cannot be statically verified and are left alone).
+ * @param raw - Trimmed RHS source, e.g. `'POT'`, `5`, `-2.45`, `true`, `someVar`.
+ * @returns `{ value }` for a recognised literal, or `undefined` to skip.
+ */
+function parseLiteralValue(raw: string): { value: string | number | boolean } | undefined {
+    // String literal: '…' or "…" with no embedded quote of the same kind.
+    const strMatch = /^(['"])((?:(?!\1).)*)\1$/.exec(raw);
+    if (strMatch) return { value: strMatch[2] };
+    if (raw === 'true') return { value: true };
+    if (raw === 'false') return { value: false };
+    // Numeric literal (integer or decimal, optional leading sign). Reject NaN etc.
+    if (/^[+-]?(?:\d+\.?\d*|\.\d+)$/.test(raw)) {
+        const n = Number(raw);
+        if (!Number.isNaN(n)) return { value: n };
+    }
+    return undefined;
+}
+
+/**
+ * Validate a literal value against a property value constraint.
+ * @param value - The parsed literal value.
+ * @param constraint - The property's value constraint from ssjs-data.
+ * @returns A human-readable violation message, or `undefined` when the value is valid.
+ */
+function checkValueConstraint(
+    value: string | number | boolean,
+    constraint: HttpPropertyValueConstraint,
+): string | undefined {
+    if (constraint.enum) {
+        if (constraint.enum.includes(value as string | number)) return undefined;
+        const allowed = constraint.enum
+            .map((v) => (typeof v === 'string' ? `"${v}"` : String(v)))
+            .join(', ');
+        return `must be one of ${allowed}`;
+    }
+    if (constraint.numeric) {
+        if (typeof value !== 'number') return `must be a number`;
+        if (constraint.numeric === 'integer' && !Number.isSafeInteger(value)) {
+            return `must be a whole number (integer)`;
+        }
+        if (constraint.min !== undefined && value < constraint.min) {
+            return `must be >= ${constraint.min}`;
+        }
+    }
+    return undefined;
+}
+
+/**
+ * Build the replacement suggestions offered by the quick-fix for a constraint
+ * violation. Enum → each allowed value (quoted for strings), each carrying its
+ * `enumLabels` meaning when defined. Numeric → nothing offered (no single
+ * unambiguous fix). Returns at most a handful.
+ * @param constraint - The violated constraint.
+ * @returns Array of suggestions (may be empty).
+ */
+function constraintSuggestions(
+    constraint: HttpPropertyValueConstraint,
+): InvalidHttpPropertySuggestion[] {
+    if (constraint.enum) {
+        const labels = constraint.enumLabels;
+        return constraint.enum.map((v) => ({
+            code: typeof v === 'string' ? `'${v}'` : String(v),
+            label: labels ? labels[String(v)] : undefined,
+        }));
+    }
+    return [];
+}
+
+/**
+ * Scan the document for literal assignments to an HttpRequest / HttpGet writable
+ * property whose value violates the property's ssjs-data value constraint.
+ *
+ * A request variable is one assigned from `new Script.Util.HttpRequest(...)` or
+ * `Script.Util.HttpGet(...)`. For each `<reqVar>.<prop> = <literal>;` where
+ * `<prop>` carries a `valueConstraint`, the RHS literal is parsed and validated.
+ * Only literal string/number/boolean RHS values are checked — variables and
+ * expressions cannot be statically verified and are skipped to avoid false
+ * positives.
+ * @param text - Full document text.
+ * @param commentRanges - Comment ranges to skip.
+ * @param budget - Maximum number of diagnostics still allowed.
+ * @returns Diagnostics for invalid property assignments (length ≤ budget).
+ */
+function collectInvalidHttpPropertyDiagnostics(
+    text: string,
+    commentRanges: Array<[number, number]>,
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    if (budget <= 0 || httpPropertyConstraintLookup.size === 0) return diagnostics;
+
+    // 1. Collect request variables (same shape as the CLR rules).
+    const requestVars = new Set<string>();
+    const reqPattern =
+        /\b(?:var\s+)?([A-Za-z_$][\w$]*)\s*=\s*(?:new\s+)?Script\s*\.\s*Util\s*\.\s*(?:HttpRequest|HttpGet)\s*\(/g;
+    let rm: RegExpExecArray | null;
+    while ((rm = reqPattern.exec(text)) !== null) {
+        if (isInCommentRange(rm.index, commentRanges)) continue;
+        requestVars.add(rm[1]);
+    }
+    if (requestVars.size === 0) return diagnostics;
+
+    // 2. `<reqVar>.<prop> = <rhs>;` assignments (single-line RHS up to ; or newline).
+    const assignPattern = /\b([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)\s*=\s*([^;\n]+)/g;
+    let am: RegExpExecArray | null;
+    while ((am = assignPattern.exec(text)) !== null && diagnostics.length < budget) {
+        if (isInCommentRange(am.index, commentRanges)) continue;
+        const [, reqVar, propName, rhsRaw] = am;
+        if (!requestVars.has(reqVar)) continue;
+        const constraint = httpPropertyConstraintLookup.get(propName);
+        if (!constraint) continue;
+        const parsed = parseLiteralValue(rhsRaw.trim());
+        if (!parsed) continue;
+        const violation = checkValueConstraint(parsed.value, constraint);
+        if (!violation) continue;
+        const data: InvalidHttpPropertyDiagnosticData = {
+            propName,
+            suggestions: constraintSuggestions(constraint),
+        };
+        // Range covers just the RHS literal for a focused squiggle + quick-fix.
+        const rhsTrimmed = rhsRaw.trim();
+        const rhsRawStart = am.index + am[0].length - rhsRaw.length;
+        const rhsStart = rhsRawStart + (rhsRaw.length - rhsRaw.trimStart().length);
+        diagnostics.push({
+            severity: DiagnosticSeverity.Error,
+            range: {
+                start: offsetToPosition(text, rhsStart),
+                end: offsetToPosition(text, rhsStart + rhsTrimmed.length),
+            },
+            message: `Invalid value for ${propName}: it ${violation}.`,
+            source: 'ssjs',
+            code: DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY,
             data,
         });
     }
@@ -702,6 +875,17 @@ export function validateSsjs(
         );
         problems += contentDiagnostics.length;
         diagnostics.push(...contentDiagnostics);
+    }
+
+    // 4e. Invalid literal values assigned to HttpRequest/HttpGet writable props.
+    if (problems < max) {
+        const invalidPropDiagnostics = collectInvalidHttpPropertyDiagnostics(
+            text,
+            commentRanges,
+            max - problems,
+        );
+        problems += invalidPropDiagnostics.length;
+        diagnostics.push(...invalidPropDiagnostics);
     }
 
     // MCN compatibility — SSJS is not supported in Marketing Cloud Next.

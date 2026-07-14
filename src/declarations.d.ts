@@ -191,6 +191,25 @@ declare module 'ssjs-data' {
     export const platformRecipientMethodNames: Set<string>;
     export const SCRIPT_UTIL_CONSTRUCTORS: SsjsDataFunction[];
     export const SCRIPT_UTIL_REQUEST_METHODS: SsjsDataFunction[];
+    /** Value constraint on a writable HttpRequest/HttpGet instance property. */
+    export interface SsjsDataValueConstraint {
+        enum?: Array<string | number>;
+        enumLabels?: Record<string, string>;
+        numeric?: 'integer' | 'number';
+        min?: number;
+    }
+    /** A writable HttpRequest/HttpGet instance property (optionally constrained). */
+    export interface SsjsDataHttpProperty {
+        name: string;
+        type: string;
+        description: string;
+        isConfirmed?: boolean;
+        differsFromOfficialDocs?: boolean;
+        officialDocsNote?: string;
+        valueConstraint?: SsjsDataValueConstraint;
+    }
+    export const SCRIPT_UTIL_REQUEST_PROPERTIES: SsjsDataHttpProperty[];
+    export const SCRIPT_UTIL_HTTPGET_PROPERTIES: SsjsDataHttpProperty[];
     export const ECMASCRIPT_BUILTINS: SsjsDataBuiltin[];
     export const KNOWN_UNSUPPORTED: SsjsDataKnownUnsupported[];
     export const POLYFILLABLE_METHODS: SsjsDataPolyfillable[];
