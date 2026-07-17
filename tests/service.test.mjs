@@ -472,16 +472,13 @@ describe('SSJS validation', () => {
         assert.ok(diags.some((d) => d.message.includes('"1.1.5"')));
     });
 
-    it('reports bare-name Redirect() as nonexistent-global Error', () => {
+    it('does not flag bare-name Redirect() as nonexistent-global (runtime-verified Core global)', () => {
+        // ssjs-data verified that bare-name `Redirect` IS defined at runtime after
+        // Platform.Load("core", ...) and performs the redirect (differsFromOfficialDocs).
+        // It is therefore a valid SSJS global and must not be reported as nonexistent.
         const doc = { text: 'Redirect("https://example.com", false);', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/nonexistent-global');
-        assert.ok(d, 'expected nonexistent-global diagnostic for Redirect');
-        assert.equal(d.severity, 1, 'expected Error severity');
-        assert.ok(
-            d.message.includes('Platform.Response.Redirect'),
-            `expected replacement suggestion, got: ${d.message}`,
-        );
+        assert.ok(diags.every((d) => d.code !== 'ssjs/nonexistent-global'));
     });
 
     it('does not flag Platform.Response.Redirect (member call) as nonexistent-global', () => {
@@ -1394,12 +1391,14 @@ describe('Completions', () => {
         assert.ok(items.some((i) => i.label?.toString().startsWith('Platform')));
     });
 
-    it('does not offer phantom global Redirect in SSJS completions', () => {
+    it('offers runtime-verified global Redirect in SSJS completions', () => {
+        // Redirect is a runtime-verified Core global (available after Platform.Load("core", ...)),
+        // so it must be offered in SSJS completions.
         const doc = { text: 'Red', languageId: 'ssjs' };
         const items = service.getCompletions(doc, { line: 0, character: 3 });
         assert.ok(
-            items.every((i) => i.label?.toString() !== 'Redirect'),
-            'Redirect must not be offered — it throws a ReferenceError at runtime',
+            items.some((i) => i.label?.toString() === 'Redirect'),
+            'Redirect should be offered — it is a runtime-verified Core global',
         );
     });
 });
