@@ -14,6 +14,7 @@ import {
     PLATFORM_VARIABLE_METHODS,
     PLATFORM_RESPONSE_METHODS,
     PLATFORM_REQUEST_METHODS,
+    REQUEST_UTILITY_METHODS,
     PLATFORM_RECIPIENT_METHODS,
     CORE_LIBRARY_OBJECTS,
     WSPROXY_METHODS,
@@ -55,6 +56,14 @@ export interface SsjsFunction {
     officialDocsNote?: string;
     requiresCoreLoad?: boolean;
     aliasOf?: string;
+    /**
+     * Exact set of permitted argument counts for a discontinuous overload where a
+     * contiguous minArgs..maxArgs range would wrongly accept intermediate counts.
+     * When present, a call is valid only when its argument count is within
+     * [minArgs, maxArgs] AND a member of this array (e.g. HTTPGet accepts only 1 or
+     * 6 arguments; 2-5 throw at runtime). Absent → pure contiguous range.
+     */
+    validArities?: number[];
 }
 
 export interface EcmascriptBuiltin {
@@ -135,9 +144,33 @@ export const platformResponseMethods: SsjsFunction[] = PLATFORM_RESPONSE_METHODS
     prefix: 'Platform.Response',
 }));
 
-export const platformRequestMethods: SsjsFunction[] = PLATFORM_REQUEST_METHODS.map((m) => ({
+// notDefinedAtRuntime Platform.Request members (e.g. GetUserLanguages, which throws
+// a frame-security error in the only frame CloudPages provide) are EXCLUDED here so
+// the LSP never offers them in completions/hover/signature help — mirroring how
+// ssjsGlobals drops phantom bare-name globals. They stay in ssjs-data/ssjs.guide for
+// discoverability.
+export const platformRequestMethods: SsjsFunction[] = PLATFORM_REQUEST_METHODS.filter(
+    (m) => !m.notDefinedAtRuntime,
+).map((m) => ({
     ...m,
     prefix: 'Platform.Request',
+}));
+
+// ── Core Request object members ──────────────────────────────────────────────
+
+// The Core library `Request` object is a DISTINCT namespace from Platform.Request.
+// It exposes its own 8 members (REQUEST_UTILITY_METHODS in ssjs-data): six 0-arg
+// context getters (URL, PagePath, Method, ApplicationID, PackageID,
+// ApplicationBaseURL) plus GetQueryStringParameter / GetFormField (1 string arg,
+// requiresCoreLoad). Completions/hover for bare `Request.` must use THIS set, not
+// platformRequestMethods (Platform.Request members like RequestURL/GetCookieValue
+// are NOT valid on the Core Request object). notDefinedAtRuntime members are
+// filtered out to mirror platformRequestMethods (none currently).
+export const coreRequestMethods: SsjsFunction[] = REQUEST_UTILITY_METHODS.filter(
+    (m) => !m.notDefinedAtRuntime,
+).map((m) => ({
+    ...m,
+    prefix: 'Request',
 }));
 
 // ── Core library objects ─────────────────────────────────────────────────────

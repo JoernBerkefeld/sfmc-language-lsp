@@ -511,6 +511,77 @@ describe('SSJS validation', () => {
         assert.ok(diags.every((d) => d.code !== 'ssjs/deprecated'));
     });
 
+    // ── Discontinuous-overload arity (validArities), e.g. HTTPGet {1, 6} ──────
+    it('does not flag Platform.Function.HTTPGet with 1 argument', () => {
+        const doc = {
+            text: 'var r = Platform.Function.HTTPGet("https://example.com");',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.every((d) => d.code !== 'ssjs/invalid-arity'),
+            'HTTPGet(url) is a valid 1-arg call',
+        );
+    });
+
+    it('does not flag Platform.Function.HTTPGet with 6 arguments', () => {
+        const doc = {
+            text: 'var h = []; var e = 0; var c = "";\nvar r = Platform.Function.HTTPGet("https://example.com", false, 0, null, h, c);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.every((d) => d.code !== 'ssjs/invalid-arity'),
+            'HTTPGet with 6 args is a valid full call',
+        );
+    });
+
+    it('flags Platform.Function.HTTPGet with 2 arguments (invalid-arity)', () => {
+        const doc = {
+            text: 'var r = Platform.Function.HTTPGet("https://example.com", false);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/invalid-arity');
+        assert.ok(d, 'expected invalid-arity diagnostic for 2-arg HTTPGet');
+        assert.equal(d.severity, 1, 'expected Error severity');
+        assert.ok(d.message.includes('1 or 6'), 'message should render valid arities as "1 or 6"');
+        assert.ok(d.message.includes('got 2'), 'message should state actual arg count');
+    });
+
+    it('flags Platform.Function.HTTPGet with 4 arguments (invalid-arity)', () => {
+        const doc = {
+            text: 'var r = Platform.Function.HTTPGet("https://example.com", false, 0, null);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/invalid-arity');
+        assert.ok(d, 'expected invalid-arity diagnostic for 4-arg HTTPGet');
+        assert.ok(d.message.includes('got 4'));
+    });
+
+    it('does not flag HTTPGet arity error when call is inside a comment', () => {
+        const doc = {
+            text: '// var r = Platform.Function.HTTPGet("https://example.com", false, 0, null);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-arity'));
+    });
+
+    it('does not miscount HTTPGet args when a string argument contains commas', () => {
+        // The URL has commas in a query param; they must not inflate the count.
+        const doc = {
+            text: 'var r = Platform.Function.HTTPGet("https://example.com/?a=1,2,3");',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.every((d) => d.code !== 'ssjs/invalid-arity'),
+            'commas inside a string arg must not be counted as argument separators',
+        );
+    });
+
     it('reports let/const as Error severity (not Warning)', () => {
         const doc = { text: 'let x = 1;', languageId: 'ssjs' };
         const diags = service.validate(doc);
@@ -1401,6 +1472,92 @@ describe('Completions', () => {
             'Redirect should be offered — it is a runtime-verified Core global',
         );
     });
+
+    // ── Core Request object vs Platform.Request (bug fix) ────────────────────
+
+    it('offers exactly the 8 Core Request members for `Request.`', () => {
+        const doc = { text: 'Request.', languageId: 'ssjs' };
+        const items = service.getCompletions(doc, { line: 0, character: 8 });
+        const requestLabels = items
+            .map((i) => i.label?.toString() ?? '')
+            .filter((l) => l.startsWith('Request.'));
+        const memberNames = requestLabels
+            .map((l) => l.slice('Request.'.length))
+            .toSorted((a, b) => a.localeCompare(b));
+        assert.deepEqual(
+            memberNames,
+            [
+                'ApplicationBaseURL',
+                'ApplicationID',
+                'GetFormField',
+                'GetQueryStringParameter',
+                'Method',
+                'PackageID',
+                'PagePath',
+                'URL',
+            ],
+            'Request. must offer exactly the 8 Core library Request members',
+        );
+    });
+
+    it('does NOT leak Platform.Request-only members into `Request.`', () => {
+        const doc = { text: 'Request.', languageId: 'ssjs' };
+        const items = service.getCompletions(doc, { line: 0, character: 8 });
+        const requestMembers = new Set(
+            items
+                .map((i) => i.label?.toString() ?? '')
+                .filter((l) => l.startsWith('Request.'))
+                .map((l) => l.slice('Request.'.length)),
+        );
+        for (const leaked of [
+            'RequestURL',
+            'GetCookieValue',
+            'GetPostData',
+            'GetRequestHeader',
+            'Browser',
+            'ClientIP',
+            'HasSSL',
+            'IsSSL',
+            'QueryString',
+            'ReferrerURL',
+            'UserAgent',
+        ]) {
+            assert.ok(
+                !requestMembers.has(leaked),
+                `Platform.Request-only member ${leaked} must NOT appear on Core Request.`,
+            );
+        }
+    });
+
+    it('still offers Platform.Request members for `Platform.Request.`', () => {
+        const doc = { text: 'Platform.Request.', languageId: 'ssjs' };
+        const items = service.getCompletions(doc, { line: 0, character: 17 });
+        const labels = new Set(items.map((i) => i.label?.toString() ?? ''));
+        assert.ok(
+            labels.has('Platform.Request.RequestURL'),
+            'Platform.Request.RequestURL should still be offered',
+        );
+        assert.ok(
+            labels.has('Platform.Request.GetCookieValue'),
+            'Platform.Request.GetCookieValue should still be offered',
+        );
+    });
+
+    it('does NOT offer GetUserLanguages on either Request namespace', () => {
+        const items = service.getCompletions(
+            { text: '', languageId: 'ssjs' },
+            { line: 0, character: 0 },
+        );
+        const labels = new Set(items.map((i) => i.label?.toString() ?? ''));
+        assert.ok(
+            !labels.has('Request.GetUserLanguages'),
+            'GetUserLanguages must not appear on Core Request.',
+        );
+        assert.ok(
+            !labels.has('Platform.Request.GetUserLanguages'),
+            'GetUserLanguages is notDefinedAtRuntime and must not appear on Platform.Request.',
+        );
+    });
 });
 
 // ── Hover ──────────────────────────────────────────────────────────────────
@@ -1506,6 +1663,57 @@ describe('Hover', () => {
             hover.contents.value,
             /Deprecated/i,
             `expected deprecation banner in hover, got: ${hover.contents.value}`,
+        );
+    });
+
+    it('hover on Core `Request.URL` shows the 0-arg Core signature', () => {
+        const line = 'var u = Request.URL();';
+        const doc = { text: line, languageId: 'ssjs' };
+        // cursor on "URL"
+        const hover = service.getHover(doc, line, { line: 0, character: 17 });
+        assert.ok(hover, 'expected hover for Core Request.URL');
+        const value = hover.contents.value;
+        assert.match(value, /Request\.URL\(\)/, `expected Request.URL() signature, got: ${value}`);
+        assert.match(value, /full URL/i, `expected Core URL description, got: ${value}`);
+    });
+
+    it('hover on Core `Request.GetQueryStringParameter` shows the 1-arg Core signature', () => {
+        const line = 'var v = Request.GetQueryStringParameter("sku");';
+        const doc = { text: line, languageId: 'ssjs' };
+        // cursor on "GetQueryStringParameter"
+        const hover = service.getHover(doc, line, { line: 0, character: 25 });
+        assert.ok(hover, 'expected hover for Core Request.GetQueryStringParameter');
+        const value = hover.contents.value;
+        assert.match(
+            value,
+            /Request\.GetQueryStringParameter\(name/,
+            `expected 1-arg Core signature, got: ${value}`,
+        );
+    });
+
+    it('hover on `Platform.Request.RequestURL` still resolves Platform.Request member', () => {
+        const line = 'var r = Platform.Request.RequestURL();';
+        const doc = { text: line, languageId: 'ssjs' };
+        // cursor on "RequestURL"
+        const hover = service.getHover(doc, line, { line: 0, character: 27 });
+        assert.ok(hover, 'expected hover for Platform.Request.RequestURL');
+        assert.match(
+            hover.contents.value,
+            /RequestURL/,
+            `expected Platform.Request.RequestURL hover, got: ${hover.contents.value}`,
+        );
+    });
+
+    it('hover on Core `Request.` does NOT resolve a Platform.Request-only member', () => {
+        // RequestURL is a Platform.Request member, NOT a Core Request member.
+        const line = 'var r = Request.RequestURL();';
+        const doc = { text: line, languageId: 'ssjs' };
+        // cursor on "RequestURL"
+        const hover = service.getHover(doc, line, { line: 0, character: 20 });
+        assert.equal(
+            hover,
+            null,
+            'Core Request. must not resolve Platform.Request-only RequestURL',
         );
     });
 });

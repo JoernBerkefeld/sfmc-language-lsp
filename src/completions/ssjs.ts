@@ -13,6 +13,7 @@ import {
     platformVariableMethods,
     platformResponseMethods,
     platformRequestMethods,
+    coreRequestMethods,
     platformRecipientMethods,
     coreLibraryObjects,
     httpMethods,
@@ -106,30 +107,36 @@ function buildSsjsCatalog(): CompletionItem[] {
         );
     }
 
+    // Platform.Request members (CLR-backed). These are a DIFFERENT set from the
+    // Core `Request` object below — do NOT emit a bare `Request.` shorthand here.
     for (const fn of platformRequestMethods) {
         const doc = { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(fn) };
-        items.push(
-            {
-                label: `Platform.Request.${fn.name}`,
-                kind: CompletionItemKind.Method,
-                detail: `Platform.Request.${fn.name}`,
-                documentation: doc,
-                insertText: buildSsjsFunctionSnippet(fn),
-                insertTextFormat: InsertTextFormat.Snippet,
-                filterText: `Platform.Request.${fn.name} ${fn.name}`,
-                data: { type: 'ssjs-platform-request', name: fn.name },
-            },
-            {
-                label: `Request.${fn.name}`,
-                kind: CompletionItemKind.Method,
-                detail: `(shorthand) Platform.Request.${fn.name}`,
-                documentation: doc,
-                insertText: buildSsjsFunctionSnippet({ ...fn, prefix: 'Request' }),
-                insertTextFormat: InsertTextFormat.Snippet,
-                filterText: `Request.${fn.name} ${fn.name}`,
-                data: { type: 'ssjs-platform-request', name: fn.name },
-            },
-        );
+        items.push({
+            label: `Platform.Request.${fn.name}`,
+            kind: CompletionItemKind.Method,
+            detail: `Platform.Request.${fn.name}`,
+            documentation: doc,
+            insertText: buildSsjsFunctionSnippet(fn),
+            insertTextFormat: InsertTextFormat.Snippet,
+            filterText: `Platform.Request.${fn.name} ${fn.name}`,
+            data: { type: 'ssjs-platform-request', name: fn.name },
+        });
+    }
+
+    // Core `Request` object members (URL, PagePath, Method, GetQueryStringParameter,
+    // …). This is the ONLY code path that emits bare `Request.` completions — sourced
+    // from coreRequestMethods, not platformRequestMethods.
+    for (const fn of coreRequestMethods) {
+        items.push({
+            label: `Request.${fn.name}`,
+            kind: CompletionItemKind.Method,
+            detail: `Request.${fn.name}`,
+            documentation: { kind: MarkupKind.Markdown, value: buildSsjsFunctionMarkdown(fn) },
+            insertText: buildSsjsFunctionSnippet(fn),
+            insertTextFormat: InsertTextFormat.Snippet,
+            filterText: `Request.${fn.name} ${fn.name}`,
+            data: { type: 'ssjs-core-request', name: fn.name },
+        });
     }
 
     for (const obj of coreLibraryObjects) {

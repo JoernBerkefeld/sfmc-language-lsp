@@ -134,6 +134,12 @@ declare module 'ssjs-data' {
         /** Note describing the runtime-safe replacement for a phantom/differing global. */
         officialDocsNote?: string;
         aliasOf?: string;
+        /**
+         * Exact set of permitted argument counts for a discontinuous overload
+         * (PLATFORM_FUNCTIONS only). When present, a call is valid only when its
+         * argument count is within [minArgs, maxArgs] AND a member of this array.
+         */
+        validArities?: number[];
     }
     export interface SsjsDataObject {
         name: string;
@@ -193,6 +199,9 @@ declare module 'ssjs-data' {
     export const PLATFORM_VARIABLE_METHODS: SsjsDataFunction[];
     export const PLATFORM_RESPONSE_METHODS: SsjsDataFunction[];
     export const PLATFORM_REQUEST_METHODS: SsjsDataFunction[];
+    /** Core library `Request` object members (distinct from Platform.Request). */
+    export const REQUEST_UTILITY_METHODS: SsjsDataFunction[];
+    export const requestUtilityLookup: Map<string, SsjsDataFunction>;
     export const PLATFORM_RECIPIENT_METHODS: SsjsDataFunction[];
     export const platformRecipientMethodNames: Set<string>;
     export const SCRIPT_UTIL_CONSTRUCTORS: SsjsDataFunction[];

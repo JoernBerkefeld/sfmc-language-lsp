@@ -13,6 +13,7 @@ import {
     platformVariableMethods,
     platformResponseMethods,
     platformRequestMethods,
+    coreRequestMethods,
     platformRecipientMethods,
     coreLibraryObjects,
     wsproxyMethods,
@@ -67,7 +68,10 @@ function getPrefixedMemberHover(
             break;
         }
         case 'Request': {
-            method = byName(platformRequestMethods);
+            // Bare `Request.` is the Core library Request object — its own 8 members,
+            // NOT Platform.Request's set. Platform.Request is handled in the three-part
+            // qualified-name branch (ns1 === 'Platform' && ns2 === 'Request').
+            method = byName(coreRequestMethods);
             break;
         }
         case 'HTTPHeader': {

@@ -16,8 +16,10 @@ import {
     polyfillablePrototypeLookup,
     replaceableStaticLookup,
     httpPropertyConstraintLookup,
+    platformFunctionLookup,
 } from '../data/ssjs.js';
 import type { HttpPropertyValueConstraint, SsjsFunction } from '../data/ssjs.js';
+import { countFunctionArguments } from '../utils/text.js';
 
 // Diagnostic codes that code actions identify and act on, and that overlap with
 // eslint-plugin-sfmc rules. When `disableLspDiagnosticsForEslintRules` is enabled
@@ -67,6 +69,12 @@ export const DIAG_CODE_SSJS_NONEXISTENT_GLOBAL = 'ssjs/nonexistent-global';
 // (e.g. `ContentArea`, `ErrorUtil.ThrowWSProxyError`). Driven by ssjs-data's
 // `deprecated` flag. Mirrors the `ssjs-no-deprecated-function` rule.
 export const DIAG_CODE_SSJS_DEPRECATED = 'ssjs/deprecated';
+// Platform.Function call whose argument count is within [minArgs, maxArgs] but
+// not one of the exact permitted arities for a DISCONTINUOUS OVERLOAD (ssjs-data
+// `validArities`). E.g. HTTPGet accepts only 1 or 6 arguments; 2-5 throw
+// "Unable to retrieve security descriptor for this frame." at runtime. Mirrors
+// the `ssjs-platform-function-arity` rule's `invalidArity` message.
+export const DIAG_CODE_SSJS_INVALID_ARITY = 'ssjs/invalid-arity';
 
 /**
  * SSJS diagnostic codes that duplicate eslint-plugin-sfmc rules and can be
@@ -81,6 +89,7 @@ export const DIAG_CODE_SSJS_DEPRECATED = 'ssjs/deprecated';
  *   - invalid-http-property-value → `ssjs-http-property-value`
  *   - nonexistent-global → `ssjs-no-nonexistent-global`
  *   - deprecated → `ssjs-no-deprecated-function`
+ *   - invalid-arity → `ssjs-platform-function-arity`
  */
 export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_POLYFILL_REQUIRED,
@@ -94,6 +103,7 @@ export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY,
     DIAG_CODE_SSJS_NONEXISTENT_GLOBAL,
     DIAG_CODE_SSJS_DEPRECATED,
+    DIAG_CODE_SSJS_INVALID_ARITY,
 ]);
 
 /**
@@ -583,6 +593,177 @@ function collectInvalidHttpPropertyDiagnostics(
 }
 
 /**
+ * Renders a `validArities` set as a human phrase, e.g. `[1, 6]` → "1 or 6",
+ * `[1, 2, 4]` → "1, 2 or 4".
+ * @param arities - Sorted list of exact permitted argument counts.
+ * @returns A human-readable phrase joining the arities with commas and "or".
+ */
+function formatArities(arities: number[]): string {
+    if (arities.length === 0) return '';
+    if (arities.length === 1) return String(arities[0]);
+    return `${arities.slice(0, -1).join(', ')} or ${arities.at(-1)}`;
+}
+
+/**
+ * Blanks the contents of single/double-quoted string literals and line/block
+ * comments (preserving length and newlines) so that commas inside strings or
+ * comments do not inflate top-level argument counts. Positions are preserved,
+ * so offsets computed on the returned text map 1:1 onto the original document.
+ * @param text - Full document text.
+ * @returns A copy of `text` with string/comment contents replaced by spaces.
+ */
+function blankStringsAndComments(text: string): string {
+    const chars = [...text];
+    let index = 0;
+    while (index < chars.length) {
+        const ch = chars[index];
+        if (ch === '/' && chars[index + 1] === '/') {
+            index = blankLineComment(chars, index);
+        } else if (ch === '/' && chars[index + 1] === '*') {
+            index = blankBlockComment(chars, index);
+        } else if (ch === '"' || ch === "'") {
+            index = blankStringLiteral(chars, index, ch);
+        } else {
+            index++;
+        }
+    }
+    return chars.join('');
+}
+
+/**
+ * Blanks a `//` line comment starting at `index` up to (but excluding) the
+ * newline. Returns the index just past the blanked region.
+ * @param chars - Mutable character array being sanitized.
+ * @param index - Index of the first `/` of the line comment.
+ * @returns Index of the character after the blanked comment.
+ */
+function blankLineComment(chars: string[], index: number): number {
+    let cursor = index;
+    while (cursor < chars.length && chars[cursor] !== '\n') {
+        chars[cursor] = ' ';
+        cursor++;
+    }
+    return cursor;
+}
+
+/**
+ * Blanks a block comment (slash-star … star-slash) starting at `index`,
+ * preserving newlines. Returns the index just past the closing delimiter
+ * (or end of input).
+ * @param chars - Mutable character array being sanitized.
+ * @param index - Index of the opening `/` of the block comment.
+ * @returns Index of the character after the blanked comment.
+ */
+function blankBlockComment(chars: string[], index: number): number {
+    chars[index] = ' ';
+    chars[index + 1] = ' ';
+    let cursor = index + 2;
+    while (cursor < chars.length && !(chars[cursor] === '*' && chars[cursor + 1] === '/')) {
+        if (chars[cursor] !== '\n') chars[cursor] = ' ';
+        cursor++;
+    }
+    if (cursor < chars.length) {
+        chars[cursor] = ' ';
+        chars[cursor + 1] = ' ';
+        cursor += 2;
+    }
+    return cursor;
+}
+
+/**
+ * Blanks a single/double-quoted string literal starting at the opening quote,
+ * honouring backslash escapes and preserving newlines. Returns the index just
+ * past the closing quote (or end of input).
+ * @param chars - Mutable character array being sanitized.
+ * @param index - Index of the opening quote.
+ * @param quote - The quote character that delimits the literal.
+ * @returns Index of the character after the blanked literal.
+ */
+function blankStringLiteral(chars: string[], index: number, quote: string): number {
+    let cursor = index + 1;
+    while (cursor < chars.length && chars[cursor] !== quote) {
+        if (chars[cursor] === '\\') {
+            chars[cursor] = ' ';
+            cursor++;
+            if (cursor < chars.length && chars[cursor] !== '\n') chars[cursor] = ' ';
+        } else {
+            if (chars[cursor] !== '\n') chars[cursor] = ' ';
+        }
+        cursor++;
+    }
+    return cursor + 1;
+}
+
+/**
+ * Flags Platform.Function calls whose argument count is within the contiguous
+ * [minArgs, maxArgs] range but is NOT one of the exact permitted arities for a
+ * discontinuous overload (ssjs-data `validArities`). Only runs for functions
+ * that declare `validArities`; all other functions are left to the normal
+ * contiguous range checks (handled by eslint-plugin-sfmc), so nothing else
+ * regresses.
+ * @param text - Full document text.
+ * @param commentRanges - Comment ranges to skip.
+ * @param budget - Maximum number of diagnostics still allowed.
+ * @returns Diagnostics for invalid discontinuous arities (length ≤ budget).
+ */
+function collectPlatformFunctionArityDiagnostics(
+    text: string,
+    commentRanges: Array<[number, number]>,
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    if (budget <= 0) return diagnostics;
+
+    // Only functions with an explicit validArities set participate.
+    const arityFunctions = [...platformFunctionLookup.values()].filter(
+        (f) => Array.isArray(f.validArities) && f.validArities.length > 0,
+    );
+    if (arityFunctions.length === 0) return diagnostics;
+
+    // String/comment-blanked copy so commas inside args don't inflate counts.
+    const sanitizedText = blankStringsAndComments(text);
+
+    for (const entry of arityFunctions) {
+        if (diagnostics.length >= budget) break;
+        const validArities = entry.validArities!;
+        // Match Platform.Function.<Name>( — tolerant of whitespace around dots.
+        const pattern = new RegExp(
+            String.raw`Platform\s*\.\s*Function\s*\.\s*${entry.name}\s*\(`,
+            'gi',
+        );
+        let match: RegExpExecArray | null;
+        while ((match = pattern.exec(text)) !== null && diagnostics.length < budget) {
+            const openParenPos = match.index + match[0].length - 1;
+            const actual = countFunctionArguments(sanitizedText, openParenPos);
+            // Flag only real (non-comment) calls whose count is inside the
+            // contiguous range but is not one of the exact permitted arities.
+            const isDiscontinuousViolation =
+                !isInCommentRange(match.index, commentRanges) &&
+                actual >= entry.minArgs &&
+                actual <= entry.maxArgs &&
+                !validArities.includes(actual);
+            if (isDiscontinuousViolation) {
+                // Highlight just the function name for a focused squiggle.
+                const nameStart =
+                    match.index + match[0].toLowerCase().lastIndexOf(entry.name.toLowerCase());
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, nameStart),
+                        end: offsetToPosition(text, nameStart + entry.name.length),
+                    },
+                    message: `'${entry.name}' must be called with exactly ${formatArities(validArities)} arguments (got ${actual}); intermediate argument counts throw at runtime.`,
+                    source: 'ssjs',
+                    code: DIAG_CODE_SSJS_INVALID_ARITY,
+                });
+            }
+        }
+    }
+
+    return diagnostics;
+}
+
+/**
  * Validate an SSJS document and return LSP Diagnostics.
  * @param text - Full document text.
  * @param settings - Validation settings.
@@ -1001,6 +1182,19 @@ export function validateSsjs(
         );
         problems += invalidPropDiagnostics.length;
         diagnostics.push(...invalidPropDiagnostics);
+    }
+
+    // 4f. Platform.Function calls with a discontinuous-overload arity violation
+    // (argument count in [minArgs, maxArgs] but not in validArities, e.g. HTTPGet
+    // called with 2-5 args). Only functions declaring validArities participate.
+    if (problems < max) {
+        const arityDiagnostics = collectPlatformFunctionArityDiagnostics(
+            text,
+            commentRanges,
+            max - problems,
+        );
+        problems += arityDiagnostics.length;
+        diagnostics.push(...arityDiagnostics);
     }
 
     // MCN compatibility — SSJS is not supported in Marketing Cloud Next.
