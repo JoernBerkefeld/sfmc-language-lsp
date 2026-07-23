@@ -814,12 +814,12 @@ describe('SSJS polyfill-required diagnostics', () => {
         );
     });
 
-    it('uses "broken" wording for a broken member (String.prototype.search)', () => {
-        const doc = { text: 'var i = str.search(/x/);', languageId: 'ssjs' };
+    it('uses "broken" wording for a broken member (Array.prototype.splice)', () => {
+        const doc = { text: 'var removed = arr.splice(1, 2);', languageId: 'ssjs' };
         const d = service
             .validate(doc)
-            .find((d) => d.code === 'ssjs/polyfill-required' && d.message.includes('search'));
-        assert.ok(d, 'expected polyfill-required diagnostic for String.search');
+            .find((d) => d.code === 'ssjs/polyfill-required' && d.message.includes('splice'));
+        assert.ok(d, 'expected polyfill-required diagnostic for Array.splice');
         assert.ok(
             d.message.includes('is broken in the SFMC SSJS engine'),
             `expected "broken" wording, got: ${d.message}`,
