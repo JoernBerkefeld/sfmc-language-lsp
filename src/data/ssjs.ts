@@ -19,6 +19,7 @@ import {
     CORE_LIBRARY_OBJECTS,
     coreObjectNames,
     coreNonFunctionalMethodLookup as ssjsCoreNonFunctionalMethodLookup,
+    coreDeprecatedMethodLookup as ssjsCoreDeprecatedMethodLookup,
     WSPROXY_METHODS,
     HTTP_METHODS,
     HTTPHEADER_METHODS,
@@ -102,6 +103,7 @@ export interface SsjsObject {
     name: string;
     methods: string[];
     description: string;
+    deprecated?: boolean;
 }
 
 // ── Top-level Platform methods ───────────────────────────────────────────────
@@ -187,6 +189,7 @@ export const coreLibraryObjects: SsjsObject[] = CORE_LIBRARY_OBJECTS.map((o) => 
     name: o.name,
     methods: o.methods,
     description: o.description,
+    ...(o.deprecated && { deprecated: true }),
 }));
 
 /** Set of Core Library object names (e.g. `FilterDefinition`, `DataExtension.Rows`). */
@@ -202,6 +205,17 @@ export const coreNonFunctionalMethodLookup: Map<
     string,
     Map<string, SsjsFunction>
 > = ssjsCoreNonFunctionalMethodLookup;
+
+/**
+ * Core Library methods that still work at runtime but are deprecated (superseded
+ * by newer functionality, e.g. Content Builder assets replacing Classic Content).
+ * Map<classNameLower, Map<methodNameLower, entry>> re-exposed from ssjs-data so
+ * validators/hover/completions can surface deprecation warnings and notes.
+ */
+export const coreDeprecatedMethodLookup: Map<
+    string,
+    Map<string, SsjsFunction>
+> = ssjsCoreDeprecatedMethodLookup;
 
 // ── WSProxy methods ──────────────────────────────────────────────────────────
 

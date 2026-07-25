@@ -151,6 +151,7 @@ declare module 'ssjs-data' {
         name: string;
         methods: string[];
         description: string;
+        deprecated?: boolean;
     }
     export interface SsjsDataBuiltin {
         name: string;
@@ -198,6 +199,12 @@ declare module 'ssjs-data' {
      * invocation (nonFunctionalAtRuntime). Map<classNameLower, Map<methodNameLower, entry>>.
      */
     export const coreNonFunctionalMethodLookup: Map<string, Map<string, SsjsDataFunction>>;
+    /**
+     * Core Library methods flagged `deprecated` (still callable at runtime but
+     * retired in favor of newer APIs, e.g. Content Builder replacing classic
+     * Content Areas). Map<classNameLower, Map<methodNameLower, entry>>.
+     */
+    export const coreDeprecatedMethodLookup: Map<string, Map<string, SsjsDataFunction>>;
     export const HTTP_METHODS: SsjsDataFunction[];
     export const httpMethodNames: Set<string>;
     export const WSPROXY_METHODS: SsjsDataFunction[];

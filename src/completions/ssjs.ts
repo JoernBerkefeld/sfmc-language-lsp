@@ -1,4 +1,4 @@
-import { CompletionItemKind, InsertTextFormat, MarkupKind } from '../types.js';
+import { CompletionItemKind, CompletionItemTag, InsertTextFormat, MarkupKind } from '../types.js';
 import type { CompletionItem } from '../types.js';
 import {
     buildSsjsFunctionMarkdown,
@@ -140,14 +140,16 @@ function buildSsjsCatalog(): CompletionItem[] {
     }
 
     for (const obj of coreLibraryObjects) {
+        const deprecatedNote = obj.deprecated ? '**Deprecated.** ' : '';
         items.push({
             label: obj.name,
             kind: CompletionItemKind.Class,
             detail: `(Core library) ${obj.name}`,
             documentation: {
                 kind: MarkupKind.Markdown,
-                value: `${obj.description}\n\n**Methods:** ${obj.methods.join(', ')}\n\n*Requires* \`Platform.Load("core", "1.1.5")\``,
+                value: `${deprecatedNote}${obj.description}\n\n**Methods:** ${obj.methods.join(', ')}\n\n*Requires* \`Platform.Load("core", "1.1.5")\``,
             },
+            ...(obj.deprecated && { tags: [CompletionItemTag.Deprecated] }),
             data: { type: 'ssjs-core-object', name: obj.name },
         });
     }

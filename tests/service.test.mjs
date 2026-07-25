@@ -511,6 +511,37 @@ describe('SSJS validation', () => {
         assert.ok(diags.every((d) => d.code !== 'ssjs/deprecated'));
     });
 
+    it('reports deprecated static call Portfolio.Retrieve as deprecated Warning', () => {
+        const doc = {
+            text: 'var p = Portfolio.Retrieve("Name", "MyPortfolio");',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/deprecated');
+        assert.ok(d, 'expected deprecated diagnostic for Portfolio.Retrieve');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.ok(d.message.includes('Retrieve'));
+    });
+
+    it('reports deprecated instance call via <var> = Send.Definition.Init(...)', () => {
+        const doc = {
+            text: ['var sd = Send.Definition.Init("MySendDefinition");', 'sd.Send();'].join('\n'),
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const deprecatedDiags = diags.filter((d) => d.code === 'ssjs/deprecated');
+        assert.ok(
+            deprecatedDiags.some((d) => d.message.includes('Send')),
+            `expected a deprecated diagnostic mentioning Send, got: ${JSON.stringify(deprecatedDiags)}`,
+        );
+    });
+
+    it('does not flag Portfolio.Retrieve inside a comment', () => {
+        const doc = { text: '// Portfolio.Retrieve("Name", "MyPortfolio");', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/deprecated'));
+    });
+
     // ── Discontinuous-overload arity (validArities), e.g. HTTPGet {1, 6} ──────
     it('does not flag Platform.Function.HTTPGet with 1 argument', () => {
         const doc = {
@@ -1714,6 +1745,19 @@ describe('Hover', () => {
         );
     });
 
+    it('hover for the deprecated Portfolio core library object shows a Deprecated banner', () => {
+        const line = 'var p = Portfolio.Retrieve("Name", "MyPortfolio");';
+        const doc = { text: line, languageId: 'ssjs' };
+        // cursor on "Portfolio"
+        const hover = service.getHover(doc, line, { line: 0, character: 9 });
+        assert.ok(hover, 'expected hover for Portfolio');
+        assert.match(
+            hover.contents.value,
+            /Deprecated/i,
+            `expected deprecation banner in hover, got: ${hover.contents.value}`,
+        );
+    });
+
     it('hover on Core `Request.URL` shows the 0-arg Core signature', () => {
         const line = 'var u = Request.URL();';
         const doc = { text: line, languageId: 'ssjs' };
@@ -2529,6 +2573,33 @@ describe('SSJS ECMAScript builtin completions', () => {
         ]) {
             assert.ok(!labels.has(bogus), `did not expect bogus global completion "${bogus}"`);
         }
+    });
+
+    it('completion item for deprecated core library object Portfolio carries the Deprecated tag', () => {
+        const items = service.getCompletions(
+            { text: '', languageId: 'ssjs' },
+            { line: 0, character: 0 },
+        );
+        const item = items.find((i) => i.label === 'Portfolio');
+        assert.ok(item, 'expected Portfolio completion item');
+        assert.ok(
+            Array.isArray(item.tags) && item.tags.includes(1),
+            'Portfolio completion must carry CompletionItemTag.Deprecated (1)',
+        );
+        assert.match(item.documentation.value, /Deprecated/i);
+    });
+
+    it('completion item for non-deprecated core library object HTTP has no Deprecated tag', () => {
+        const items = service.getCompletions(
+            { text: '', languageId: 'ssjs' },
+            { line: 0, character: 0 },
+        );
+        const item = items.find((i) => i.label === 'DataExtension');
+        assert.ok(item, 'expected DataExtension completion item');
+        assert.ok(
+            !item.tags || !item.tags.includes(1),
+            'DataExtension completion must not be tagged Deprecated',
+        );
     });
 
     it('offers Global members as bare identifiers', () => {

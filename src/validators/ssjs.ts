@@ -19,6 +19,7 @@ import {
     platformFunctionLookup,
     coreObjectNameSet,
     coreNonFunctionalMethodLookup,
+    coreDeprecatedMethodLookup,
 } from '../data/ssjs.js';
 import type { HttpPropertyValueConstraint, SsjsFunction } from '../data/ssjs.js';
 import { countFunctionArguments } from '../utils/text.js';
@@ -880,6 +881,107 @@ function collectNonFunctionalMethodDiagnostics(
 }
 
 /**
+ * Extracts the trailing "Deprecated — ..." / "DEPRECATED — ..." sentence from a
+ * deprecated method's `description` so each Core Library class can surface its
+ * own reasoning (e.g. Email vs ContentAreaObj vs Send.Definition wording differs).
+ * @param entry - The deprecated method entry.
+ * @returns The deprecation sentence, or a generic fallback when none is found.
+ */
+function deprecationNote(entry: SsjsFunction): string {
+    const match = /deprecated\s*—\s*(.+)$/i.exec(entry.description ?? '');
+    return match ? `Deprecated — ${match[1]}` : 'This API is deprecated.';
+}
+
+/**
+ * Collect diagnostics for Core Library method calls flagged `deprecated` in
+ * ssjs-data (e.g. `ContentAreaObj.Init`, `Send.Definition.Add`, `Portfolio.Update`).
+ *
+ * Resolves both static (`Portfolio.Retrieve(...)`) and instance
+ * (`var p = Portfolio.Init(...); p.Update(...)`) call styles, mirroring the
+ * eslint-plugin-sfmc `ssjs-no-deprecated-function` rule and the sibling
+ * `collectNonFunctionalMethodDiagnostics` above.
+ * @param text - Full document text.
+ * @param commentRanges - Precomputed comment ranges to skip.
+ * @param remaining - Maximum number of diagnostics to emit.
+ * @returns Array of Warning diagnostics.
+ */
+function collectDeprecatedMethodDiagnostics(
+    text: string,
+    commentRanges: ReturnType<typeof buildCommentRanges>,
+    remaining: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    if (coreDeprecatedMethodLookup.size === 0 || remaining <= 0) {
+        return diagnostics;
+    }
+
+    // Track `var x = Class.Init(...)` / `x = A.B.Init(...)` → x maps to the class.
+    const initVars = new Map<string, string>();
+    const initPattern =
+        /(?:\b(?:var|let|const)\s+)?([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$.]*)\s*\.\s*Init\s*\(/g;
+    let initMatch: RegExpExecArray | null;
+    while ((initMatch = initPattern.exec(text)) !== null) {
+        if (isInCommentRange(initMatch.index, commentRanges)) continue;
+        const className = initMatch[2];
+        if (coreObjectNameSet.has(className)) {
+            initVars.set(initMatch[1], className);
+        }
+    }
+
+    // Match any `<receiver>.<Method>(` call. The receiver may be a dotted path.
+    const callPattern =
+        /([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
+    let callMatch: RegExpExecArray | null;
+    while ((callMatch = callPattern.exec(text)) !== null && diagnostics.length < remaining) {
+        if (isInCommentRange(callMatch.index, commentRanges)) continue;
+        const receiver = callMatch[1].replaceAll(/\s+/g, '');
+        const methodName = callMatch[2];
+
+        // Resolve the class key: either the receiver IS a core object path, or its
+        // leftmost segment is an Init-tracked instance variable.
+        let classKey: string | null = null;
+        let displayReceiver: string | null = null;
+        if (coreObjectNameSet.has(receiver)) {
+            classKey = receiver.toLowerCase();
+            displayReceiver = receiver;
+        } else {
+            const segments = receiver.split('.');
+            const rootType = initVars.get(segments[0]);
+            if (rootType) {
+                const resolvedPath = [rootType, ...segments.slice(1)].join('.');
+                classKey = resolvedPath.toLowerCase();
+                displayReceiver = resolvedPath;
+            }
+        }
+        if (!classKey || !displayReceiver) continue;
+
+        const classLookup = coreDeprecatedMethodLookup.get(classKey);
+        if (!classLookup) continue;
+        const entry = classLookup.get(methodName.toLowerCase());
+        if (!entry) continue;
+
+        // Report on the method name identifier. It is the last identifier in the
+        // match (immediately before the optional whitespace and `(`), so locate it
+        // from the tail to avoid colliding with an identical name in the receiver.
+        const matchText = callMatch[0];
+        const methodOffset =
+            callMatch.index + matchText.lastIndexOf(methodName, matchText.length - 1);
+        diagnostics.push({
+            severity: DiagnosticSeverity.Warning,
+            range: {
+                start: offsetToPosition(text, methodOffset),
+                end: offsetToPosition(text, methodOffset + methodName.length),
+            },
+            message: `'${displayReceiver}.${methodName}' is deprecated. ${deprecationNote(entry)}`,
+            source: 'ssjs',
+            code: DIAG_CODE_SSJS_DEPRECATED,
+        });
+    }
+
+    return diagnostics;
+}
+
+/**
  * Validate an SSJS document and return LSP Diagnostics.
  * @param text - Full document text.
  * @param settings - Validation settings.
@@ -1041,6 +1143,8 @@ export function validateSsjs(
 
     // 1f. Deprecated ErrorUtil methods (e.g. ErrorUtil.ThrowWSProxyError). Only
     // exists under Platform.Load("Core", "1"); undefined in newer Core versions.
+    // ErrorUtil is not a CORE_LIBRARY_OBJECTS entry (no Init()), so it is not
+    // covered by the generic coreDeprecatedMethodLookup pass below.
     const deprecatedErrorUtil = errorUtilMethods.filter((m) => m.deprecated);
     if (deprecatedErrorUtil.length > 0) {
         const methodNames = deprecatedErrorUtil.map((m) => m.name).join('|');
@@ -1065,6 +1169,20 @@ export function validateSsjs(
                 code: DIAG_CODE_SSJS_DEPRECATED,
             });
         }
+    }
+
+    // 1g. Deprecated Core Library methods (e.g. ContentAreaObj.Init, Send.Definition.Add,
+    // <portfolioVar>.Update). Resolves both static (`Portfolio.Retrieve(...)`) and
+    // instance (`var p = Portfolio.Init(...); p.Update(...)`) call styles, mirroring
+    // the eslint-plugin-sfmc `ssjs-no-deprecated-function` rule.
+    if (problems < max) {
+        const deprecatedMethodDiagnostics = collectDeprecatedMethodDiagnostics(
+            text,
+            commentRanges,
+            max - problems,
+        );
+        problems += deprecatedMethodDiagnostics.length;
+        diagnostics.push(...deprecatedMethodDiagnostics);
     }
 
     // 2. Wrong Platform.Load version

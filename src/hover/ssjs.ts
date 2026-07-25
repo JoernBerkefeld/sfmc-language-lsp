@@ -348,14 +348,16 @@ export function getSsjsHover(
 
     // Core library objects
     const coreObj = coreLibraryObjects.find((o) => o.name.toLowerCase() === word.toLowerCase());
-    if (coreObj)
+    if (coreObj) {
+        const deprecatedBanner = coreObj.deprecated ? '> ⚠️ **Deprecated.**\n\n' : '';
         return {
             contents: {
                 kind: MarkupKind.Markdown,
-                value: `**${coreObj.name}** *(Core library)*\n\n${coreObj.description}\n\n**Methods:** ${coreObj.methods.join(', ')}\n\n*Requires* \`Platform.Load("core", "1.1.5")\``,
+                value: `**${coreObj.name}** *(Core library)*\n\n${deprecatedBanner}${coreObj.description}\n\n**Methods:** ${coreObj.methods.join(', ')}\n\n*Requires* \`Platform.Load("core", "1.1.5")\``,
             },
             range: makeRange(position, wordRange.start, wordRange.end),
         };
+    }
 
     if (word === 'WSProxy') {
         return {
