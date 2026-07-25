@@ -17,6 +17,8 @@ import {
     replaceableStaticLookup,
     httpPropertyConstraintLookup,
     platformFunctionLookup,
+    coreObjectNameSet,
+    coreNonFunctionalMethodLookup,
 } from '../data/ssjs.js';
 import type { HttpPropertyValueConstraint, SsjsFunction } from '../data/ssjs.js';
 import { countFunctionArguments } from '../utils/text.js';
@@ -75,6 +77,11 @@ export const DIAG_CODE_SSJS_DEPRECATED = 'ssjs/deprecated';
 // "Unable to retrieve security descriptor for this frame." at runtime. Mirrors
 // the `ssjs-platform-function-arity` rule's `invalidArity` message.
 export const DIAG_CODE_SSJS_INVALID_ARITY = 'ssjs/invalid-arity';
+// Core Library method call that RESOLVES at runtime but has no known working
+// invocation (ssjs-data `nonFunctionalAtRuntime`), e.g. `FilterDefinition.Update`.
+// The member is KEPT in completions/hover; only the call site is warned. Mirrors
+// the `ssjs-no-nonfunctional-method` rule.
+export const DIAG_CODE_SSJS_NONFUNCTIONAL_METHOD = 'ssjs/nonfunctional-method';
 
 /**
  * SSJS diagnostic codes that duplicate eslint-plugin-sfmc rules and can be
@@ -90,6 +97,7 @@ export const DIAG_CODE_SSJS_INVALID_ARITY = 'ssjs/invalid-arity';
  *   - nonexistent-global → `ssjs-no-nonexistent-global`
  *   - deprecated → `ssjs-no-deprecated-function`
  *   - invalid-arity → `ssjs-platform-function-arity`
+ *   - nonfunctional-method → `ssjs-no-nonfunctional-method`
  */
 export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_POLYFILL_REQUIRED,
@@ -104,6 +112,7 @@ export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_NONEXISTENT_GLOBAL,
     DIAG_CODE_SSJS_DEPRECATED,
     DIAG_CODE_SSJS_INVALID_ARITY,
+    DIAG_CODE_SSJS_NONFUNCTIONAL_METHOD,
 ]);
 
 /**
@@ -764,6 +773,113 @@ function collectPlatformFunctionArityDiagnostics(
 }
 
 /**
+ * Extract a short factual pointer (first sentence) from an entry's
+ * officialDocsNote for the warning message. Returns '' when absent.
+ * @param entry - ssjs-data method entry, or undefined.
+ * @returns A short note, or empty string.
+ */
+function nonFunctionalShortNote(entry: SsjsFunction | undefined): string {
+    if (!entry || typeof entry.officialDocsNote !== 'string') {
+        return '';
+    }
+    const trimmed = entry.officialDocsNote.trim();
+    if (trimmed === '') {
+        return '';
+    }
+    const sentenceEnd = trimmed.indexOf('. ');
+    return sentenceEnd === -1 ? trimmed : trimmed.slice(0, sentenceEnd + 1);
+}
+
+/**
+ * Collect diagnostics for Core Library method calls that resolve at runtime but
+ * have no known working invocation (ssjs-data `nonFunctionalAtRuntime`).
+ *
+ * Resolves both static (`FilterDefinition.Update(...)`, `DataExtension.Rows.Add(...)`)
+ * and instance (`var fd = FilterDefinition.Init(...); fd.Update(...)`) call styles,
+ * mirroring the eslint-plugin-sfmc `ssjs-no-nonfunctional-method` rule.
+ * @param text - Full document text.
+ * @param commentRanges - Precomputed comment ranges to skip.
+ * @param remaining - Maximum number of diagnostics to emit.
+ * @returns Array of Warning diagnostics.
+ */
+function collectNonFunctionalMethodDiagnostics(
+    text: string,
+    commentRanges: ReturnType<typeof buildCommentRanges>,
+    remaining: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    if (coreNonFunctionalMethodLookup.size === 0 || remaining <= 0) {
+        return diagnostics;
+    }
+
+    // Track `var x = Class.Init(...)` / `x = A.B.Init(...)` → x maps to the class.
+    const initVars = new Map<string, string>();
+    const initPattern =
+        /(?:\b(?:var|let|const)\s+)?([A-Za-z_$][\w$]*)\s*=\s*([A-Za-z_$][\w$.]*)\s*\.\s*Init\s*\(/g;
+    let initMatch: RegExpExecArray | null;
+    while ((initMatch = initPattern.exec(text)) !== null) {
+        if (isInCommentRange(initMatch.index, commentRanges)) continue;
+        const className = initMatch[2];
+        if (coreObjectNameSet.has(className)) {
+            initVars.set(initMatch[1], className);
+        }
+    }
+
+    // Match any `<receiver>.<Method>(` call. The receiver may be a dotted path.
+    const callPattern =
+        /([A-Za-z_$][\w$]*(?:\s*\.\s*[A-Za-z_$][\w$]*)*)\s*\.\s*([A-Za-z_$][\w$]*)\s*\(/g;
+    let callMatch: RegExpExecArray | null;
+    while ((callMatch = callPattern.exec(text)) !== null && diagnostics.length < remaining) {
+        if (isInCommentRange(callMatch.index, commentRanges)) continue;
+        const receiver = callMatch[1].replaceAll(/\s+/g, '');
+        const methodName = callMatch[2];
+
+        // Resolve the class key: either the receiver IS a core object path, or its
+        // leftmost segment is an Init-tracked instance variable.
+        let classKey: string | null = null;
+        let displayReceiver: string | null = null;
+        if (coreObjectNameSet.has(receiver)) {
+            classKey = receiver.toLowerCase();
+            displayReceiver = receiver;
+        } else {
+            const segments = receiver.split('.');
+            const rootType = initVars.get(segments[0]);
+            if (rootType) {
+                const resolvedPath = [rootType, ...segments.slice(1)].join('.');
+                classKey = resolvedPath.toLowerCase();
+                displayReceiver = resolvedPath;
+            }
+        }
+        if (!classKey || !displayReceiver) continue;
+
+        const classLookup = coreNonFunctionalMethodLookup.get(classKey);
+        if (!classLookup) continue;
+        const entry = classLookup.get(methodName.toLowerCase());
+        if (!entry) continue;
+
+        // Report on the method name identifier. It is the last identifier in the
+        // match (immediately before the optional whitespace and `(`), so locate it
+        // from the tail to avoid colliding with an identical name in the receiver.
+        const matchText = callMatch[0];
+        const methodOffset =
+            callMatch.index + matchText.lastIndexOf(methodName, matchText.length - 1);
+        const note = nonFunctionalShortNote(entry);
+        diagnostics.push({
+            severity: DiagnosticSeverity.Warning,
+            range: {
+                start: offsetToPosition(text, methodOffset),
+                end: offsetToPosition(text, methodOffset + methodName.length),
+            },
+            message: `'${displayReceiver}.${methodName}' exists in SFMC SSJS but has no known working invocation at runtime (every tested call fails).${note ? ` ${note}` : ''}`,
+            source: 'ssjs',
+            code: DIAG_CODE_SSJS_NONFUNCTIONAL_METHOD,
+        });
+    }
+
+    return diagnostics;
+}
+
+/**
  * Validate an SSJS document and return LSP Diagnostics.
  * @param text - Full document text.
  * @param settings - Validation settings.
@@ -1195,6 +1311,20 @@ export function validateSsjs(
         );
         problems += arityDiagnostics.length;
         diagnostics.push(...arityDiagnostics);
+    }
+
+    // 4g. Core Library method calls that RESOLVE at runtime but have no known
+    // working invocation (ssjs-data `nonFunctionalAtRuntime`), e.g.
+    // `FilterDefinition.Update` / `.Remove`. Warned (not error) — the member is
+    // KEPT in completions/hover. Skipped in MCN (SSJS unsupported there anyway).
+    if (settings.targetPlatform !== 'next' && problems < max) {
+        const nonFunctionalDiagnostics = collectNonFunctionalMethodDiagnostics(
+            text,
+            commentRanges,
+            max - problems,
+        );
+        problems += nonFunctionalDiagnostics.length;
+        diagnostics.push(...nonFunctionalDiagnostics);
     }
 
     // MCN compatibility — SSJS is not supported in Marketing Cloud Next.

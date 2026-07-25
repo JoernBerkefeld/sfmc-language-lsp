@@ -582,6 +582,54 @@ describe('SSJS validation', () => {
         );
     });
 
+    // ── Non-functional Core methods (nonFunctionalAtRuntime) ─────────────────
+    it('flags static FilterDefinition.Update as nonfunctional-method (Warning)', () => {
+        const doc = {
+            text: 'FilterDefinition.Update({ name: "x" });',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/nonfunctional-method');
+        assert.ok(d, 'expected nonfunctional-method diagnostic for FilterDefinition.Update');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.ok(
+            d.message.includes('no known working invocation'),
+            'message should state no known working invocation',
+        );
+    });
+
+    it('flags Init-tracked instance call fd.Remove() as nonfunctional-method', () => {
+        const doc = {
+            text: 'var fd = FilterDefinition.Init("x");\nfd.Remove();',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/nonfunctional-method');
+        assert.ok(d, 'expected nonfunctional-method diagnostic for fd.Remove()');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+    });
+
+    it('does not flag FilterDefinition.Init / .Add / .Retrieve as nonfunctional', () => {
+        const doc = {
+            text: 'var fd = FilterDefinition.Init("x");\nfd.Add({});\nfd.Retrieve();',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.every((d) => d.code !== 'ssjs/nonfunctional-method'),
+            'Init/Add/Retrieve are working methods',
+        );
+    });
+
+    it('does not flag nonfunctional method call inside a comment', () => {
+        const doc = {
+            text: '// FilterDefinition.Update({ name: "x" });',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/nonfunctional-method'));
+    });
+
     it('reports let/const as Error severity (not Warning)', () => {
         const doc = { text: 'let x = 1;', languageId: 'ssjs' };
         const diags = service.validate(doc);

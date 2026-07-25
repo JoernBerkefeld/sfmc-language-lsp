@@ -131,6 +131,12 @@ declare module 'ssjs-data' {
         requiresCoreLoad?: boolean;
         /** True when the global is documented but throws a ReferenceError at runtime. */
         notDefinedAtRuntime?: boolean;
+        /**
+         * True when the member EXISTS/RESOLVES at runtime but has no known working
+         * invocation (every tested call fails). Unlike notDefinedAtRuntime it is KEPT
+         * in the .d.ts and completions; call sites are warned instead.
+         */
+        nonFunctionalAtRuntime?: boolean;
         /** Note describing the runtime-safe replacement for a phantom/differing global. */
         officialDocsNote?: string;
         aliasOf?: string;
@@ -187,6 +193,11 @@ declare module 'ssjs-data' {
     export const CORE_LIBRARY_OBJECTS: SsjsDataObject[];
     export const coreObjectNames: Set<string>;
     export const coreObjectLookup: Map<string, SsjsDataObject>;
+    /**
+     * Core Library methods that resolve at runtime but have no known working
+     * invocation (nonFunctionalAtRuntime). Map<classNameLower, Map<methodNameLower, entry>>.
+     */
+    export const coreNonFunctionalMethodLookup: Map<string, Map<string, SsjsDataFunction>>;
     export const HTTP_METHODS: SsjsDataFunction[];
     export const httpMethodNames: Set<string>;
     export const WSPROXY_METHODS: SsjsDataFunction[];

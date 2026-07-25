@@ -17,6 +17,8 @@ import {
     REQUEST_UTILITY_METHODS,
     PLATFORM_RECIPIENT_METHODS,
     CORE_LIBRARY_OBJECTS,
+    coreObjectNames,
+    coreNonFunctionalMethodLookup as ssjsCoreNonFunctionalMethodLookup,
     WSPROXY_METHODS,
     HTTP_METHODS,
     HTTPHEADER_METHODS,
@@ -53,6 +55,12 @@ export interface SsjsFunction {
     isStatic?: boolean;
     deprecated?: boolean;
     notDefinedAtRuntime?: boolean;
+    /**
+     * True when the member EXISTS/RESOLVES at runtime but has no known working
+     * invocation (every tested call fails). Unlike notDefinedAtRuntime it is KEPT
+     * in completions/hover; call sites are warned instead.
+     */
+    nonFunctionalAtRuntime?: boolean;
     officialDocsNote?: string;
     requiresCoreLoad?: boolean;
     aliasOf?: string;
@@ -180,6 +188,20 @@ export const coreLibraryObjects: SsjsObject[] = CORE_LIBRARY_OBJECTS.map((o) => 
     methods: o.methods,
     description: o.description,
 }));
+
+/** Set of Core Library object names (e.g. `FilterDefinition`, `DataExtension.Rows`). */
+export const coreObjectNameSet: Set<string> = coreObjectNames;
+
+/**
+ * Core Library methods that resolve at runtime but have no known working
+ * invocation (nonFunctionalAtRuntime). Map<classNameLower, Map<methodNameLower,
+ * entry>> re-exposed from ssjs-data so validators can warn at call sites and
+ * surface the entry's officialDocsNote.
+ */
+export const coreNonFunctionalMethodLookup: Map<
+    string,
+    Map<string, SsjsFunction>
+> = ssjsCoreNonFunctionalMethodLookup;
 
 // ── WSProxy methods ──────────────────────────────────────────────────────────
 
