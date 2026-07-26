@@ -614,15 +614,17 @@ describe('SSJS validation', () => {
     });
 
     // ── Non-functional Core methods (nonFunctionalAtRuntime) ─────────────────
-    it('flags static FilterDefinition.Update as nonfunctional-method (Warning)', () => {
+    it('flags Init-tracked instance call fd.Update() as nonfunctional-method (Error)', () => {
+        // `Update` is an instance-only method (isStatic: false) — it must be called
+        // on an Init-tracked instance, not on the bare `FilterDefinition` namespace.
         const doc = {
-            text: 'FilterDefinition.Update({ name: "x" });',
+            text: 'var fd = FilterDefinition.Init("x");\nfd.Update({ name: "x" });',
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
         const d = diags.find((d) => d.code === 'ssjs/nonfunctional-method');
-        assert.ok(d, 'expected nonfunctional-method diagnostic for FilterDefinition.Update');
-        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.ok(d, 'expected nonfunctional-method diagnostic for fd.Update()');
+        assert.equal(d.severity, 1, 'expected Error severity');
         assert.ok(
             d.message.includes('no known working invocation'),
             'message should state no known working invocation',
@@ -637,7 +639,7 @@ describe('SSJS validation', () => {
         const diags = service.validate(doc);
         const d = diags.find((d) => d.code === 'ssjs/nonfunctional-method');
         assert.ok(d, 'expected nonfunctional-method diagnostic for fd.Remove()');
-        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.equal(d.severity, 1, 'expected Error severity');
     });
 
     it('does not flag FilterDefinition.Init / .Add / .Retrieve as nonfunctional', () => {

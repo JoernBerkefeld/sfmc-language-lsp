@@ -80,8 +80,9 @@ export const DIAG_CODE_SSJS_DEPRECATED = 'ssjs/deprecated';
 export const DIAG_CODE_SSJS_INVALID_ARITY = 'ssjs/invalid-arity';
 // Core Library method call that RESOLVES at runtime but has no known working
 // invocation (ssjs-data `nonFunctionalAtRuntime`), e.g. `FilterDefinition.Update`.
-// The member is KEPT in completions/hover; only the call site is warned. Mirrors
-// the `ssjs-no-nonfunctional-method` rule.
+// The member is KEPT in completions/hover; only the call site is flagged as an
+// Error (every tested invocation fails at runtime). Mirrors the
+// `ssjs-no-nonfunctional-method` rule.
 export const DIAG_CODE_SSJS_NONFUNCTIONAL_METHOD = 'ssjs/nonfunctional-method';
 
 /**
@@ -801,7 +802,7 @@ function nonFunctionalShortNote(entry: SsjsFunction | undefined): string {
  * @param text - Full document text.
  * @param commentRanges - Precomputed comment ranges to skip.
  * @param remaining - Maximum number of diagnostics to emit.
- * @returns Array of Warning diagnostics.
+ * @returns Array of Error diagnostics.
  */
 function collectNonFunctionalMethodDiagnostics(
     text: string,
@@ -835,10 +836,12 @@ function collectNonFunctionalMethodDiagnostics(
         const receiver = callMatch[1].replaceAll(/\s+/g, '');
         const methodName = callMatch[2];
 
-        // Resolve the class key: either the receiver IS a core object path, or its
-        // leftmost segment is an Init-tracked instance variable.
+        // Resolve the class key: either the receiver IS a core object path
+        // (STATIC call style), or its leftmost segment is an Init-tracked
+        // instance variable (INSTANCE call style).
         let classKey: string | null = null;
         let displayReceiver: string | null = null;
+        let isInstanceStyle = false;
         if (coreObjectNameSet.has(receiver)) {
             classKey = receiver.toLowerCase();
             displayReceiver = receiver;
@@ -849,6 +852,7 @@ function collectNonFunctionalMethodDiagnostics(
                 const resolvedPath = [rootType, ...segments.slice(1)].join('.');
                 classKey = resolvedPath.toLowerCase();
                 displayReceiver = resolvedPath;
+                isInstanceStyle = true;
             }
         }
         if (!classKey || !displayReceiver) continue;
@@ -857,6 +861,12 @@ function collectNonFunctionalMethodDiagnostics(
         if (!classLookup) continue;
         const entry = classLookup.get(methodName.toLowerCase());
         if (!entry) continue;
+        // A method's `isStatic` flag determines which call style it is valid
+        // for (mirrors the SendInstance/namespace split in generate-dts.mjs).
+        // Skip a match where the call style contradicts the entry's flag —
+        // e.g. calling a static-only method via an instance variable is not a
+        // "known" call at all, so it must not be reported as this diagnostic.
+        if (isInstanceStyle ? entry.isStatic !== false : entry.isStatic === false) continue;
 
         // Report on the method name identifier. It is the last identifier in the
         // match (immediately before the optional whitespace and `(`), so locate it
@@ -866,7 +876,9 @@ function collectNonFunctionalMethodDiagnostics(
             callMatch.index + matchText.lastIndexOf(methodName, matchText.length - 1);
         const note = nonFunctionalShortNote(entry);
         diagnostics.push({
-            severity: DiagnosticSeverity.Warning,
+            // Confirmed non-functional at runtime (every tested call fails) — this is
+            // stronger than a mere deprecation warning, so it is reported as an Error.
+            severity: DiagnosticSeverity.Error,
             range: {
                 start: offsetToPosition(text, methodOffset),
                 end: offsetToPosition(text, methodOffset + methodName.length),
@@ -937,10 +949,12 @@ function collectDeprecatedMethodDiagnostics(
         const receiver = callMatch[1].replaceAll(/\s+/g, '');
         const methodName = callMatch[2];
 
-        // Resolve the class key: either the receiver IS a core object path, or its
-        // leftmost segment is an Init-tracked instance variable.
+        // Resolve the class key: either the receiver IS a core object path
+        // (STATIC call style), or its leftmost segment is an Init-tracked
+        // instance variable (INSTANCE call style).
         let classKey: string | null = null;
         let displayReceiver: string | null = null;
+        let isInstanceStyle = false;
         if (coreObjectNameSet.has(receiver)) {
             classKey = receiver.toLowerCase();
             displayReceiver = receiver;
@@ -951,6 +965,7 @@ function collectDeprecatedMethodDiagnostics(
                 const resolvedPath = [rootType, ...segments.slice(1)].join('.');
                 classKey = resolvedPath.toLowerCase();
                 displayReceiver = resolvedPath;
+                isInstanceStyle = true;
             }
         }
         if (!classKey || !displayReceiver) continue;
@@ -959,6 +974,13 @@ function collectDeprecatedMethodDiagnostics(
         if (!classLookup) continue;
         const entry = classLookup.get(methodName.toLowerCase());
         if (!entry) continue;
+        // A method's `isStatic` flag determines which call style it is valid
+        // for (mirrors the <Class>Instance/namespace split in generate-dts.mjs).
+        // Skip a match where the call style contradicts the entry's flag —
+        // e.g. `send.RetrieveLists()` calls a static-only method via an
+        // instance variable, which is not a "known" deprecated call at all
+        // (it does not exist on SendInstance), so it must not be reported here.
+        if (isInstanceStyle ? entry.isStatic !== false : entry.isStatic === false) continue;
 
         // Report on the method name identifier. It is the last identifier in the
         // match (immediately before the optional whitespace and `(`), so locate it
@@ -1433,8 +1455,9 @@ export function validateSsjs(
 
     // 4g. Core Library method calls that RESOLVE at runtime but have no known
     // working invocation (ssjs-data `nonFunctionalAtRuntime`), e.g.
-    // `FilterDefinition.Update` / `.Remove`. Warned (not error) — the member is
-    // KEPT in completions/hover. Skipped in MCN (SSJS unsupported there anyway).
+    // `FilterDefinition.Update` / `.Remove`. Reported as an Error — the call is
+    // confirmed to fail at runtime. The member is still KEPT in completions/hover.
+    // Skipped in MCN (SSJS unsupported there anyway).
     if (settings.targetPlatform !== 'next' && problems < max) {
         const nonFunctionalDiagnostics = collectNonFunctionalMethodDiagnostics(
             text,
