@@ -1163,6 +1163,41 @@ export function validateSsjs(
         }
     }
 
+    // 1e2. Deprecated Platform.Function.* calls (data-driven from
+    // platformFunctionLookup entries flagged `deprecated`, e.g.
+    // Platform.Function.ContentArea / ContentAreaByName).
+    {
+        const deprecatedPlatformFns = [...platformFunctionLookup.values()].filter(
+            (f) => f.deprecated,
+        );
+        if (deprecatedPlatformFns.length > 0) {
+            const names = deprecatedPlatformFns
+                .map((f) => f.name.replaceAll('.', String.raw`\.`))
+                .join('|');
+            const pfDepPattern = new RegExp(
+                String.raw`\bPlatform\s*\.\s*Function\s*\.\s*(${names})\s*\(`,
+                'g',
+            );
+            let pfDepMatch: RegExpExecArray | null;
+            while ((pfDepMatch = pfDepPattern.exec(text)) !== null && problems < max) {
+                if (isInCommentRange(pfDepMatch.index, commentRanges)) continue;
+                problems++;
+                const name = pfDepMatch[1];
+                const nameStart = pfDepMatch.index + pfDepMatch[0].indexOf(name);
+                diagnostics.push({
+                    severity: DiagnosticSeverity.Warning,
+                    range: {
+                        start: offsetToPosition(text, nameStart),
+                        end: offsetToPosition(text, nameStart + name.length),
+                    },
+                    message: `'Platform.Function.${name}' is deprecated. Use a supported alternative.`,
+                    source: 'ssjs',
+                    code: DIAG_CODE_SSJS_DEPRECATED,
+                });
+            }
+        }
+    }
+
     // 1f. Deprecated ErrorUtil methods (e.g. ErrorUtil.ThrowWSProxyError). Only
     // exists under Platform.Load("Core", "1"); undefined in newer Core versions.
     // ErrorUtil is not a CORE_LIBRARY_OBJECTS entry (no Init()), so it is not

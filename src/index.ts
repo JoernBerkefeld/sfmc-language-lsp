@@ -96,6 +96,7 @@ export type {
     EcmascriptBuiltin,
     SsjsObject,
 } from './data/ssjs.js';
+export { deprecatedGlobals, platformFunctionLookup } from './data/ssjs.js';
 export type { LocalSsjsFunction } from './utils/markdown.js';
 export type {
     HandlebarsHelper,

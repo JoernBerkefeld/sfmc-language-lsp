@@ -129,8 +129,10 @@ export const platformFunctionLookup = new Map<string, SsjsFunction>(
 // Phantom globals (notDefinedAtRuntime, e.g. Redirect) are EXCLUDED here so the
 // LSP never offers them in completions/hover/signature help — they throw a
 // ReferenceError at runtime. The validator flags any usage separately.
+// Callables often omit `type` (same shape as ContentArea / ContentAreaByName);
+// only explicit `type: 'object'` entries are excluded.
 export const ssjsGlobals: SsjsFunction[] = SSJS_GLOBALS.filter(
-    (g) => g.type === 'function' && !g.notDefinedAtRuntime,
+    (g) => g.type !== 'object' && !g.notDefinedAtRuntime,
 ).map((g) => ({
     name: g.name,
     minArgs: g.minArgs ?? 1,
@@ -140,6 +142,7 @@ export const ssjsGlobals: SsjsFunction[] = SSJS_GLOBALS.filter(
     ...(g.params && { params: g.params }),
     ...(g.returnType && { returnType: g.returnType }),
     ...(g.syntax && { syntax: g.syntax }),
+    ...(g.aliasOf && { aliasOf: g.aliasOf }),
 }));
 
 // ── Variable/Response/Request objects ────────────────────────────────────────
@@ -323,9 +326,14 @@ export const nonexistentGlobals = new Map<string, SsjsFunction>(
  * Bare-name SSJS globals flagged `deprecated` in ssjs-data (e.g. `ContentArea`,
  * `ContentAreaByName`). Keyed by the exact documented name. Consumed by the
  * validator to emit a deprecation warning on bare-name usage.
+ *
+ * Entries omit `type` or set `type: 'function'` for callables; `type: 'object'`
+ * (e.g. ErrorUtil) is excluded — those are handled via their methods.
+ * Matching `type === 'function'` alone missed catalog rows that leave `type`
+ * unset (the common shape for bare ContentArea / ContentAreaByName).
  */
 export const deprecatedGlobals = new Map<string, SsjsFunction>(
-    SSJS_GLOBALS.filter((g) => g.deprecated && g.type === 'function').map((g) => [
+    SSJS_GLOBALS.filter((g) => g.deprecated && g.type !== 'object').map((g) => [
         g.name,
         {
             name: g.name,

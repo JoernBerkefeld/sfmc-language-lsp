@@ -542,6 +542,53 @@ describe('SSJS validation', () => {
         assert.ok(diags.every((d) => d.code !== 'ssjs/deprecated'));
     });
 
+    it('reports deprecated bare ContentArea("key") as ssjs/deprecated Warning', () => {
+        const doc = { text: 'var html = ContentArea("key");', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((x) => x.code === 'ssjs/deprecated');
+        assert.ok(d, 'expected ssjs/deprecated for ContentArea("key")');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.ok(d.message.includes('ContentArea'));
+    });
+
+    it('reports deprecated bare ContentAreaByName("name") as ssjs/deprecated Warning', () => {
+        const doc = { text: 'var html = ContentAreaByName("name");', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((x) => x.code === 'ssjs/deprecated');
+        assert.ok(d, 'expected ssjs/deprecated for ContentAreaByName("name")');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.ok(d.message.includes('ContentAreaByName'));
+    });
+
+    it('reports deprecated Platform.Function.ContentArea as ssjs/deprecated Warning', () => {
+        const doc = {
+            text: 'var html = Platform.Function.ContentArea(12345);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((x) => x.code === 'ssjs/deprecated');
+        assert.ok(d, 'expected ssjs/deprecated for Platform.Function.ContentArea');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.ok(d.message.includes('Platform.Function.ContentArea'));
+    });
+
+    it('does not flag ContentArea inside a comment', () => {
+        const doc = { text: '// ContentArea("key");', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/deprecated'));
+    });
+
+    it('reports deprecated Template.Retrieve as ssjs/deprecated Warning', () => {
+        const doc = {
+            text: 'var t = Template.Retrieve("Name", "MyTemplate");',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((x) => x.code === 'ssjs/deprecated');
+        assert.ok(d, 'expected ssjs/deprecated for Template.Retrieve');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+    });
+
     // ── Discontinuous-overload arity (validArities), e.g. HTTPGet {1, 6} ──────
     it('does not flag Platform.Function.HTTPGet with 1 argument', () => {
         const doc = {
