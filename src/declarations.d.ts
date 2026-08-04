@@ -78,6 +78,12 @@ declare module 'ampscript-data' {
     export interface AmpscriptDataPersonalization {
         name: string;
         description: string;
+        /** Regex matcher for parameterized personalization strings (e.g. MSG(0).NOUN([n])). */
+        matcher?: RegExp;
+    }
+    export interface AmpscriptDataGlobal {
+        name: string;
+        description: string;
     }
     export const FUNCTIONS: AmpscriptDataFunction[];
     export const functionLookup: Map<string, AmpscriptDataFunction>;
@@ -86,7 +92,15 @@ declare module 'ampscript-data' {
     export const FUNCTION_CANONICAL_MAP: Map<string, string>;
     export const deprecatedFunctionLookup: Map<string, AmpscriptDataFunction>;
     export const AMPSCRIPT_KEYWORDS: AmpscriptDataKeyword[];
+    export const AMPSCRIPT_GLOBALS: AmpscriptDataGlobal[];
     export const PERSONALIZATION_STRINGS: AmpscriptDataPersonalization[];
+    /**
+     * Returns true when the given name is a known Marketing Cloud system
+     * personalization string, exact or parameterized. Case-insensitive.
+     * @param name - Personalization string name to test (without brackets).
+     * @returns True when the name matches a known system personalization string.
+     */
+    export function isSystemPersonalizationString(name: string): boolean;
     export function isEmailExcluded(name: string): boolean;
     /**
      * Returns the API version in which MCN support was introduced, or null.

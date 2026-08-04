@@ -15,7 +15,12 @@ When `targetPlatform` is set to `'next'` in `SfmcSettings`, the language service
 MCN helper functions re-exported from `ampscript-data`:
 
 ```js
-import { isMcnSupported, getMcnApiVersion, getMcnNotes, extractAmpscriptFunctionCalls } from 'sfmc-language-lsp';
+import {
+  isMcnSupported,
+  getMcnApiVersion,
+  getMcnNotes,
+  extractAmpscriptFunctionCalls,
+} from 'sfmc-language-lsp';
 ```
 
 ## MCN Handlebars support
@@ -27,15 +32,19 @@ The catalog (sourced from [`handlebars-data`](https://www.npmjs.com/package/hand
 ```js
 import { sfmcLanguageService } from 'sfmc-language-lsp';
 
-sfmcLanguageService.lookupHandlebarsHelper('uppercase');     // HandlebarsHelper | null (case-insensitive)
-sfmcLanguageService.listHandlebarsHelpers();                 // HandlebarsHelper[]
-sfmcLanguageService.listHandlebarsBindings();                // HandlebarsBinding[]
-sfmcLanguageService.listHandlebarsUnsupportedConstructs();   // HandlebarsUnsupportedConstruct[]
-sfmcLanguageService.getHandlebarsCompletionCatalog();        // CompletionItem[]
+sfmcLanguageService.lookupHandlebarsHelper('uppercase'); // HandlebarsHelper | null (case-insensitive)
+sfmcLanguageService.listHandlebarsHelpers(); // HandlebarsHelper[]
+sfmcLanguageService.listHandlebarsBindings(); // HandlebarsBinding[]
+sfmcLanguageService.listHandlebarsUnsupportedConstructs(); // HandlebarsUnsupportedConstruct[]
+sfmcLanguageService.getHandlebarsCompletionCatalog(); // CompletionItem[]
 ```
 
 ```ts
-import type { HandlebarsHelper, HandlebarsBinding, HandlebarsUnsupportedConstruct } from 'sfmc-language-lsp';
+import type {
+  HandlebarsHelper,
+  HandlebarsBinding,
+  HandlebarsUnsupportedConstruct,
+} from 'sfmc-language-lsp';
 ```
 
 ## Install

@@ -7,6 +7,7 @@ import { findFunctionContext } from '../utils/text.js';
 import { buildFunctionMarkdown, buildFunctionSnippet } from '../utils/markdown.js';
 import {
     ampscriptFunctions,
+    ampscriptGlobals,
     ampscriptKeywords,
     functionLookup,
     personalizationStrings,
@@ -30,6 +31,13 @@ export const keywordCompletionItems: CompletionItem[] = ampscriptKeywords.map((k
     insertText: kw.snippet ?? kw.name,
     insertTextFormat: kw.snippet ? InsertTextFormat.Snippet : InsertTextFormat.PlainText,
     data: { type: 'keyword', index },
+}));
+
+export const globalCompletionItems: CompletionItem[] = ampscriptGlobals.map((global, index) => ({
+    label: global.name,
+    kind: CompletionItemKind.Variable,
+    detail: global.description,
+    data: { type: 'global', index },
 }));
 
 export const personalizationCompletionItems: CompletionItem[] = personalizationStrings.map(
@@ -119,7 +127,12 @@ export function getAmpscriptCompletions(
     // Cloud Next, `{{ }}` is Handlebars and is handled by the Handlebars
     // completion provider, so GTL completions must not fire here.
     if (settings.targetPlatform !== 'next' && isInsideGtl(text, offset)) {
-        return [...functionCompletionItems, ...variableItems, ...personalizationCompletionItems];
+        return [
+            ...functionCompletionItems,
+            ...variableItems,
+            ...globalCompletionItems,
+            ...personalizationCompletionItems,
+        ];
     }
 
     if (!isInsideAmpscript(text, offset)) {
@@ -138,6 +151,7 @@ export function getAmpscriptCompletions(
         ...functionCompletionItems,
         ...keywordCompletionItems,
         ...variableItems,
+        ...globalCompletionItems,
         ...personalizationCompletionItems,
     ];
 }
@@ -169,6 +183,15 @@ export function resolveAmpscriptCompletion(item: CompletionItem): CompletionItem
                 const kw = ampscriptKeywords[data.index];
                 if (kw) {
                     item.documentation = { kind: MarkupKind.Markdown, value: kw.description };
+                }
+            }
+            break;
+        }
+        case 'global': {
+            if (data.index !== undefined) {
+                const global = ampscriptGlobals[data.index];
+                if (global) {
+                    item.documentation = { kind: MarkupKind.Markdown, value: global.description };
                 }
             }
             break;

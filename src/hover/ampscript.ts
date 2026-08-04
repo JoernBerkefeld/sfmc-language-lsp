@@ -3,7 +3,12 @@ import { MarkupKind } from '../types.js';
 import type { Hover, Position } from '../types.js';
 import { getWordRangeAtPosition } from '../utils/text.js';
 import { buildFunctionMarkdown } from '../utils/markdown.js';
-import { functionLookup, ampscriptKeywords, personalizationStrings } from '../data/ampscript.js';
+import {
+    functionLookup,
+    ampscriptGlobals,
+    ampscriptKeywords,
+    personalizationStrings,
+} from '../data/ampscript.js';
 import { buildVariableTypeMap } from '../utils/ampscriptVariableTracker.js';
 
 /** Map from lowercase function name to its documentation URLs and MCN metadata. */
@@ -35,6 +40,22 @@ export function getAmpscriptHover(
     if (!wordRange) return null;
 
     const word = line.slice(wordRange.start, wordRange.end);
+
+    const global = ampscriptGlobals.find(
+        (entry) => entry.name.toLowerCase() === word.toLowerCase(),
+    );
+    if (global) {
+        return {
+            contents: {
+                kind: MarkupKind.Markdown,
+                value: `**${global.name}** *(read-only global)*\n\n${global.description}`,
+            },
+            range: {
+                start: { line: position.line, character: wordRange.start },
+                end: { line: position.line, character: wordRange.end },
+            },
+        };
+    }
 
     // @variable hover — show inferred type matching the SSJS TypeScript hover style
     if (word.startsWith('@') && fullText !== undefined) {

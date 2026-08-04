@@ -126,7 +126,7 @@ export function getWordRangeAtPosition(
     line: string,
     character: number,
 ): { start: number; end: number } | null {
-    const wordPattern = /[@]?[a-zA-Z_][a-zA-Z0-9_]*/g;
+    const wordPattern = /@@?[a-zA-Z_][a-zA-Z0-9_]*|[a-zA-Z_][a-zA-Z0-9_]*/g;
     let match: RegExpExecArray | null;
     while ((match = wordPattern.exec(line)) !== null) {
         const start = match.index;

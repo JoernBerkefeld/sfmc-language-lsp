@@ -20,6 +20,7 @@ export {
     getMcnApiVersion,
     getMcnNotes,
     AMPSCRIPT_KEYWORDS as ampscriptKeywords,
+    AMPSCRIPT_GLOBALS as ampscriptGlobals,
     PERSONALIZATION_STRINGS as personalizationStrings,
 } from 'ampscript-data';
 export type {
@@ -27,6 +28,7 @@ export type {
     AmpscriptDataParam,
     AmpscriptDataRepeatGroup,
     AmpscriptDataKeyword,
+    AmpscriptDataGlobal,
     AmpscriptDataPersonalization,
 } from 'ampscript-data';
 

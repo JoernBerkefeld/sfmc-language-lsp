@@ -1577,6 +1577,25 @@ describe('Completions', () => {
         );
     });
 
+    it('offers @@ExecCtx as a read-only AMPscript global, not a personalization string', () => {
+        const doc = { text: '%%[ \n ]%%', languageId: 'ampscript' };
+        const items = service.getCompletions(doc, { line: 0, character: 4 });
+        const item = items.find((entry) => entry.label === '@@ExecCtx');
+        assert.ok(item, 'expected @@ExecCtx completion');
+        assert.equal(item.data?.type, 'global');
+    });
+
+    it('shows read-only global hover for @@ExecCtx', () => {
+        const line = '%%[ if @@ExecCtx == "load" then ]%%';
+        const hover = service.getHover({ text: line, languageId: 'ampscript' }, line, {
+            line: 0,
+            character: 12,
+        });
+        assert.ok(hover, 'expected @@ExecCtx hover');
+        assert.match(hover.contents.value, /read-only global/);
+        assert.match(hover.contents.value, /always returns load/);
+    });
+
     it('returns no AMPscript completions outside delimiters', () => {
         const doc = { text: 'plain HTML text', languageId: 'ampscript' };
         const items = service.getCompletions(doc, { line: 0, character: 5 });
