@@ -85,7 +85,7 @@ export function extractFunctionArguments(
             depth--;
             if (depth === 0) {
                 const raw = text.slice(argStart, index);
-                if (raw.trim().length > 0 || hasContent) {
+                if (hasContent || raw.trim().length > 0) {
                     args.push({ value: raw.trim(), start: argStart, end: index });
                 }
                 return args;

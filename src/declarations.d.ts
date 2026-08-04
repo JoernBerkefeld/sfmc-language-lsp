@@ -17,13 +17,21 @@ declare module 'ampscript-data' {
      * Coordinates are 0-based argument-stream indices.
      */
     export interface AmpscriptDataRepeatGroup {
-        /** First argument index where the repeating group begins. */
+        /**
+         * First argument index where the repeating group begins.
+         */
         startIndex: number;
-        /** Number of arguments that form one repeatable unit. */
+        /**
+         * Number of arguments that form one repeatable unit.
+         */
         groupSize: number;
-        /** Minimum number of complete groups required. */
+        /**
+         * Minimum number of complete groups required.
+         */
         minGroups: number;
-        /** Name of an earlier param whose literal value dictates the group count. */
+        /**
+         * Name of an earlier param whose literal value dictates the group count.
+         */
         countParam?: string;
     }
     export interface AmpscriptDataFunction {
@@ -31,27 +39,47 @@ declare module 'ampscript-data' {
         category: string;
         minArgs: number;
         maxArgs: number;
-        /** Human-readable description of what the function does. */
+        /**
+         * Human-readable description of what the function does.
+         */
         description: string;
         params: AmpscriptDataParam[];
-        /** Repeating-group model for variadic functions (maxArgs === Infinity). */
+        /**
+         * Repeating-group model for variadic functions (maxArgs === Infinity).
+         */
         repeat?: AmpscriptDataRepeatGroup[];
         returnType?: string;
-        /** Prose description of the return value. */
+        /**
+         * Prose description of the return value.
+         */
         returnDescription?: string;
-        /** Fixed set of literal return values, when the function returns an enum. */
+        /**
+         * Fixed set of literal return values, when the function returns an enum.
+         */
         returnEnum?: (string | number)[];
-        /** Canonical signature string, e.g. `Add(number1, number2)`. */
+        /**
+         * Canonical signature string, e.g. `Add(number1, number2)`.
+         */
         syntax?: string;
-        /** Usage example, where available. */
+        /**
+         * Usage example, where available.
+         */
         example?: string;
-        /** URL to the official Salesforce developer documentation page. */
+        /**
+         * URL to the official Salesforce developer documentation page.
+         */
         docUrl?: string;
-        /** URL to the ampscript.guide reference page. */
+        /**
+         * URL to the ampscript.guide reference page.
+         */
         guideUrl?: string;
-        /** API version in which MCN support was introduced (e.g. 67), or null if not supported in MCN. */
+        /**
+         * API version in which MCN support was introduced (e.g. 67), or null if not supported in MCN.
+         */
         mcnSince: number | null;
-        /** Behavioral difference notes for MCN, or null if none. */
+        /**
+         * Behavioral difference notes for MCN, or null if none.
+         */
         mcnNotes: string | null;
         /**
          * Name of the MCN Handlebars helper that replaces this AMPscript function
@@ -63,11 +91,17 @@ declare module 'ampscript-data' {
          * Handlebars counterpart, so converting it to Handlebars requires a manual rewrite.
          */
         mcnHandlebarsGap?: boolean;
-        /** True when the function is deprecated and should be avoided in new code. */
+        /**
+         * True when the function is deprecated and should be avoided in new code.
+         */
         deprecated?: boolean;
-        /** Suggested replacement function name when this function is deprecated. */
+        /**
+         * Suggested replacement function name when this function is deprecated.
+         */
         deprecatedReplacement?: string;
-        /** Human-readable reason explaining the deprecation. */
+        /**
+         * Human-readable reason explaining the deprecation.
+         */
         deprecatedReason?: string;
     }
     export interface AmpscriptDataKeyword {
@@ -78,7 +112,9 @@ declare module 'ampscript-data' {
     export interface AmpscriptDataPersonalization {
         name: string;
         description: string;
-        /** Regex matcher for parameterized personalization strings (e.g. MSG(0).NOUN([n])). */
+        /**
+         * Regex matcher for parameterized personalization strings (e.g. MSG(0).NOUN([n])).
+         */
         matcher?: RegExp;
     }
     export interface AmpscriptDataGlobal {
@@ -143,7 +179,9 @@ declare module 'ssjs-data' {
         isStatic?: boolean;
         deprecated?: boolean;
         requiresCoreLoad?: boolean;
-        /** True when the global is documented but throws a ReferenceError at runtime. */
+        /**
+         * True when the global is documented but throws a ReferenceError at runtime.
+         */
         notDefinedAtRuntime?: boolean;
         /**
          * True when the member EXISTS/RESOLVES at runtime but has no known working
@@ -151,7 +189,9 @@ declare module 'ssjs-data' {
          * in the .d.ts and completions; call sites are warned instead.
          */
         nonFunctionalAtRuntime?: boolean;
-        /** Note describing the runtime-safe replacement for a phantom/differing global. */
+        /**
+         * Note describing the runtime-safe replacement for a phantom/differing global.
+         */
         officialDocsNote?: string;
         aliasOf?: string;
         /**
@@ -231,21 +271,27 @@ declare module 'ssjs-data' {
     export const PLATFORM_VARIABLE_METHODS: SsjsDataFunction[];
     export const PLATFORM_RESPONSE_METHODS: SsjsDataFunction[];
     export const PLATFORM_REQUEST_METHODS: SsjsDataFunction[];
-    /** Core library `Request` object members (distinct from Platform.Request). */
+    /**
+     * Core library `Request` object members (distinct from Platform.Request).
+     */
     export const REQUEST_UTILITY_METHODS: SsjsDataFunction[];
     export const requestUtilityLookup: Map<string, SsjsDataFunction>;
     export const PLATFORM_RECIPIENT_METHODS: SsjsDataFunction[];
     export const platformRecipientMethodNames: Set<string>;
     export const SCRIPT_UTIL_CONSTRUCTORS: SsjsDataFunction[];
     export const SCRIPT_UTIL_REQUEST_METHODS: SsjsDataFunction[];
-    /** Value constraint on a writable HttpRequest/HttpGet instance property. */
+    /**
+     * Value constraint on a writable HttpRequest/HttpGet instance property.
+     */
     export interface SsjsDataValueConstraint {
         enum?: Array<string | number>;
         enumLabels?: Record<string, string>;
         numeric?: 'integer' | 'number';
         min?: number;
     }
-    /** A writable HttpRequest/HttpGet instance property (optionally constrained). */
+    /**
+     * A writable HttpRequest/HttpGet instance property (optionally constrained).
+     */
     export interface SsjsDataHttpProperty {
         name: string;
         type: string;
@@ -266,7 +312,9 @@ declare module 'ssjs-data' {
 }
 
 declare module 'handlebars-data' {
-    /** A single parameter of an MCN Handlebars helper. */
+    /**
+     * A single parameter of an MCN Handlebars helper.
+     */
     export interface HandlebarsDataParam {
         name: string;
         type: string;
@@ -274,7 +322,9 @@ declare module 'handlebars-data' {
         optional?: boolean;
         variadic?: boolean;
     }
-    /** A single MCN Handlebars helper definition, enriched with a doc URL. */
+    /**
+     * A single MCN Handlebars helper definition, enriched with a doc URL.
+     */
     export interface HandlebarsDataHelper {
         name: string;
         category: string;
@@ -284,22 +334,32 @@ declare module 'handlebars-data' {
         description: string;
         params: HandlebarsDataParam[];
         returnType: string;
-        /** True when the helper may only be used as a subexpression (e.g. `hash`). */
+        /**
+         * True when the helper may only be used as a subexpression (e.g. `hash`).
+         */
         subexpressionOnly?: boolean;
-        /** URL to the official Salesforce developer documentation page. */
+        /**
+         * URL to the official Salesforce developer documentation page.
+         */
         docUrl: string;
     }
-    /** A Salesforce-only `{!$namespace.Field}` built-in binding. */
+    /**
+     * A Salesforce-only `{!$namespace.Field}` built-in binding.
+     */
     export interface HandlebarsDataBinding {
         name: string;
         token: string;
         namespace: string;
         mcnSince: number;
         description: string;
-        /** URL to the official Salesforce developer documentation page. */
+        /**
+         * URL to the official Salesforce developer documentation page.
+         */
         docUrl: string;
     }
-    /** A Handlebars construct that the locked-down MCN engine does not support. */
+    /**
+     * A Handlebars construct that the locked-down MCN engine does not support.
+     */
     export interface HandlebarsDataUnsupportedConstruct {
         id: string;
         astNodeType: string;

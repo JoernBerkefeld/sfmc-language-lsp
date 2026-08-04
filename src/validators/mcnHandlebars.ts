@@ -34,9 +34,13 @@ import {
 } from '../data/handlebars.js';
 import { closestMatch } from '../utils/closestMatch.js';
 
-/** Proper-cased built-in binding names, used for "did you mean" suggestions. */
+/**
+ * Proper-cased built-in binding names, used for "did you mean" suggestions.
+ */
 const BINDING_NAME_LIST = handlebarsBindingList.map((b) => b.name);
-/** Map from lowercase binding name to its `{!$...}` token, for suggestion text. */
+/**
+ * Map from lowercase binding name to its `{!$...}` token, for suggestion text.
+ */
 const BINDING_TOKEN_BY_NAME = new Map(
     handlebarsBindingList.map((b) => [b.name.toLowerCase(), b.token]),
 );
@@ -47,11 +51,17 @@ export const DIAG_CODE_HBS_UNSUPPORTED_CONSTRUCT = 'handlebars/unsupported-const
 export const DIAG_CODE_HBS_UNKNOWN_HELPER = 'handlebars/unknown-helper';
 export const DIAG_CODE_HBS_UNKNOWN_BINDING = 'handlebars/unknown-binding';
 
-/** Payload attached to unknown-helper / unknown-binding diagnostics for quick fixes. */
+/**
+ * Payload attached to unknown-helper / unknown-binding diagnostics for quick fixes.
+ */
 export interface HandlebarsSuggestionData {
-    /** The unknown name the user typed (helper name or binding token). */
+    /**
+     * The unknown name the user typed (helper name or binding token).
+     */
     typed: string;
-    /** The closest known name to suggest as a replacement. */
+    /**
+     * The closest known name to suggest as a replacement.
+     */
     suggestion: string;
 }
 
@@ -71,10 +81,14 @@ export const HBS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_HBS_UNKNOWN_BINDING,
 ]);
 
-/** Matches a `{!$namespace.Field}` built-in data binding token. */
+/**
+ * Matches a `{!$namespace.Field}` built-in data binding token.
+ */
 const BINDING_PATTERN = /\{!\$([A-Za-z0-9_.]+)\}/g;
 
-/** Narrowed view of the AST nodes this validator inspects. */
+/**
+ * Narrowed view of the AST nodes this validator inspects.
+ */
 interface PathLike {
     type: string;
     parts?: string[];
@@ -228,8 +242,9 @@ export function validateMcnHandlebars(
                     diagnostics.push(unknownHelperDiagnostic(node, helperName, false));
                 }
             } else if (
-                node.type === 'BlockStatement' && // Block helpers must be known — MCN cannot register custom ones.
+                // Block helpers must be known — MCN cannot register custom ones.
                 helperName &&
+                node.type === 'BlockStatement' &&
                 !isHelper(helperName)
             ) {
                 problems++;

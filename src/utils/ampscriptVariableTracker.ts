@@ -21,7 +21,9 @@
 
 import { functionLookup } from '../data/ampscript.js';
 
-/** The resolved AMPscript type of a variable. */
+/**
+ * The resolved AMPscript type of a variable.
+ */
 export type AmpscriptVarType =
     'string' | 'number' | 'boolean' | 'rowset' | 'row' | 'object' | 'string|number';
 

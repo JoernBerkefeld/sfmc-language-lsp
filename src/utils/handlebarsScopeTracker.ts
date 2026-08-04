@@ -24,30 +24,50 @@ import { parseHandlebars, walkHandlebars, astLocToRange } from './handlebarsAst.
 import { getSanitizedHandlebarsText } from './regions.js';
 import { positionToOffset } from './positions.js';
 
-/** The origin of a Handlebars block-local identifier. */
+/**
+ * The origin of a Handlebars block-local identifier.
+ */
 export type HandlebarsLocalKind = 'block-param' | 'loop-var';
 
-/** A single identifier introduced by a block helper. */
+/**
+ * A single identifier introduced by a block helper.
+ */
 export interface HandlebarsLocal {
-    /** The identifier as written in source, e.g. `item` or `@index`. */
+    /**
+     * The identifier as written in source, e.g. `item` or `@index`.
+     */
     name: string;
-    /** Where the identifier originates. */
+    /**
+     * Where the identifier originates.
+     */
     kind: HandlebarsLocalKind;
-    /** Short human-readable detail, e.g. `block param of #each`. */
+    /**
+     * Short human-readable detail, e.g. `block param of #each`.
+     */
     detail: string;
 }
 
-/** A lexical scope: a set of locals visible across a half-open offset range. */
+/**
+ * A lexical scope: a set of locals visible across a half-open offset range.
+ */
 export interface HandlebarsScope {
-    /** Inclusive start offset of the block body. */
+    /**
+     * Inclusive start offset of the block body.
+     */
     start: number;
-    /** Exclusive end offset of the block body. */
+    /**
+     * Exclusive end offset of the block body.
+     */
     end: number;
-    /** Locals introduced by the block, visible within `[start, end)`. */
+    /**
+     * Locals introduced by the block, visible within `[start, end)`.
+     */
     locals: HandlebarsLocal[];
 }
 
-/** Helpers whose block body exposes iteration data variables. */
+/**
+ * Helpers whose block body exposes iteration data variables.
+ */
 const LOOP_HELPERS = new Set(['each', 'repeat']);
 
 /**

@@ -195,7 +195,9 @@ export const coreLibraryObjects: SsjsObject[] = CORE_LIBRARY_OBJECTS.map((o) => 
     ...(o.deprecated && { deprecated: true }),
 }));
 
-/** Set of Core Library object names (e.g. `FilterDefinition`, `DataExtension.Rows`). */
+/**
+ * Set of Core Library object names (e.g. `FilterDefinition`, `DataExtension.Rows`).
+ */
 export const coreObjectNameSet: Set<string> = coreObjectNames;
 
 /**

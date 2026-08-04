@@ -9,24 +9,36 @@
 import { parse, type AST } from '@handlebars/parser';
 import type { Position, Range } from 'vscode-languageserver-types';
 
-/** A node in the Handlebars AST (re-exported for validator consumers). */
+/**
+ * A node in the Handlebars AST (re-exported for validator consumers).
+ */
 export type HandlebarsAstNode = AST.Node;
 
-/** A Handlebars syntax error with an LSP range describing where it occurred. */
+/**
+ * A Handlebars syntax error with an LSP range describing where it occurred.
+ */
 export interface HandlebarsSyntaxError {
     message: string;
     range: Range;
 }
 
-/** Result of attempting to parse a Handlebars document. */
+/**
+ * Result of attempting to parse a Handlebars document.
+ */
 export interface HandlebarsParseResult {
-    /** The parsed program, or null when a syntax error prevented parsing. */
+    /**
+     * The parsed program, or null when a syntax error prevented parsing.
+     */
     ast: AST.Program | null;
-    /** The syntax error, when parsing failed. */
+    /**
+     * The syntax error, when parsing failed.
+     */
     error: HandlebarsSyntaxError | null;
 }
 
-/** Jison-style location attached to parser exceptions. */
+/**
+ * Jison-style location attached to parser exceptions.
+ */
 interface JisonLocation {
     first_line: number;
     first_column: number;
@@ -103,7 +115,9 @@ function toSyntaxError(ex: unknown, text: string): HandlebarsSyntaxError {
     };
 }
 
-/** A node visited during traversal, narrowed to the common Node shape. */
+/**
+ * A node visited during traversal, narrowed to the common Node shape.
+ */
 type AnyNode = AST.Node & Record<string, unknown>;
 
 /**

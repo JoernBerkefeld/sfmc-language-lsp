@@ -24,7 +24,9 @@ import {
 import { handlebarsHelperList, handlebarsBindingList } from '../data/handlebars.js';
 import { getHandlebarsLocalsAtOffset } from '../utils/handlebarsScopeTracker.js';
 
-/** Human-readable label for a helper's origin, used in completion detail text. */
+/**
+ * Human-readable label for a helper's origin, used in completion detail text.
+ */
 const HBS_ORIGIN_DETAIL: Record<string, string> = {
     'handlebars-builtin': 'Handlebars built-in',
     'mcn-helper': 'MCN helper',
@@ -61,7 +63,9 @@ export const handlebarsBindingCompletionItems: CompletionItem[] = handlebarsBind
     }),
 );
 
-/** Matches an in-progress `{!$...` binding token immediately before the cursor. */
+/**
+ * Matches an in-progress `{!$...` binding token immediately before the cursor.
+ */
 const BINDING_PREFIX_PATTERN = /\{!\$[A-Za-z0-9_.]*$/;
 
 /**

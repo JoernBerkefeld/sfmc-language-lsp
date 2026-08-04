@@ -13,17 +13,27 @@ import type { SignatureHelp, ParameterInformation } from '../types.js';
 import { getHelper } from '../data/handlebars.js';
 import type { HandlebarsHelper } from '../data/handlebars.js';
 
-/** Leading control sigils that may precede a helper name inside a mustache. */
+/**
+ * Leading control sigils that may precede a helper name inside a mustache.
+ */
 const SIGIL_PATTERN = /^[#^/>~&!]+/;
 
-/** Whitespace characters that separate Handlebars helper arguments. */
+/**
+ * Whitespace characters that separate Handlebars helper arguments.
+ */
 const WHITESPACE_CHARS = new Set([' ', '\t', '\n', '\r']);
 
-/** Resolved Handlebars helper call context at the cursor. */
+/**
+ * Resolved Handlebars helper call context at the cursor.
+ */
 interface HandlebarsCallContext {
-    /** The helper name leading the innermost active expression scope. */
+    /**
+     * The helper name leading the innermost active expression scope.
+     */
     helperName: string;
-    /** Zero-based index of the argument currently being typed. */
+    /**
+     * Zero-based index of the argument currently being typed.
+     */
     argIndex: number;
 }
 

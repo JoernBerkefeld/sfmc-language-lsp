@@ -31,19 +31,31 @@ export {
     CodeActionKind,
 } from 'vscode-languageserver-types';
 
-/** Input context for all language service operations. */
+/**
+ * Input context for all language service operations.
+ */
 export interface DocumentContext {
-    /** Full document text. */
+    /**
+     * Full document text.
+     */
     text: string;
-    /** Language identifier: 'ampscript' or 'ssjs'. */
+    /**
+     * Language identifier: 'ampscript' or 'ssjs'.
+     */
     languageId: 'ampscript' | 'ssjs';
-    /** Optional document URI (used for code action edit maps). */
+    /**
+     * Optional document URI (used for code action edit maps).
+     */
     uri?: string;
 }
 
-/** Service-level settings. */
+/**
+ * Service-level settings.
+ */
 export interface SfmcSettings {
-    /** Maximum number of diagnostics to emit per document. Default: 100. */
+    /**
+     * Maximum number of diagnostics to emit per document. Default: 100.
+     */
     maxNumberOfProblems: number;
     /**
      * Target platform for MCN compatibility diagnostics.

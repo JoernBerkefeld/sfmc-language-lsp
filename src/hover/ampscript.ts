@@ -11,7 +11,9 @@ import {
 } from '../data/ampscript.js';
 import { buildVariableTypeMap } from '../utils/ampscriptVariableTracker.js';
 
-/** Map from lowercase function name to its documentation URLs and MCN metadata. */
+/**
+ * Map from lowercase function name to its documentation URLs and MCN metadata.
+ */
 const ampscriptDocLinks = new Map(
     FUNCTIONS.map((f) => [
         f.name.toLowerCase(),
@@ -58,7 +60,7 @@ export function getAmpscriptHover(
     }
 
     // @variable hover — show inferred type matching the SSJS TypeScript hover style
-    if (word.startsWith('@') && fullText !== undefined) {
+    if (fullText !== undefined && word.startsWith('@')) {
         const varName = word.slice(1).toLowerCase();
         const typeMap = buildVariableTypeMap(fullText);
         const varType = typeMap.get(varName) ?? 'any';

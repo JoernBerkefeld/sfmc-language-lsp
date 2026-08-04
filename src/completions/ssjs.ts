@@ -27,7 +27,9 @@ import {
     ssjsGlobals,
 } from '../data/ssjs.js';
 
-/** The full static SSJS catalog (built once). */
+/**
+ * The full static SSJS catalog (built once).
+ */
 export const ssjsCompletionItems: CompletionItem[] = buildSsjsCatalog();
 
 function buildSsjsCatalog(): CompletionItem[] {

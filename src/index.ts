@@ -105,7 +105,9 @@ export type {
     HandlebarsDataParam,
 } from './data/handlebars.js';
 
-/** Import DocumentContext type locally for use in this file */
+/**
+ * Import DocumentContext type locally for use in this file
+ */
 import type { DocumentContext } from './types.js';
 
 /**
@@ -479,7 +481,9 @@ export class SfmcLanguageService {
     }
 }
 
-/** Shared singleton instance for callers that don't need separate instances. */
+/**
+ * Shared singleton instance for callers that don't need separate instances.
+ */
 export const sfmcLanguageService = new SfmcLanguageService();
 
 // Re-export validators for direct use

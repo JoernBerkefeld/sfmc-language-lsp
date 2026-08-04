@@ -39,12 +39,18 @@ export type {
 export type AmpscriptFunction = AmpscriptDataFunction;
 export type AmpscriptFunctionParam = AmpscriptDataFunction['params'][number];
 
-/** All AMPscript functions, sourced from the canonical ampscript-data catalog. */
+/**
+ * All AMPscript functions, sourced from the canonical ampscript-data catalog.
+ */
 export const ampscriptFunctions: AmpscriptDataFunction[] = FUNCTIONS;
 
-/** AMPscript language keywords with description + completion snippet. */
+/**
+ * AMPscript language keywords with description + completion snippet.
+ */
 
-/** Common system personalization strings. */
+/**
+ * Common system personalization strings.
+ */
 
 /**
  * Build a lookup map for fast case-insensitive function retrieval.

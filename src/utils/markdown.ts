@@ -260,7 +260,9 @@ export function buildSsjsFunctionSnippet(fn: SsjsFunction): string {
 
 // ── Handlebars for Marketing Cloud Next ──────────────────────────────────────
 
-/** Human-readable label for a helper's origin. */
+/**
+ * Human-readable label for a helper's origin.
+ */
 const HBS_ORIGIN_LABEL: Record<HandlebarsHelper['origin'], string> = {
     'handlebars-builtin': 'Handlebars built-in',
     'mcn-helper': 'MCN helper',

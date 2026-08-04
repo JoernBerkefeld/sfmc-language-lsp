@@ -127,7 +127,7 @@ function resolveStaticLiteral(raw: string): string | null {
     // Quoted string literal — return inner content.
     const first = trimmed[0];
     const last = trimmed.at(-1);
-    if (trimmed.length >= 2 && (first === '"' || first === "'") && last === first) {
+    if (last === first && trimmed.length >= 2 && (first === '"' || first === "'")) {
         return trimmed.slice(1, -1);
     }
     // Numeric literal (e.g. 5, 3.14, -2).
@@ -857,11 +857,17 @@ export function validateAmpscript(
 // ── AMPscript function call extraction ────────────────────────────────────────
 
 export interface AmpscriptCallSite {
-    /** Canonical-case function name as it appears in the catalog. */
+    /**
+     * Canonical-case function name as it appears in the catalog.
+     */
     name: string;
-    /** Zero-based line number of the function name. */
+    /**
+     * Zero-based line number of the function name.
+     */
     line: number;
-    /** Zero-based column of the first character of the function name. */
+    /**
+     * Zero-based column of the first character of the function name.
+     */
     col: number;
 }
 

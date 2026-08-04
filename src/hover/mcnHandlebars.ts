@@ -21,7 +21,9 @@ import {
 import { getHelper, bindingLookup } from '../data/handlebars.js';
 import { getHandlebarsLocalsAtOffset } from '../utils/handlebarsScopeTracker.js';
 
-/** Matches a full `{!$namespace.Field}` binding token. */
+/**
+ * Matches a full `{!$namespace.Field}` binding token.
+ */
 const BINDING_TOKEN_PATTERN = /\{!\$([A-Za-z0-9_.]+)\}/g;
 
 /**

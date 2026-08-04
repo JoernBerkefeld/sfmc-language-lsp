@@ -98,11 +98,17 @@ function labelRange(signatureLabel: string, paramName: string): [number, number]
  * `*1` block; the `*N` block starts at `startIndex + groupSize`.
  */
 interface RepeatBlock {
-    /** First param index of the `*1` block. */
+    /**
+     * First param index of the `*1` block.
+     */
     oneStart: number;
-    /** First param index of the `*N` block (= oneStart + groupSize). */
+    /**
+     * First param index of the `*N` block (= oneStart + groupSize).
+     */
     nStart: number;
-    /** Number of params in each of the `*1` and `*N` blocks. */
+    /**
+     * Number of params in each of the `*1` and `*N` blocks.
+     */
     groupSize: number;
 }
 

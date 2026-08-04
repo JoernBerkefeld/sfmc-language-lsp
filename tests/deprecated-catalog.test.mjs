@@ -29,17 +29,23 @@ const service = new SfmcLanguageService();
  */
 const validate = (text) => service.validate({ text, languageId: 'ssjs' });
 
-/** Callable globals: deprecated and not typed as object (ErrorUtil is methods-only). */
+/**
+ * Callable globals: deprecated and not typed as object (ErrorUtil is methods-only).
+ */
 const deprecatedCallableGlobals = SSJS_GLOBALS.filter((g) => g.deprecated && g.type !== 'object');
 
 const deprecatedPlatformFns = PLATFORM_FUNCTIONS.filter((f) => f.deprecated);
 
 const deprecatedErrorUtilMethods = ERROR_UTIL_METHODS.filter((m) => m.deprecated);
 
-/** Canonical Core class name for a lowercase lookup key (e.g. send.definition → Send.Definition). */
+/**
+ * Canonical Core class name for a lowercase lookup key (e.g. send.definition → Send.Definition).
+ */
 const coreNameByLower = new Map([...coreObjectNames].map((n) => [n.toLowerCase(), n]));
 
-/** Flatten coreDeprecatedMethodLookup into { className, methodName, isStatic } rows. */
+/**
+ * Flatten coreDeprecatedMethodLookup into { className, methodName, isStatic } rows.
+ */
 const deprecatedCoreMethods = [];
 for (const [classKey, methods] of coreDeprecatedMethodLookup) {
     const className = coreNameByLower.get(classKey) || classKey;

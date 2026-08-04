@@ -39,19 +39,31 @@ export type {
     HandlebarsDataUnsupportedConstruct,
 } from 'handlebars-data';
 
-/** Convenience alias used throughout the language server. */
+/**
+ * Convenience alias used throughout the language server.
+ */
 export type HandlebarsHelper = HandlebarsDataHelper;
-/** Convenience alias for a built-in `{!$...}` binding. */
+/**
+ * Convenience alias for a built-in `{!$...}` binding.
+ */
 export type HandlebarsBinding = HandlebarsDataBinding;
-/** Convenience alias for an unsupported Handlebars construct. */
+/**
+ * Convenience alias for an unsupported Handlebars construct.
+ */
 export type HandlebarsUnsupportedConstruct = HandlebarsDataUnsupportedConstruct;
 
-/** All MCN Handlebars helpers, sourced from the canonical handlebars-data catalog. */
+/**
+ * All MCN Handlebars helpers, sourced from the canonical handlebars-data catalog.
+ */
 export const handlebarsHelperList: HandlebarsDataHelper[] = HELPERS;
 
-/** All built-in `{!$...}` bindings, sourced from handlebars-data. */
+/**
+ * All built-in `{!$...}` bindings, sourced from handlebars-data.
+ */
 export const handlebarsBindingList: HandlebarsDataBinding[] = BUILTIN_BINDINGS;
 
-/** All unsupported Handlebars constructs, sourced from handlebars-data. */
+/**
+ * All unsupported Handlebars constructs, sourced from handlebars-data.
+ */
 export const handlebarsUnsupportedList: HandlebarsDataUnsupportedConstruct[] =
     UNSUPPORTED_CONSTRUCTS;
