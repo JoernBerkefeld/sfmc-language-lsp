@@ -638,6 +638,54 @@ describe('SSJS validation', () => {
         assert.ok(d.message.includes('got 4'));
     });
 
+    it('does not flag Platform.Function.HTTPPost with 3 arguments', () => {
+        const doc = {
+            text: 'var r = Platform.Function.HTTPPost("https://example.com", "application/json", "{}");',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.every((d) => d.code !== 'ssjs/invalid-arity'),
+            'HTTPPost(url, contentType, payload) is a valid 3-arg call',
+        );
+    });
+
+    it('does not flag Platform.Function.HTTPPost with 6 arguments', () => {
+        const doc = {
+            text: 'var res = [];\nvar r = Platform.Function.HTTPPost("https://example.com", "application/json", "{}", null, null, res);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(
+            diags.every((d) => d.code !== 'ssjs/invalid-arity'),
+            'HTTPPost with 6 args is a valid full call',
+        );
+    });
+
+    it('flags Platform.Function.HTTPPost with 4 arguments (invalid-arity)', () => {
+        const doc = {
+            text: 'var r = Platform.Function.HTTPPost("https://example.com", "application/json", "{}", null);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/invalid-arity');
+        assert.ok(d, 'expected invalid-arity diagnostic for 4-arg HTTPPost');
+        assert.equal(d.severity, 1, 'expected Error severity');
+        assert.ok(d.message.includes('3 or 6'), 'message should render valid arities as "3 or 6"');
+        assert.ok(d.message.includes('got 4'), 'message should state actual arg count');
+    });
+
+    it('flags Platform.Function.HTTPPost with 5 arguments (invalid-arity)', () => {
+        const doc = {
+            text: 'var r = Platform.Function.HTTPPost("https://example.com", "application/json", "{}", null, null);',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/invalid-arity');
+        assert.ok(d, 'expected invalid-arity diagnostic for 5-arg HTTPPost');
+        assert.ok(d.message.includes('got 5'));
+    });
+
     it('does not flag HTTPGet arity error when call is inside a comment', () => {
         const doc = {
             text: '// var r = Platform.Function.HTTPGet("https://example.com", false, 0, null);',
