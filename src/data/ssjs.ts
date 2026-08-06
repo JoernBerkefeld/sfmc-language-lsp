@@ -20,6 +20,7 @@ import {
     coreObjectNames,
     coreNonFunctionalMethodLookup as ssjsCoreNonFunctionalMethodLookup,
     coreDeprecatedMethodLookup as ssjsCoreDeprecatedMethodLookup,
+    maxCoreVersionLookup as ssjsMaxCoreVersionLookup,
     WSPROXY_METHODS,
     HTTP_METHODS,
     HTTPHEADER_METHODS,
@@ -64,6 +65,11 @@ export interface SsjsFunction {
     nonFunctionalAtRuntime?: boolean;
     officialDocsNote?: string;
     requiresCoreLoad?: boolean;
+    /**
+     * Highest `Platform.Load("Core", <version>)` that still provides this member.
+     * Loading a newer Core version leaves it `undefined` at runtime.
+     */
+    maxCoreVersion?: string;
     aliasOf?: string;
     /**
      * Exact set of permitted argument counts for a discontinuous overload where a
@@ -221,6 +227,14 @@ export const coreDeprecatedMethodLookup: Map<
     string,
     Map<string, SsjsFunction>
 > = ssjsCoreDeprecatedMethodLookup;
+
+/**
+ * Members that exist only up to a maximum `Platform.Load("Core", <version>)`.
+ * Map<qualifiedNameLower, { name, maxCoreVersion }> re-exposed from ssjs-data so
+ * validators can tell "deprecated but callable" from "undefined at runtime".
+ */
+export const maxCoreVersionLookup: Map<string, { name: string; maxCoreVersion: string }> =
+    ssjsMaxCoreVersionLookup;
 
 // ── WSProxy methods ──────────────────────────────────────────────────────────
 

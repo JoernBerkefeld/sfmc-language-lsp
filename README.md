@@ -47,6 +47,15 @@ import type {
 } from 'sfmc-language-lsp';
 ```
 
+## Core-version-aware SSJS diagnostics
+
+Some Core library members only exist up to a maximum `Platform.Load("Core", <version>)` and are `undefined` beyond it. The SSJS validator reads the `maxCoreVersion` metadata from `ssjs-data`, compares it against the Core version the document actually loads, and escalates the diagnostic accordingly:
+
+- No `Platform.Load("Core", …)`, or a version within range → **Warning** ("deprecated")
+- A version above `maxCoreVersion` → **Error** (the member is `undefined`, so the call throws a `TypeError` at runtime)
+
+`ErrorUtil` and `ErrorUtil.ThrowWSProxyError` are the first members covered — both are limited to Core version `"1"`.
+
 ## Install
 
 ```bash

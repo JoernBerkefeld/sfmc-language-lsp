@@ -505,6 +505,34 @@ describe('SSJS validation', () => {
         assert.ok(d.message.includes('ThrowWSProxyError'));
     });
 
+    it('reports ErrorUtil.ThrowWSProxyError as an Error when Core > 1 is loaded', () => {
+        const doc = {
+            text: ['Platform.Load("Core", "1.1.5");', 'ErrorUtil.ThrowWSProxyError(result);'].join(
+                '\n',
+            ),
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/deprecated');
+        assert.ok(d, 'expected deprecated diagnostic for ErrorUtil.ThrowWSProxyError');
+        assert.equal(d.severity, 1, 'expected Error severity');
+        assert.match(d.message, /undefined under Platform\.Load\("Core", "1\.1\.5"\)/);
+    });
+
+    it('keeps the Warning wording when Core "1" is loaded explicitly', () => {
+        const doc = {
+            text: ['Platform.Load("Core", "1");', 'ErrorUtil.ThrowWSProxyError(result);'].join(
+                '\n',
+            ),
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((d) => d.code === 'ssjs/deprecated');
+        assert.ok(d, 'expected deprecated diagnostic for ErrorUtil.ThrowWSProxyError');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.match(d.message, /is deprecated/);
+    });
+
     it('does not flag ErrorUtil.ThrowWSProxyError inside a comment', () => {
         const doc = { text: '// ErrorUtil.ThrowWSProxyError(result);', languageId: 'ssjs' };
         const diags = service.validate(doc);

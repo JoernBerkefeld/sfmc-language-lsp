@@ -180,6 +180,11 @@ declare module 'ssjs-data' {
         deprecated?: boolean;
         requiresCoreLoad?: boolean;
         /**
+         * Highest `Platform.Load("Core", <version>)` that still provides this member.
+         * Loading a newer Core version leaves it `undefined` at runtime.
+         */
+        maxCoreVersion?: string;
+        /**
          * True when the global is documented but throws a ReferenceError at runtime.
          */
         notDefinedAtRuntime?: boolean;
@@ -259,6 +264,12 @@ declare module 'ssjs-data' {
      * Content Areas). Map<classNameLower, Map<methodNameLower, entry>>.
      */
     export const coreDeprecatedMethodLookup: Map<string, Map<string, SsjsDataFunction>>;
+    /**
+     * Members that exist only up to a maximum `Platform.Load("Core", <version>)`.
+     * Map<qualifiedNameLower, { name, maxCoreVersion }> — e.g. "errorutil" and
+     * "errorutil.throwwsproxyerror" both map to maxCoreVersion "1".
+     */
+    export const maxCoreVersionLookup: Map<string, { name: string; maxCoreVersion: string }>;
     export const HTTP_METHODS: SsjsDataFunction[];
     export const httpMethodNames: Set<string>;
     export const WSPROXY_METHODS: SsjsDataFunction[];

@@ -20,6 +20,7 @@ import {
     coreObjectNameSet,
     coreNonFunctionalMethodLookup,
     coreDeprecatedMethodLookup,
+    maxCoreVersionLookup,
 } from '../data/ssjs.js';
 import type { HttpPropertyValueConstraint, SsjsFunction } from '../data/ssjs.js';
 import { countFunctionArguments } from '../utils/text.js';
@@ -904,6 +905,57 @@ function deprecationNote(entry: SsjsFunction): string {
     return match ? `Deprecated — ${match[1]}` : 'This API is deprecated.';
 }
 
+// Matches `Platform.Load("core", "<version>")`. Kept as a source string because the
+// pattern is used with the global flag in two places and would otherwise share
+// lastIndex state between scans.
+const PLATFORM_LOAD_VERSION_SOURCE = String.raw`Platform\s*\.\s*Load\s*\(\s*["']core["']\s*,\s*["']([^"']*)["']\s*\)`;
+
+/**
+ * Find the Core version a document loads via `Platform.Load("core", "<version>")`.
+ * @param text - Full document text.
+ * @param commentRanges - Precomputed comment ranges to skip.
+ * @returns The first non-commented version string, or undefined when none is found.
+ */
+function findLoadedCoreVersion(
+    text: string,
+    commentRanges: ReturnType<typeof buildCommentRanges>,
+): string | undefined {
+    const pattern = new RegExp(PLATFORM_LOAD_VERSION_SOURCE, 'gi');
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+        if (isInCommentRange(match.index, commentRanges)) continue;
+        return match[1];
+    }
+    return undefined;
+}
+
+/**
+ * Split a Core version string into three numeric segments, padding missing ones
+ * with 0 so "1" and "1.0.0" are equivalent.
+ * @param version - Version string, e.g. "1" or "1.1.5".
+ * @returns Three numeric segments.
+ */
+function parseCoreVersion(version: string): number[] {
+    const parts = version.split('.').map((p) => Number(p) || 0);
+    while (parts.length < 3) parts.push(0);
+    return parts;
+}
+
+/**
+ * Compare two Core version strings ("1", "1.1.5", …) numerically.
+ * @param a - Left version.
+ * @param b - Right version.
+ * @returns Negative when a < b, 0 when equal, positive when a > b.
+ */
+function compareCoreVersions(a: string, b: string): number {
+    const left = parseCoreVersion(a);
+    const right = parseCoreVersion(b);
+    for (const [index, element] of left.entries()) {
+        if (element !== right[index]) return element - right[index];
+    }
+    return 0;
+}
+
 /**
  * Collect diagnostics for Core Library method calls flagged `deprecated` in
  * ssjs-data (e.g. `ContentAreaObj.Init`, `Send.Definition.Add`, `Portfolio.Update`).
@@ -1209,6 +1261,14 @@ export function validateSsjs(
             String.raw`\bErrorUtil\s*\.\s*(${methodNames})\s*\(`,
             'g',
         );
+        // The wording depends on which Core version the file loads: under a version
+        // above maxCoreVersion, ErrorUtil is undefined and the call throws.
+        const maxCoreVersion = maxCoreVersionLookup.get('errorutil')?.maxCoreVersion;
+        const loadedCoreVersion = findLoadedCoreVersion(text, commentRanges);
+        const isUnavailable =
+            maxCoreVersion !== undefined &&
+            loadedCoreVersion !== undefined &&
+            compareCoreVersions(loadedCoreVersion, maxCoreVersion) > 0;
         let euMatch: RegExpExecArray | null;
         while ((euMatch = errorUtilPattern.exec(text)) !== null && problems < max) {
             if (isInCommentRange(euMatch.index, commentRanges)) continue;
@@ -1216,12 +1276,14 @@ export function validateSsjs(
             const name = euMatch[1];
             const nameStart = euMatch.index + euMatch[0].indexOf(name);
             diagnostics.push({
-                severity: DiagnosticSeverity.Warning,
+                severity: isUnavailable ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
                 range: {
                     start: offsetToPosition(text, nameStart),
                     end: offsetToPosition(text, nameStart + name.length),
                 },
-                message: `'ErrorUtil.${name}' is deprecated — it only exists under Platform.Load("Core", "1") and is undefined in newer Core versions. Check 'result.Status' and 'throw new Error(...)' instead.`,
+                message: isUnavailable
+                    ? `'ErrorUtil.${name}' is undefined under Platform.Load("Core", "${loadedCoreVersion}") — it only exists in Core version "${maxCoreVersion}", so this call throws a TypeError at runtime. Check 'result.Status' and 'throw new Error(...)' instead.`
+                    : `'ErrorUtil.${name}' is deprecated — it only exists under Platform.Load("Core", "1") and is undefined in newer Core versions. Check 'result.Status' and 'throw new Error(...)' instead.`,
                 source: 'ssjs',
                 code: DIAG_CODE_SSJS_DEPRECATED,
             });
@@ -1243,8 +1305,7 @@ export function validateSsjs(
     }
 
     // 2. Wrong Platform.Load version
-    const platformLoadVersionPattern =
-        /Platform\s*\.\s*Load\s*\(\s*["']core["']\s*,\s*["']([^"']*)["']\s*\)/gi;
+    const platformLoadVersionPattern = new RegExp(PLATFORM_LOAD_VERSION_SOURCE, 'gi');
     let versionMatch: RegExpExecArray | null;
     while ((versionMatch = platformLoadVersionPattern.exec(text)) !== null && problems < max) {
         if (isInCommentRange(versionMatch.index, commentRanges)) continue;
