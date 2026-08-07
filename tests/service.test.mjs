@@ -496,6 +496,58 @@ describe('SSJS validation', () => {
         assert.ok(diags.every((d) => d.code !== 'ssjs/nonexistent-global'));
     });
 
+    it('reports reading the write-only postData property as an Error', () => {
+        const doc = {
+            text: [
+                'var req = new Script.Util.HttpRequest("https://example.com");',
+                'req.postData = "{}";',
+                'Platform.Response.Write(req.postData);',
+            ].join('\n'),
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((x) => x.code === 'ssjs/invalid-property-access');
+        assert.ok(d, 'expected ssjs/invalid-property-access for reading req.postData');
+        assert.equal(d.severity, 1, 'expected Error severity');
+        assert.equal(d.range.start.line, 2, 'expected the read on line 2 to be flagged');
+    });
+
+    it('reports reading Platform.Response.ContentType as a Warning (opaque value)', () => {
+        const doc = {
+            text: [
+                'Platform.Response.ContentType = "application/json";',
+                'var ct = Platform.Response.ContentType;',
+            ].join('\n'),
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((x) => x.code === 'ssjs/invalid-property-access');
+        assert.ok(d, 'expected ssjs/invalid-property-access for reading ContentType');
+        assert.equal(d.severity, 2, 'expected Warning severity');
+        assert.equal(d.range.start.line, 1, 'the assignment on line 0 must not be flagged');
+    });
+
+    it('reports assigning the read-only Platform.Request.Method as an Error', () => {
+        const doc = { text: 'Platform.Request.Method = "POST";', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        const d = diags.find((x) => x.code === 'ssjs/invalid-property-access');
+        assert.ok(d, 'expected ssjs/invalid-property-access for assigning Method');
+        assert.equal(d.severity, 1, 'expected Error severity');
+    });
+
+    it('does not flag valid property access directions', () => {
+        const doc = {
+            text: [
+                'var req = new Script.Util.HttpRequest("https://example.com");',
+                'req.postData = "{}";',
+                'var method = Platform.Request.Method;',
+            ].join('\n'),
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-property-access'));
+    });
+
     it('reports deprecated ErrorUtil.ThrowWSProxyError as deprecated Warning', () => {
         const doc = { text: 'ErrorUtil.ThrowWSProxyError(result);', languageId: 'ssjs' };
         const diags = service.validate(doc);

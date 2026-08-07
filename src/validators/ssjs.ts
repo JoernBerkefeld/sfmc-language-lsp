@@ -16,13 +16,14 @@ import {
     polyfillablePrototypeLookup,
     replaceableStaticLookup,
     httpPropertyConstraintLookup,
+    propertyAccessLookup,
     platformFunctionLookup,
     coreObjectNameSet,
     coreNonFunctionalMethodLookup,
     coreDeprecatedMethodLookup,
     maxCoreVersionLookup,
 } from '../data/ssjs.js';
-import type { HttpPropertyValueConstraint, SsjsFunction } from '../data/ssjs.js';
+import type { HttpPropertyValueConstraint, PropertyAccess, SsjsFunction } from '../data/ssjs.js';
 import { countFunctionArguments } from '../utils/text.js';
 
 // Diagnostic codes that code actions identify and act on, and that overlap with
@@ -65,6 +66,12 @@ export const DIAG_CODE_SSJS_CLR_CONTENT_ACCESS = 'ssjs/clr-content-access';
 // `req.emptyContentHandling = 5`, `req.retries = -2.45`, `req.method = 'POT'`).
 // Constraints live in ssjs-data. Mirrors the `ssjs-http-property-value` rule.
 export const DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY = 'ssjs/invalid-http-property-value';
+// Property access that goes against the direction the runtime supports: reading
+// a write-only property (`req.postData` — throws), reading a write-only-opaque
+// one (`Platform.Response.ContentType` — returns an opaque CLR value), or
+// assigning to a read-only one (`Platform.Request.Method` — no effect). Driven
+// by ssjs-data's `access` field. Mirrors the `ssjs-no-invalid-property-access` rule.
+export const DIAG_CODE_SSJS_INVALID_PROPERTY_ACCESS = 'ssjs/invalid-property-access';
 // Bare-name global that is officially documented but does NOT exist at runtime
 // (calling it throws a ReferenceError), e.g. `Redirect`. Driven by ssjs-data's
 // `notDefinedAtRuntime` flag. Mirrors the `ssjs-no-nonexistent-global` rule.
@@ -97,6 +104,7 @@ export const DIAG_CODE_SSJS_NONFUNCTIONAL_METHOD = 'ssjs/nonfunctional-method';
  *   - clr-header-access → `ssjs-no-clr-header-access`
  *   - clr-content-access → `ssjs-require-string-clr-content`
  *   - invalid-http-property-value → `ssjs-http-property-value`
+ *   - invalid-property-access → `ssjs-no-invalid-property-access`
  *   - nonexistent-global → `ssjs-no-nonexistent-global`
  *   - deprecated → `ssjs-no-deprecated-function`
  *   - invalid-arity → `ssjs-platform-function-arity`
@@ -112,6 +120,7 @@ export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_CLR_HEADER_ACCESS,
     DIAG_CODE_SSJS_CLR_CONTENT_ACCESS,
     DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY,
+    DIAG_CODE_SSJS_INVALID_PROPERTY_ACCESS,
     DIAG_CODE_SSJS_NONEXISTENT_GLOBAL,
     DIAG_CODE_SSJS_DEPRECATED,
     DIAG_CODE_SSJS_INVALID_ARITY,
@@ -598,6 +607,113 @@ function collectInvalidHttpPropertyDiagnostics(
             source: 'ssjs',
             code: DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY,
             data,
+        });
+    }
+
+    return diagnostics;
+}
+
+/**
+ * Builds the diagnostic message for a restricted-access violation.
+ * @param owner - Qualified owner name (e.g. `Platform.Request`).
+ * @param name - Property name as declared in ssjs-data.
+ * @param access - The restriction that was violated.
+ * @returns The human-readable diagnostic message.
+ */
+function propertyAccessMessage(owner: string, name: string, access: PropertyAccess): string {
+    if (access === 'write-only') {
+        return (
+            `'${owner}.${name}' is write-only. Reading it throws "Property Get method was not ` +
+            `found." at runtime — outside a try/catch that throw aborts the whole page. Keep the ` +
+            `value in your own variable instead.`
+        );
+    }
+    if (access === 'write-only-opaque') {
+        return (
+            `'${owner}.${name}' does not read back the value you assigned — the runtime returns ` +
+            `an opaque CLR value. Keep the value in your own variable instead.`
+        );
+    }
+    return `'${owner}.${name}' is read-only. Assigning to it has no effect.`;
+}
+
+/**
+ * Scan the document for property accesses that go against the direction the
+ * runtime supports: reading a `write-only` / `write-only-opaque` property, or
+ * assigning to a `read-only` one. The restrictions come from ssjs-data's
+ * `access` field, so this pass and the `ssjs-no-invalid-property-access` rule
+ * share one source of truth.
+ *
+ * Accesses on a bare identifier only count when that identifier holds a
+ * `Script.Util.HttpRequest` / `HttpGet` instance (same tracking as the other
+ * HTTP passes); `Platform.Request.*` / `Platform.Response.*` are matched on the
+ * literal member path.
+ * @param text - Full document text.
+ * @param commentRanges - Comment ranges to skip.
+ * @param budget - Maximum number of diagnostics still allowed.
+ * @returns Diagnostics for invalid property accesses (length ≤ budget).
+ */
+function collectInvalidPropertyAccessDiagnostics(
+    text: string,
+    commentRanges: Array<[number, number]>,
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    if (budget <= 0 || propertyAccessLookup.size === 0) return diagnostics;
+
+    // 1. Collect request variables (same shape as the other HTTP passes).
+    const requestVars = new Set<string>();
+    const reqPattern =
+        /\b(?:var\s+)?([A-Za-z_$][\w$]*)\s*=\s*(?:new\s+)?Script\s*\.\s*Util\s*\.\s*(?:HttpRequest|HttpGet)\s*\(/g;
+    let rm: RegExpExecArray | null;
+    while ((rm = reqPattern.exec(text)) !== null) {
+        if (isInCommentRange(rm.index, commentRanges)) continue;
+        requestVars.add(rm[1]);
+    }
+
+    // 2. Every `Platform.Request|Response.<prop>` or `<identifier>.<prop>` access.
+    // The Platform branch is listed first so it wins over the bare-identifier one.
+    const accessPattern =
+        /\bPlatform\s*\.\s*(Request|Response)\s*\.\s*([A-Za-z_$][\w$]*)|\b([A-Za-z_$][\w$]*)\s*\.\s*([A-Za-z_$][\w$]*)/g;
+    let am: RegExpExecArray | null;
+    while ((am = accessPattern.exec(text)) !== null && diagnostics.length < budget) {
+        if (isInCommentRange(am.index, commentRanges)) continue;
+        const [match, platformNs, platformProp, identifier, identifierProp] = am;
+        let owner: string;
+        let propName: string;
+        if (platformNs) {
+            owner = `Platform.${platformNs}`;
+            propName = platformProp;
+        } else if (requestVars.has(identifier)) {
+            owner = 'Script.Util.HttpRequest';
+            propName = identifierProp;
+        } else {
+            continue;
+        }
+        const entry = propertyAccessLookup.get(`${owner}.${propName}`.toLowerCase());
+        if (!entry) continue;
+
+        // A plain `=` right after the member expression makes this a write;
+        // `==` / `===` / `=>` are comparisons or arrows, i.e. still reads.
+        const after = text.slice(am.index + match.length);
+        const isWrite = /^\s*=(?![=>])/.test(after);
+        if (isWrite !== (entry.access === 'read-only')) continue;
+        // The call form (`Platform.Response.ContentType()`) is already reported
+        // by the property-call diagnostics — skip it here to avoid duplicates.
+        if (!isWrite && /^\s*\(/.test(after)) continue;
+
+        diagnostics.push({
+            severity:
+                entry.access === 'write-only-opaque'
+                    ? DiagnosticSeverity.Warning
+                    : DiagnosticSeverity.Error,
+            range: {
+                start: offsetToPosition(text, am.index),
+                end: offsetToPosition(text, am.index + match.length),
+            },
+            message: propertyAccessMessage(entry.owner, entry.name, entry.access),
+            source: 'ssjs',
+            code: DIAG_CODE_SSJS_INVALID_PROPERTY_ACCESS,
         });
     }
 
@@ -1534,6 +1650,19 @@ export function validateSsjs(
         );
         problems += invalidPropDiagnostics.length;
         diagnostics.push(...invalidPropDiagnostics);
+    }
+
+    // 4e-2. Property accesses against the runtime-supported direction: reads of
+    // write-only properties (`req.postData`, `Platform.Response.ContentType`) and
+    // assignments to read-only ones (`Platform.Request.Method = …`).
+    if (problems < max) {
+        const accessDiagnostics = collectInvalidPropertyAccessDiagnostics(
+            text,
+            commentRanges,
+            max - problems,
+        );
+        problems += accessDiagnostics.length;
+        diagnostics.push(...accessDiagnostics);
     }
 
     // 4f. Platform.Function calls with a discontinuous-overload arity violation

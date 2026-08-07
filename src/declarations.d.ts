@@ -165,6 +165,13 @@ declare module 'ssjs-data' {
         type?: string;
         optional?: boolean;
     }
+    /**
+     * Restricted access direction of a property at runtime:
+     * - `write-only` — assignment works, reading throws.
+     * - `write-only-opaque` — assignment works, reading returns an opaque CLR value.
+     * - `read-only` — reading works, assignment is silently ineffective.
+     */
+    export type SsjsDataPropertyAccess = 'write-only' | 'write-only-opaque' | 'read-only';
     export interface SsjsDataFunction {
         name: string;
         minArgs: number;
@@ -184,6 +191,11 @@ declare module 'ssjs-data' {
          * Loading a newer Core version leaves it `undefined` at runtime.
          */
         maxCoreVersion?: string;
+        /**
+         * Restricted access direction of a property at runtime. See
+         * `propertyAccessLookup` for the meaning of each value.
+         */
+        access?: SsjsDataPropertyAccess;
         /**
          * True when the global is documented but throws a ReferenceError at runtime.
          */
@@ -311,9 +323,23 @@ declare module 'ssjs-data' {
         differsFromOfficialDocs?: boolean;
         officialDocsNote?: string;
         valueConstraint?: SsjsDataValueConstraint;
+        /**
+         * Restricted access direction of the property at runtime. See
+         * `propertyAccessLookup` for the meaning of each value.
+         */
+        access?: SsjsDataPropertyAccess;
     }
     export const SCRIPT_UTIL_REQUEST_PROPERTIES: SsjsDataHttpProperty[];
     export const SCRIPT_UTIL_HTTPGET_PROPERTIES: SsjsDataHttpProperty[];
+    /**
+     * Properties whose access direction is restricted at runtime.
+     * Map<qualifiedNameLower, { name, owner, access }> — e.g.
+     * "platform.request.method" maps to access "read-only".
+     */
+    export const propertyAccessLookup: Map<
+        string,
+        { name: string; owner: string; access: SsjsDataPropertyAccess }
+    >;
     export const ECMASCRIPT_BUILTINS: SsjsDataBuiltin[];
     export const KNOWN_UNSUPPORTED: SsjsDataKnownUnsupported[];
     export const POLYFILLABLE_METHODS: SsjsDataPolyfillable[];

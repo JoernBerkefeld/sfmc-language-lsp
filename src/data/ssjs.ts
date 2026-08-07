@@ -21,6 +21,7 @@ import {
     coreNonFunctionalMethodLookup as ssjsCoreNonFunctionalMethodLookup,
     coreDeprecatedMethodLookup as ssjsCoreDeprecatedMethodLookup,
     maxCoreVersionLookup as ssjsMaxCoreVersionLookup,
+    propertyAccessLookup as ssjsPropertyAccessLookup,
     WSPROXY_METHODS,
     HTTP_METHODS,
     HTTPHEADER_METHODS,
@@ -470,6 +471,25 @@ export interface HttpPropertyValueConstraint {
  * and HttpGet define the same property, the constraints are identical, so a
  * single map keyed by name is sufficient.
  */
+/**
+ * Restricted access direction of a property at runtime:
+ * `write-only` — assignment works, reading throws;
+ * `write-only-opaque` — assignment works, reading returns an opaque CLR value;
+ * `read-only` — reading works, assignment is silently ineffective.
+ */
+export type PropertyAccess = 'write-only' | 'write-only-opaque' | 'read-only';
+
+/**
+ * Properties whose access direction is restricted at runtime, keyed by the
+ * lowercase qualified name (e.g. `platform.request.method`). Re-exposed from
+ * ssjs-data so the validator can flag reads of write-only properties and
+ * writes to read-only ones.
+ */
+export const propertyAccessLookup: Map<
+    string,
+    { name: string; owner: string; access: PropertyAccess }
+> = ssjsPropertyAccessLookup;
+
 export const httpPropertyConstraintLookup = new Map<string, HttpPropertyValueConstraint>(
     [
         ...(SCRIPT_UTIL_REQUEST_PROPERTIES as Array<{
