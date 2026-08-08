@@ -325,14 +325,15 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
     });
 
     it('arg-type diagnostic line is correct after multi-line comment block (regression)', () => {
-        // Uppercase(42) is on line 4 (0-indexed) — after a 3-line block comment.
-        // The first param of Uppercase expects a string but receives a number literal.
+        // Uppercase(true) is on line 4 (0-indexed) — after a 3-line block comment.
+        // The first param of Uppercase accepts string|number|date, so a boolean
+        // literal is the mismatch that triggers the diagnostic.
         const code = [
             '%%[',
             '/* comment line 1',
             '   comment line 2',
             '   comment line 3 */',
-            'SET @x = Uppercase(42)',
+            'SET @x = Uppercase(true)',
             ']%%',
         ].join('\n');
         const doc = { text: code, languageId: 'ampscript' };
@@ -368,6 +369,35 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
             (x) => x.message.includes('expects a') && x.message.includes('Length'),
         );
         assert.ok(d, 'expected arg-type diagnostic for Length(true)');
+    });
+
+    it('math functions accept a numeric string argument (ampscript-data v3.2.0)', () => {
+        // Add/Subtract/Multiply/Divide/Mod/Random params are string|number: a
+        // string that parses as a number is accepted at runtime.
+        for (const call of ['Add("15",27)', 'Divide(100,"4")', 'Random("1","100")']) {
+            const doc = { text: `%%=${call}=%%`, languageId: 'ampscript' };
+            const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+            const d = diags.find((x) => x.message.includes('expects a'));
+            assert.ok(!d, `unexpected arg-type diagnostic for ${call}`);
+        }
+    });
+
+    it('Concat accepts a single argument (ampscript-data v3.2.0)', () => {
+        const doc = { text: "%%=Concat('Hello')=%%", languageId: 'ampscript' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+        const d = diags.find(
+            (x) => x.message.includes('requires at least') && x.message.includes('Concat'),
+        );
+        assert.ok(!d, 'unexpected arity diagnostic for single-argument Concat');
+    });
+
+    it('Concat still requires at least one argument', () => {
+        const doc = { text: '%%=Concat()=%%', languageId: 'ampscript' };
+        const diags = service.validate(doc, { maxNumberOfProblems: 100 });
+        const d = diags.find(
+            (x) => x.message.includes('requires at least') && x.message.includes('Concat'),
+        );
+        assert.ok(d, 'expected arity diagnostic for zero-argument Concat');
     });
 });
 
@@ -2342,9 +2372,9 @@ describe('Signature Help', () => {
     });
 
     it('parameter labels use offset ranges so repeating slots can be highlighted', () => {
-        // Concat params: string1: string, string2: string, stringN?: string.
+        // Concat params: string1, string2? and stringN?, all string|number|date.
         // The LSP emits an offset-tuple label for the full typed token so the
-        // client highlights the complete `stringN?: string` token.
+        // client highlights the complete `stringN?: string|number|date` token.
         const sig = ampSig("%%=Concat('a','b','c',");
         const stringNLabel = sig.signatures[0].parameters[2].label;
         assert.ok(
@@ -2352,7 +2382,10 @@ describe('Signature Help', () => {
             `expected offset-tuple label for stringN, got: ${JSON.stringify(stringNLabel)}`,
         );
         const [start, end] = stringNLabel;
-        assert.strictEqual(sig.signatures[0].label.slice(start, end), 'stringN?: string');
+        assert.strictEqual(
+            sig.signatures[0].label.slice(start, end),
+            'stringN?: string|number|date',
+        );
     });
 
     it('DatePart: enum values are surfaced in signature help param docs', () => {

@@ -103,6 +103,33 @@ declare module 'ampscript-data' {
          * Human-readable reason explaining the deprecation.
          */
         deprecatedReason?: string;
+        /**
+         * Exact set of permitted argument counts for a discontinuous overload.
+         * When present, a call is valid only when its argument count is within
+         * [minArgs, maxArgs] AND a member of this array.
+         */
+        validArities?: number[];
+        /**
+         * True when the entry's behavior was verified against the live AMPscript engine.
+         */
+        isConfirmed?: boolean;
+        /**
+         * True when a runtime verification was attempted but could not complete.
+         * Requires `isConfirmed: false` and a `verificationBlockedReason`.
+         */
+        verificationBlocked?: boolean;
+        /**
+         * Blocker category, required whenever `verificationBlocked` is true.
+         */
+        verificationBlockedReason?: string;
+        /**
+         * True when the verified runtime behavior contradicts the official docs.
+         */
+        differsFromOfficialDocs?: boolean;
+        /**
+         * Evidence describing how the runtime behavior differs from the official docs.
+         */
+        officialDocsNote?: string;
     }
     export interface AmpscriptDataKeyword {
         name: string;
@@ -130,6 +157,10 @@ declare module 'ampscript-data' {
     export const AMPSCRIPT_KEYWORDS: AmpscriptDataKeyword[];
     export const AMPSCRIPT_GLOBALS: AmpscriptDataGlobal[];
     export const PERSONALIZATION_STRINGS: AmpscriptDataPersonalization[];
+    /**
+     * Blocker categories permitted as `verificationBlockedReason`.
+     */
+    export const VERIFICATION_BLOCKED_REASONS: readonly string[];
     /**
      * Returns true when the given name is a known Marketing Cloud system
      * personalization string, exact or parameterized. Case-insensitive.
