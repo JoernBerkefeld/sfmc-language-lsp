@@ -87,10 +87,11 @@ declare module 'ampscript-data' {
          */
         handlebarsEquivalent?: string | null;
         /**
-         * True when the function is supported by AMPscript-in-MCN but has no
-         * Handlebars counterpart, so converting it to Handlebars requires a manual rewrite.
+         * Only meaningful when `handlebarsEquivalent` is set: true when the helper
+         * is an argument-for-argument drop-in, false when it does the same job with
+         * a different call shape (conversion emits a hint rather than a substitution).
          */
-        mcnHandlebarsGap?: boolean;
+        handlebarsExact?: boolean;
         /**
          * True when the function is deprecated and should be avoided in new code.
          */
@@ -135,6 +136,30 @@ declare module 'ampscript-data' {
         name: string;
         description: string;
         snippet?: string;
+        /**
+         * Name of the Handlebars helper/construct that plays the same role, or null
+         * when the keyword has no counterpart.
+         */
+        handlebarsEquivalent?: string | null;
+        /**
+         * Human-readable caveat about how the Handlebars construct differs; only set
+         * when `handlebarsEquivalent` is non-null.
+         */
+        handlebarsNote?: string | null;
+    }
+    export interface AmpscriptDataOperator {
+        name: string;
+        category: 'comparison' | 'assignment';
+        description: string;
+        /**
+         * Name of the Handlebars helper that plays the same role, or null.
+         */
+        handlebarsEquivalent: string | null;
+        /**
+         * Caveat about how the Handlebars helper is invoked; only set when
+         * `handlebarsEquivalent` is non-null.
+         */
+        handlebarsNote: string | null;
     }
     export interface AmpscriptDataPersonalization {
         name: string;
@@ -155,6 +180,7 @@ declare module 'ampscript-data' {
     export const FUNCTION_CANONICAL_MAP: Map<string, string>;
     export const deprecatedFunctionLookup: Map<string, AmpscriptDataFunction>;
     export const AMPSCRIPT_KEYWORDS: AmpscriptDataKeyword[];
+    export const AMPSCRIPT_OPERATORS: AmpscriptDataOperator[];
     export const AMPSCRIPT_GLOBALS: AmpscriptDataGlobal[];
     export const PERSONALIZATION_STRINGS: AmpscriptDataPersonalization[];
     /**
