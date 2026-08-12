@@ -438,6 +438,30 @@ describe('AMPscript deprecation in hover & completion', () => {
     });
 });
 
+// ── Non-functional-at-runtime surfacing — AMPscript ──────────────────────────
+
+describe('AMPscript non-functional-at-runtime in hover', () => {
+    it('hover for a nonFunctionalAtRuntime function shows a non-functional banner', () => {
+        const line = "%%=GetPortfolioItem('key')=%%";
+        const doc = { text: line, languageId: 'ampscript' };
+        const position = { line: 0, character: line.indexOf('GetPortfolioItem') + 1 };
+        const hover = service.getHover(doc, line, position);
+        assert.ok(hover, 'expected hover for GetPortfolioItem');
+        const value = typeof hover.contents === 'string' ? hover.contents : hover.contents.value;
+        assert.match(value, /Non-functional at runtime/i, 'hover should flag non-functional');
+    });
+
+    it('hover for a normal function shows no non-functional banner', () => {
+        const line = '%%=Add(1, 2)=%%';
+        const doc = { text: line, languageId: 'ampscript' };
+        const position = { line: 0, character: line.indexOf('Add') + 1 };
+        const hover = service.getHover(doc, line, position);
+        assert.ok(hover, 'expected hover for Add');
+        const value = typeof hover.contents === 'string' ? hover.contents : hover.contents.value;
+        assert.doesNotMatch(value, /Non-functional at runtime/i);
+    });
+});
+
 // ── MCN diagnostics — SSJS ────────────────────────────────────────────────────
 
 describe('MCN SSJS diagnostics (targetPlatform: next)', () => {
@@ -2579,6 +2603,44 @@ describe('AMPscript deprecated function diagnostics', () => {
         assert.ok(
             diags.every((d) => d.code !== 'ampscript/deprecated-function'),
             `unexpected deprecated diagnostic: ${JSON.stringify(diags)}`,
+        );
+    });
+});
+
+// ── Non-functional-at-runtime diagnostics — AMPscript ────────────────────────
+
+describe('AMPscript non-functional-at-runtime diagnostics', () => {
+    it('reports GetPortfolioItem as a non-functional Error', () => {
+        const diags = ampValidate("%%=GetPortfolioItem('key')=%%");
+        const d = diags.find((x) => x.code === 'ampscript/nonfunctional-function');
+        assert.ok(d, `expected non-functional diagnostic, got: ${JSON.stringify(diags)}`);
+        assert.equal(d.severity, 1, 'non-functional diagnostic must be an Error (severity 1)');
+        assert.match(d.message, /no known working invocation/i);
+    });
+
+    it('reports GetPublishedSocialContent as a non-functional Error', () => {
+        const diags = ampValidate("%%=GetPublishedSocialContent('id')=%%");
+        assert.ok(
+            diags.some((x) => x.code === 'ampscript/nonfunctional-function'),
+            `expected non-functional diagnostic, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('does not flag normal functions as non-functional', () => {
+        const diags = ampValidate('%%[ set @x = Add(1,2) ]%%');
+        assert.ok(
+            diags.every((d) => d.code !== 'ampscript/nonfunctional-function'),
+            `unexpected non-functional diagnostic: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('is suppressed by disableLspDiagnosticsForEslintRules (duplicates amp-no-nonfunctional-function)', () => {
+        const doc = { text: "%%=GetPortfolioItem('key')=%%", languageId: 'ampscript' };
+        const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
+        const diags = service.validate(doc, settings);
+        assert.ok(
+            diags.every((d) => d.code !== 'ampscript/nonfunctional-function'),
+            `expected non-functional diagnostic to be suppressed, got: ${JSON.stringify(diags)}`,
         );
     });
 });

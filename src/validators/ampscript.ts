@@ -31,6 +31,12 @@ export const DIAG_CODE_NESTED_SCRIPT_TAG = 'ampscript/nested-script-tag';
 export const DIAG_CODE_NESTED_DELIMITER_IN_SCRIPT = 'ampscript/nested-delimiter-in-script';
 export const DIAG_CODE_NESTED_DELIMITER = 'ampscript/nested-delimiter';
 export const DIAG_CODE_DEPRECATED_FUNCTION = 'ampscript/deprecated-function';
+// Confirmed non-functional at runtime (every reached call aborts the page,
+// ampscript-data `nonFunctionalAtRuntime`). Reported as an Error — stronger than
+// a deprecation. Duplicates the eslint-plugin-sfmc `amp-no-nonfunctional-function`
+// rule, so it IS added to ESLINT_DUPLICATE_DIAG_CODES and is suppressed when
+// `disableLspDiagnosticsForEslintRules` is enabled.
+export const DIAG_CODE_NONFUNCTIONAL_FUNCTION = 'ampscript/nonfunctional-function';
 
 // Diagnostic codes for checks that overlap with eslint-plugin-sfmc rules.
 // When `disableLspDiagnosticsForEslintRules` is enabled these codes are filtered out.
@@ -62,6 +68,7 @@ export const ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_NESTED_DELIMITER,
     DIAG_CODE_NESTED_DELIMITER_IN_SCRIPT,
     DIAG_CODE_DEPRECATED_FUNCTION,
+    DIAG_CODE_NONFUNCTIONAL_FUNCTION,
     DIAG_CODE_MCN_UNSUPPORTED_FUNCTION,
 ]);
 
@@ -111,6 +118,24 @@ for (const fn of canonicalFunctions) {
     if (Array.isArray(fn.repeat) && fn.repeat.length > 0) {
         repeatLookup.set(fn.name.toLowerCase(), fn.repeat);
     }
+}
+
+/**
+ * Extract the first sentence of an `officialDocsNote` so the non-functional
+ * diagnostic can surface a short reason without dumping the full evidence note.
+ * @param note - The full `officialDocsNote` string, if any.
+ * @returns The first sentence (including its trailing period), or an empty string.
+ */
+function nonFunctionalShortNote(note: string | undefined): string {
+    if (typeof note !== 'string') {
+        return '';
+    }
+    const trimmed = note.trim();
+    if (trimmed === '') {
+        return '';
+    }
+    const sentenceEnd = trimmed.indexOf('. ');
+    return sentenceEnd === -1 ? trimmed : trimmed.slice(0, sentenceEnd + 1);
 }
 
 /**
@@ -507,6 +532,26 @@ export function validateAmpscript(
                 source: 'ampscript',
                 code: DIAG_CODE_DEPRECATED_FUNCTION,
                 data: replacement || undefined,
+            });
+        }
+
+        // 4b. Non-functional-at-runtime error. The function resolves but every
+        // reached call aborts the page (ampscript-data `nonFunctionalAtRuntime`),
+        // e.g. GetPortfolioItem / MSCRM family. Reported as an Error because it is
+        // confirmed to fail — stronger than a deprecation warning. The entry is
+        // still kept in completions/hover.
+        if (fnEntry?.nonFunctionalAtRuntime && problems < max) {
+            problems++;
+            const note = nonFunctionalShortNote(fnEntry.officialDocsNote);
+            diagnostics.push({
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, functionMatch.index),
+                    end: offsetToPosition(text, functionMatch.index + functionName.length),
+                },
+                message: `'${fnEntry.name}' exists in SFMC but has no known working invocation at runtime (every tested call aborts the page).${note ? ` ${note}` : ''}`,
+                source: 'ampscript',
+                code: DIAG_CODE_NONFUNCTIONAL_FUNCTION,
             });
         }
 

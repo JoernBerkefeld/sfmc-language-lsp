@@ -115,6 +115,12 @@ declare module 'ampscript-data' {
          */
         isConfirmed?: boolean;
         /**
+         * True when the function resolves at runtime but has no known working
+         * invocation — every reached call aborts the page (e.g. the underlying
+         * Classic feature is retired). Stronger than a deprecation warning.
+         */
+        nonFunctionalAtRuntime?: boolean;
+        /**
          * True when a runtime verification was attempted but could not complete.
          * Requires `isConfirmed: false` and a `verificationBlockedReason`.
          */
