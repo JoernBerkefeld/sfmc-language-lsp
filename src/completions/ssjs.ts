@@ -41,7 +41,9 @@ function buildSsjsCatalog(): CompletionItem[] {
         insertText: buildSsjsFunctionSnippet(fn),
         insertTextFormat: InsertTextFormat.Snippet,
         data: { type: 'ssjs-global', name: fn.name },
-        ...(fn.deprecated && { tags: [CompletionItemTag.Deprecated] }),
+        ...((fn.deprecated || fn.nonFunctionalAtRuntime) && {
+            tags: [CompletionItemTag.Deprecated],
+        }),
     }));
 
     for (const fn of platformFunctions) {
@@ -55,7 +57,9 @@ function buildSsjsCatalog(): CompletionItem[] {
             insertTextFormat: InsertTextFormat.Snippet,
             filterText: `Platform.Function.${fn.name} ${fn.name}`,
             data: { type: 'ssjs-platform-function', name: fn.name },
-            ...(fn.deprecated && { tags: [CompletionItemTag.Deprecated] }),
+            ...((fn.deprecated || fn.nonFunctionalAtRuntime) && {
+                tags: [CompletionItemTag.Deprecated],
+            }),
         });
     }
 

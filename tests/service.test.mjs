@@ -436,29 +436,34 @@ describe('AMPscript deprecation in hover & completion', () => {
             'ContentBlockByID completion must not be tagged Deprecated',
         );
     });
+
+    it('completion item for a nonFunctionalAtRuntime function is struck through (Deprecated tag)', () => {
+        const doc = { text: '%%=  =%%', languageId: 'ampscript' };
+        const items = service.getCompletions(doc, { line: 0, character: 4 });
+        const item = items.find((i) => i.label === 'GetPortfolioItem');
+        assert.ok(item, 'expected GetPortfolioItem completion item');
+        assert.ok(
+            Array.isArray(item.tags) && item.tags.includes(1),
+            'GetPortfolioItem completion must carry CompletionItemTag.Deprecated (1) so it renders struck through',
+        );
+    });
 });
 
 // ── Non-functional-at-runtime surfacing — AMPscript ──────────────────────────
 
 describe('AMPscript non-functional-at-runtime in hover', () => {
-    it('hover for a nonFunctionalAtRuntime function shows a non-functional banner', () => {
+    it('hover for a nonFunctionalAtRuntime function shows no banner (covered by the error diagnostic)', () => {
         const line = "%%=GetPortfolioItem('key')=%%";
         const doc = { text: line, languageId: 'ampscript' };
         const position = { line: 0, character: line.indexOf('GetPortfolioItem') + 1 };
         const hover = service.getHover(doc, line, position);
         assert.ok(hover, 'expected hover for GetPortfolioItem');
         const value = typeof hover.contents === 'string' ? hover.contents : hover.contents.value;
-        assert.match(value, /Non-functional at runtime/i, 'hover should flag non-functional');
-    });
-
-    it('hover for a normal function shows no non-functional banner', () => {
-        const line = '%%=Add(1, 2)=%%';
-        const doc = { text: line, languageId: 'ampscript' };
-        const position = { line: 0, character: line.indexOf('Add') + 1 };
-        const hover = service.getHover(doc, line, position);
-        assert.ok(hover, 'expected hover for Add');
-        const value = typeof hover.contents === 'string' ? hover.contents : hover.contents.value;
-        assert.doesNotMatch(value, /Non-functional at runtime/i);
+        assert.doesNotMatch(
+            value,
+            /Non-functional at runtime/i,
+            'hover should not duplicate the error diagnostic with a banner',
+        );
     });
 });
 

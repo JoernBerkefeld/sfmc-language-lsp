@@ -17,24 +17,6 @@ export interface LocalSsjsFunction {
 }
 
 /**
- * Extract the first sentence of an `officialDocsNote` so a hover banner or
- * diagnostic can surface a short reason without dumping the full evidence note.
- * @param note - The full `officialDocsNote` string, if any.
- * @returns The first sentence (including its trailing period), or an empty string.
- */
-function nonFunctionalShortNote(note: string | undefined): string {
-    if (typeof note !== 'string') {
-        return '';
-    }
-    const trimmed = note.trim();
-    if (trimmed === '') {
-        return '';
-    }
-    const sentenceEnd = trimmed.indexOf('. ');
-    return sentenceEnd === -1 ? trimmed : trimmed.slice(0, sentenceEnd + 1);
-}
-
-/**
  * Build typed-signature Markdown for an AMPscript function.
  * @param fn - AMPscript function descriptor.
  * @param links - Optional documentation URLs, MCN status, and notes to render below the description.
@@ -70,12 +52,6 @@ export function buildFunctionMarkdown(
         if (fn.deprecatedReason) parts.push(fn.deprecatedReason);
         if (fn.deprecatedReplacement) parts.push(`Use \`${fn.deprecatedReplacement}\` instead.`);
         lines.push('', `> ${parts.join(' ')}`);
-    }
-
-    if (fn.nonFunctionalAtRuntime) {
-        const note = nonFunctionalShortNote(fn.officialDocsNote);
-        const banner = `❌ **Non-functional at runtime.** This function exists in SFMC but has no known working invocation — every tested call aborts the page.${note ? ` ${note}` : ''}`;
-        lines.push('', `> ${banner}`);
     }
 
     if (links?.docUrl || links?.guideUrl) {

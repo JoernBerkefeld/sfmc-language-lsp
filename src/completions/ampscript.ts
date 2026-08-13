@@ -20,7 +20,11 @@ export const functionCompletionItems: CompletionItem[] = ampscriptFunctions.map(
     detail: `(${fn.category}) ${fn.name}`,
     insertText: buildFunctionSnippet(fn),
     insertTextFormat: InsertTextFormat.Snippet,
-    ...(fn.deprecated && { tags: [CompletionItemTag.Deprecated] }),
+    // Non-functional-at-runtime functions are struck through like deprecated ones:
+    // they resolve but every reached call aborts the page, so the call site is a bug.
+    ...((fn.deprecated || fn.nonFunctionalAtRuntime) && {
+        tags: [CompletionItemTag.Deprecated],
+    }),
     data: { type: 'function', index },
 }));
 
