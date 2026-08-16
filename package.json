@@ -55,7 +55,7 @@
     },
     "dependencies": {
         "@handlebars/parser": "^2.2.2",
-        "ampscript-data": "^3.5.0",
+        "ampscript-data": "^3.6.0",
         "handlebars-data": "^0.3.1",
         "ssjs-data": "^1.7.0",
         "vscode-languageserver-types": "^3.18.0"

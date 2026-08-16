@@ -137,6 +137,19 @@ declare module 'ampscript-data' {
          * Evidence describing how the runtime behavior differs from the official docs.
          */
         officialDocsNote?: string;
+        /**
+         * Runtime-context flag (orthogonal to the Engagement/Next platform flags): true when a
+         * live CloudPage/landing-page probe rendered the function successfully, false when it was
+         * probed there and proven not to work. Absent means never probed — not unsupported.
+         */
+        supportedInCloudPage?: boolean;
+        /**
+         * Runtime-context flag for the email/send context: true when a live email/send probe
+         * rendered or evaluated the function successfully (a data/connector gate that still lets
+         * the function run counts as supported), false when the send-content parser proved it does
+         * not work there. Absent means never probed — not unsupported.
+         */
+        supportedInEmail?: boolean;
     }
     export interface AmpscriptDataKeyword {
         name: string;
