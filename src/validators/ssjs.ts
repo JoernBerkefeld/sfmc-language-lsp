@@ -92,6 +92,24 @@ export const DIAG_CODE_SSJS_INVALID_ARITY = 'ssjs/invalid-arity';
 // Error (every tested invocation fails at runtime). Mirrors the
 // `ssjs-no-nonfunctional-method` rule.
 export const DIAG_CODE_SSJS_NONFUNCTIONAL_METHOD = 'ssjs/nonfunctional-method';
+// Reliance on switch fall-through, which the SFMC SSJS engine does not implement:
+// an empty leading `case` label does not share the next label's body, and a
+// break-less case body does not cascade into the following case. Each case runs
+// only its own statements up to the next case/default. Mirrors the
+// `ssjs-no-switch-fallthrough` rule.
+export const DIAG_CODE_SSJS_SWITCH_FALLTHROUGH = 'ssjs/switch-fallthrough';
+// `new X()` where X is a user-defined constructor whose body `return`s an object
+// literal. The SFMC engine returns the empty `this` and silently discards the
+// returned object, so the members the caller expects are `undefined`; calling
+// one of them as a function then aborts the CloudPage. LSP-only (no eslint
+// mirror) — the whole-document function map is needed to resolve the callee.
+export const DIAG_CODE_SSJS_NEW_OBJECT_RETURN = 'ssjs/new-object-returning-constructor';
+// A call in one `<script runat="server">` block to a function whose only
+// declaration is in a LATER block. SSJS executes server blocks in document order
+// over one shared global scope, so a forward cross-block reference throws
+// "Object expected" at runtime. LSP-only — ESLint sees a single block at a time
+// and cannot detect a cross-block forward reference.
+export const DIAG_CODE_SSJS_CROSS_BLOCK_FORWARD_REF = 'ssjs/cross-block-forward-reference';
 
 /**
  * SSJS diagnostic codes that duplicate eslint-plugin-sfmc rules and can be
@@ -109,6 +127,7 @@ export const DIAG_CODE_SSJS_NONFUNCTIONAL_METHOD = 'ssjs/nonfunctional-method';
  *   - deprecated → `ssjs-no-deprecated-function`
  *   - invalid-arity → `ssjs-platform-function-arity`
  *   - nonfunctional-method → `ssjs-no-nonfunctional-method`
+ *   - switch-fallthrough → `ssjs-no-switch-fallthrough`
  */
 export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_POLYFILL_REQUIRED,
@@ -125,6 +144,7 @@ export const SSJS_ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_SSJS_DEPRECATED,
     DIAG_CODE_SSJS_INVALID_ARITY,
     DIAG_CODE_SSJS_NONFUNCTIONAL_METHOD,
+    DIAG_CODE_SSJS_SWITCH_FALLTHROUGH,
 ]);
 
 /**
@@ -1172,6 +1192,540 @@ function collectDeprecatedMethodDiagnostics(
 }
 
 /**
+ * A single top-level clause of a switch body: its `case`/`default` keyword
+ * offset, the offset where its body (consequent statements) begins, and the
+ * offset just before the next clause keyword (or the closing brace).
+ */
+interface SwitchClause {
+    keywordOffset: number;
+    bodyStart: number;
+    bodyEnd: number;
+}
+
+/**
+ * Find the matching closing brace for the `{` at `openIndex` in the sanitized
+ * text (strings/comments already blanked so braces inside them do not count).
+ * @param sanitized - String/comment-blanked copy of the document.
+ * @param openIndex - Index of the opening `{`.
+ * @returns Index of the matching `}`, or -1 when unbalanced.
+ */
+function findMatchingBrace(sanitized: string, openIndex: number): number {
+    let depth = 0;
+    for (let index = openIndex; index < sanitized.length; index++) {
+        const ch = sanitized[index];
+        if (ch === '{') depth++;
+        else if (ch === '}') {
+            depth--;
+            if (depth === 0) return index;
+        }
+    }
+    return -1;
+}
+
+/**
+ * Split a switch body (the text between its braces) into its top-level
+ * `case`/`default` clauses. Only depth-0 `case`/`default` keywords count, so
+ * labels inside a nested switch/block are not treated as clauses of this one.
+ * @param sanitized - String/comment-blanked copy of the document.
+ * @param bodyStart - Offset just after the switch body's opening `{`.
+ * @param bodyEnd - Offset of the switch body's closing `}`.
+ * @returns The clauses in source order (empty when the switch has none).
+ */
+function splitSwitchClauses(sanitized: string, bodyStart: number, bodyEnd: number): SwitchClause[] {
+    const clausePattern = /\b(case|default)\b/g;
+    clausePattern.lastIndex = bodyStart;
+    const keywordOffsets: number[] = [];
+    let depth = 0;
+    let index = bodyStart;
+    // Walk char by char, tracking brace depth, and record clause keywords found
+    // only at depth 0 (i.e. directly inside this switch, not a nested block).
+    while (index < bodyEnd) {
+        const ch = sanitized[index];
+        if (ch === '{') {
+            depth++;
+            index++;
+            continue;
+        }
+        if (ch === '}') {
+            depth--;
+            index++;
+            continue;
+        }
+        if (depth === 0 && (ch === 'c' || ch === 'd')) {
+            clausePattern.lastIndex = index;
+            const match = clausePattern.exec(sanitized);
+            if (match && match.index === index) {
+                keywordOffsets.push(index);
+                index += match[0].length;
+                continue;
+            }
+        }
+        index++;
+    }
+
+    return keywordOffsets.map((keywordOffset, order) => {
+        // The body of a clause starts after its label's colon.
+        const colon = sanitized.indexOf(':', keywordOffset);
+        const bodyStartOffset = colon === -1 ? keywordOffset : colon + 1;
+        const bodyEndOffset =
+            order + 1 < keywordOffsets.length ? keywordOffsets[order + 1] : bodyEnd;
+        return {
+            keywordOffset,
+            bodyStart: bodyStartOffset,
+            bodyEnd: bodyEndOffset,
+        };
+    });
+}
+
+/**
+ * Scan the document for `switch` statements that rely on fall-through, which the
+ * SFMC SSJS engine never performs. Two broken shapes are flagged on every clause
+ * except the last (which has nothing to fall into):
+ *   - an EMPTY `case`/`default` label immediately followed by another clause
+ *     (stacked-label fall-through), and
+ *   - a NON-EMPTY body that does not end in a terminating statement
+ *     (`break`/`return`/`throw`/`continue`) before the next clause (cascade
+ *     fall-through).
+ * Mirrors the eslint-plugin-sfmc `ssjs-no-switch-fallthrough` rule.
+ * @param text - Full document text.
+ * @param commentRanges - Comment ranges to skip.
+ * @param budget - Maximum number of diagnostics still allowed.
+ * @returns Diagnostics for switch fall-through reliance (length ≤ budget).
+ */
+function collectSwitchFallthroughDiagnostics(
+    text: string,
+    commentRanges: Array<[number, number]>,
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    if (budget <= 0) return diagnostics;
+
+    // Blank strings/comments so braces, colons and keywords inside them are
+    // ignored; offsets stay aligned 1:1 with the original text.
+    const sanitized = blankStringsAndComments(text);
+    const switchPattern = /\bswitch\s*\(/g;
+    let sm: RegExpExecArray | null;
+    while ((sm = switchPattern.exec(sanitized)) !== null && diagnostics.length < budget) {
+        if (isInCommentRange(sm.index, commentRanges)) continue;
+        // Find the `{` that opens the switch body (skip the discriminant parens).
+        const braceOpen = sanitized.indexOf('{', sm.index + sm[0].length);
+        if (braceOpen === -1) continue;
+        const braceClose = findMatchingBrace(sanitized, braceOpen);
+        if (braceClose === -1) continue;
+
+        const clauses = splitSwitchClauses(sanitized, braceOpen + 1, braceClose);
+        const remaining = budget - diagnostics.length;
+        diagnostics.push(...clauseFallthroughDiagnostics(text, sanitized, clauses, remaining));
+    }
+
+    return diagnostics;
+}
+
+/**
+ * Build fall-through diagnostics for the clauses of a single `switch` body.
+ * Every clause except the last is checked (the last has nothing to fall into).
+ * @param text - Full document text (for offset→position mapping).
+ * @param sanitized - Strings/comments-blanked text (for body inspection).
+ * @param clauses - Clauses of one switch body, in source order.
+ * @param budget - Maximum number of diagnostics to emit.
+ * @returns Diagnostics for clauses relying on fall-through (length ≤ budget).
+ */
+function clauseFallthroughDiagnostics(
+    text: string,
+    sanitized: string,
+    clauses: SwitchClause[],
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    // Every clause except the last (nothing follows it to fall into).
+    const nonTerminalClauses = clauses.slice(0, -1);
+    for (const clause of nonTerminalClauses) {
+        if (diagnostics.length >= budget) break;
+        const body = sanitized.slice(clause.bodyStart, clause.bodyEnd);
+        const isEmpty = body.trim().length === 0;
+        const terminates = /\b(?:break|return|throw|continue)\b[^;]*;?\s*$/.test(body.trim());
+        // A non-empty, properly terminated body does not rely on fall-through.
+        if (!isEmpty && terminates) continue;
+        diagnostics.push({
+            severity: DiagnosticSeverity.Warning,
+            range: {
+                start: offsetToPosition(text, clause.keywordOffset),
+                end: offsetToPosition(text, clause.bodyStart),
+            },
+            message: isEmpty
+                ? 'This empty case relies on fall-through into the next label, but SFMC SSJS ' +
+                  'has no fall-through — the shared body never runs. Give this case its own ' +
+                  'break-terminated body, or use if / a lookup map.'
+                : 'This case body has no terminating break/return/throw, so it relies on ' +
+                  'cascading into the next case — but SFMC SSJS has no fall-through and each ' +
+                  'case runs only its own statements. End every case with break, or use if / ' +
+                  'a lookup map.',
+            source: 'ssjs',
+            code: DIAG_CODE_SSJS_SWITCH_FALLTHROUGH,
+        });
+    }
+    return diagnostics;
+}
+
+/**
+ * Names of the built-in / host constructors that are legitimately used with
+ * `new` and must never be flagged by the object-returning-constructor check,
+ * even in the unlikely event a same-named local function exists.
+ */
+const NEW_SAFE_BUILTINS = new Set<string>([
+    'Object',
+    'Array',
+    'String',
+    'Number',
+    'Boolean',
+    'Date',
+    'RegExp',
+    'Error',
+    'Function',
+]);
+
+/**
+ * Determine whether the body of a function declaration/expression contains a
+ * top-level `return { ... }` (a ReturnStatement whose argument is an object
+ * literal). Only the function's own body is inspected — `return {}` inside a
+ * nested function is ignored by tracking brace depth relative to the body.
+ * @param sanitized - String/comment-blanked copy of the document.
+ * @param bodyOpen - Offset of the function body's opening `{`.
+ * @param bodyClose - Offset of the function body's matching `}`.
+ * @returns True when a depth-1 `return {` is found in the body.
+ */
+function bodyReturnsObjectLiteral(sanitized: string, bodyOpen: number, bodyClose: number): boolean {
+    // Walk the body looking for `return` keywords that sit directly in the
+    // function body (depth 1 relative to bodyOpen), whose next non-space token
+    // is `{`. A `return {` nested inside another function/block is at a deeper
+    // depth and is skipped so we only judge THIS constructor's return value.
+    const returnPattern = /\breturn\b/g;
+    returnPattern.lastIndex = bodyOpen + 1;
+    let match: RegExpExecArray | null;
+    while ((match = returnPattern.exec(sanitized)) !== null) {
+        if (match.index >= bodyClose) break;
+        // Compute brace depth between bodyOpen and this return.
+        let depth = 0;
+        for (let index = bodyOpen; index < match.index; index++) {
+            const ch = sanitized[index];
+            if (ch === '{') depth++;
+            else if (ch === '}') depth--;
+        }
+        // depth 1 === directly inside the function body (not a nested block/fn).
+        if (depth !== 1) continue;
+        // Next non-whitespace character after `return` must be `{` (object literal).
+        let cursor = match.index + 'return'.length;
+        while (cursor < bodyClose && /\s/.test(sanitized[cursor])) cursor++;
+        if (sanitized[cursor] === '{') return true;
+    }
+    return false;
+}
+
+/**
+ * Collect the names of user-defined functions whose body `return`s an object
+ * literal. Matches both `function Name(...) { ... }` declarations and
+ * `var Name = function (...) { ... }` expressions. Uses the sanitized text so
+ * that braces/keywords inside strings and comments are ignored.
+ * @param text - Full document text.
+ * @param sanitized - String/comment-blanked copy of the document.
+ * @param commentRanges - Comment ranges to skip.
+ * @returns Set of function names that return an object literal.
+ */
+function collectObjectReturningFunctionNames(
+    text: string,
+    sanitized: string,
+    commentRanges: Array<[number, number]>,
+): Set<string> {
+    const names = new Set<string>();
+    // `function Name(` (declaration) or `var Name = function(` (expression).
+    const fnPattern =
+        /\bfunction\s+([A-Za-z_$][\w$]*)\s*\(|\b([A-Za-z_$][\w$]*)\s*=\s*function\s*(?:[A-Za-z_$][\w$]*\s*)?\(/g;
+    let match: RegExpExecArray | null;
+    while ((match = fnPattern.exec(text)) !== null) {
+        if (isInCommentRange(match.index, commentRanges)) continue;
+        const name = match[1] ?? match[2];
+        if (!name) continue;
+        // Find the function body's opening `{` after the parameter list.
+        const parenOpen = sanitized.indexOf('(', match.index);
+        if (parenOpen === -1) continue;
+        const parenClose = findMatchingParen(sanitized, parenOpen);
+        if (parenClose === -1) continue;
+        const bodyOpen = sanitized.indexOf('{', parenClose);
+        if (bodyOpen === -1) continue;
+        const bodyClose = findMatchingBrace(sanitized, bodyOpen);
+        if (bodyClose === -1) continue;
+        if (bodyReturnsObjectLiteral(sanitized, bodyOpen, bodyClose)) {
+            names.add(name);
+        }
+    }
+    return names;
+}
+
+/**
+ * Find the matching closing paren for the `(` at `openIndex` in sanitized text.
+ * @param sanitized - String/comment-blanked copy of the document.
+ * @param openIndex - Index of the opening `(`.
+ * @returns Index of the matching `)`, or -1 when unbalanced.
+ */
+function findMatchingParen(sanitized: string, openIndex: number): number {
+    let depth = 0;
+    for (let index = openIndex; index < sanitized.length; index++) {
+        const ch = sanitized[index];
+        if (ch === '(') depth++;
+        else if (ch === ')') {
+            depth--;
+            if (depth === 0) return index;
+        }
+    }
+    return -1;
+}
+
+/**
+ * Scan the document for `new X(...)` expressions where `X` is a user-defined
+ * function whose body `return`s an object literal.
+ *
+ * In the SFMC SSJS engine, `new` on such a constructor returns the empty `this`
+ * and silently discards the returned object literal, so the members the caller
+ * expects are `undefined` — and calling one of them as a function later aborts
+ * the page. Built-in constructors (`new Date()` etc.) and constructors that do
+ * not return an object literal are deliberately NOT flagged.
+ * @param text - Full document text.
+ * @param sanitized - String/comment-blanked copy of the document.
+ * @param commentRanges - Comment ranges to skip.
+ * @param budget - Maximum number of diagnostics still allowed.
+ * @returns Diagnostics for object-returning-constructor `new` calls (length ≤ budget).
+ */
+function collectNewObjectReturnDiagnostics(
+    text: string,
+    sanitized: string,
+    commentRanges: Array<[number, number]>,
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    if (budget <= 0) return diagnostics;
+
+    const objectReturningNames = collectObjectReturningFunctionNames(
+        text,
+        sanitized,
+        commentRanges,
+    );
+    if (objectReturningNames.size === 0) return diagnostics;
+
+    // `new X(` where X is one of the object-returning user functions.
+    const newPattern = /\bnew\s+([A-Za-z_$][\w$]*)\s*\(/g;
+    let match: RegExpExecArray | null;
+    while ((match = newPattern.exec(text)) !== null && diagnostics.length < budget) {
+        if (isInCommentRange(match.index, commentRanges)) continue;
+        const calleeName = match[1];
+        if (NEW_SAFE_BUILTINS.has(calleeName)) continue;
+        if (!objectReturningNames.has(calleeName)) continue;
+        // Highlight the callee name for a focused squiggle.
+        const nameStart = match.index + match[0].indexOf(calleeName);
+        diagnostics.push({
+            severity: DiagnosticSeverity.Warning,
+            range: {
+                start: offsetToPosition(text, nameStart),
+                end: offsetToPosition(text, nameStart + calleeName.length),
+            },
+            message:
+                `'new ${calleeName}()' calls a constructor that returns an object literal, which the ` +
+                'SFMC SSJS engine discards — the engine returns the empty `this`, so the returned ' +
+                'members will be undefined and calling one of them aborts the page. Call ' +
+                `'${calleeName}(...)' without 'new', or assign to 'this.<member>' inside the ` +
+                'constructor instead of returning an object.',
+            source: 'ssjs',
+            code: DIAG_CODE_SSJS_NEW_OBJECT_RETURN,
+        });
+    }
+    return diagnostics;
+}
+
+/**
+ * A single `<script runat="server">` block: the character offsets of its body
+ * (between the opening tag and `</script>`) within the full document.
+ */
+interface ServerScriptBlock {
+    bodyStart: number;
+    bodyEnd: number;
+}
+
+/**
+ * Find every `<script runat="server">` block in document order and return the
+ * offsets of each block's body. When the document contains no such tag it is
+ * treated as a single implicit block spanning the whole text (the pure-`.ssjs`
+ * case), so callers can always assume ≥ 1 block.
+ * @param text - Full document text.
+ * @returns Server-script blocks in document order (at least one).
+ */
+function findServerScriptBlocks(text: string): ServerScriptBlock[] {
+    const blocks: ServerScriptBlock[] = [];
+    // `<script ... runat="server" ...>` … `</script>`, case-insensitive, tolerant
+    // of attribute order and single/double quotes around the runat value.
+    const blockPattern =
+        /<script\b[^>]*\brunat\s*=\s*["']server["'][^>]*>([\s\S]*?)<\/script\s*>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = blockPattern.exec(text)) !== null) {
+        const bodyStart = match.index + match[0].indexOf(match[1], match[0].indexOf('>'));
+        blocks.push({ bodyStart, bodyEnd: bodyStart + match[1].length });
+    }
+    // No explicit tag → the whole document is one implicit SSJS block.
+    if (blocks.length === 0) {
+        blocks.push({ bodyStart: 0, bodyEnd: text.length });
+    }
+    return blocks;
+}
+
+/**
+ * Collect the top-level `function Name(...)` declarations inside a single block
+ * body. Only depth-0 declarations count (a function nested inside another
+ * function is not hoisted to the shared global scope for cross-block use).
+ * @param sanitized - String/comment-blanked copy of the document.
+ * @param block - The block whose body is scanned.
+ * @returns Set of function names declared at the block's top level.
+ */
+function collectBlockFunctionNames(sanitized: string, block: ServerScriptBlock): Set<string> {
+    const names = new Set<string>();
+    const fnPattern = /\bfunction\s+([A-Za-z_$][\w$]*)\s*\(/g;
+    fnPattern.lastIndex = block.bodyStart;
+    let match: RegExpExecArray | null;
+    while ((match = fnPattern.exec(sanitized)) !== null) {
+        if (match.index >= block.bodyEnd) break;
+        // Depth of this declaration relative to the block body start.
+        let depth = 0;
+        for (let index = block.bodyStart; index < match.index; index++) {
+            const ch = sanitized[index];
+            if (ch === '{') depth++;
+            else if (ch === '}') depth--;
+        }
+        if (depth === 0) names.add(match[1]);
+    }
+    return names;
+}
+
+/**
+ * Scan a multi-block SSJS document for a call in one `<script runat="server">`
+ * block to a function whose ONLY declaration lives in a LATER block.
+ *
+ * SSJS executes server blocks in document order over one shared global scope.
+ * A function declared in an earlier block, or in the same block (intra-block
+ * hoisting), resolves fine; a forward cross-block reference throws
+ * "Object expected" at runtime. Only documents with ≥ 2 server blocks can
+ * exhibit this, so single-block (pure `.ssjs`) files never flag.
+ * @param text - Full document text.
+ * @param sanitized - String/comment-blanked copy of the document.
+ * @param commentRanges - Comment ranges to skip.
+ * @param budget - Maximum number of diagnostics still allowed.
+ * @returns Diagnostics for forward cross-block references (length ≤ budget).
+ */
+function collectCrossBlockForwardRefDiagnostics(
+    text: string,
+    sanitized: string,
+    commentRanges: Array<[number, number]>,
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    if (budget <= 0) return diagnostics;
+
+    const blocks = findServerScriptBlocks(text);
+    // A cross-block forward reference requires at least two blocks.
+    if (blocks.length < 2) return diagnostics;
+
+    // Per-block top-level function declarations, plus the union of names declared
+    // in THIS block or any EARLIER block (the set that resolves at each block).
+    const perBlockNames = blocks.map((block) => collectBlockFunctionNames(sanitized, block));
+    const declaredUpToBlock: Set<string>[] = [];
+    const seen = new Set<string>();
+    for (const blockNames of perBlockNames) {
+        for (const name of blockNames) seen.add(name);
+        declaredUpToBlock.push(new Set(seen));
+    }
+    // Names declared anywhere in the document (to distinguish a forward
+    // cross-block ref from an unknown global/local, which we do not flag).
+    const declaredAnywhere = seen;
+
+    // Scan each block for forward cross-block references, one block at a time.
+    for (const [blockIndex, block] of blocks.entries()) {
+        if (diagnostics.length >= budget) break;
+        const blockDiagnostics = collectBlockForwardRefDiagnostics(
+            text,
+            sanitized,
+            commentRanges,
+            block,
+            declaredUpToBlock[blockIndex],
+            declaredAnywhere,
+            budget - diagnostics.length,
+        );
+        diagnostics.push(...blockDiagnostics);
+    }
+    return diagnostics;
+}
+
+/**
+ * Keyword tokens that look like a call (`name(`) but are language constructs,
+ * never a user-function reference, so they must never be flagged.
+ */
+const FORWARD_REF_SKIP_KEYWORDS = new Set<string>(['function', 'if', 'for', 'while', 'switch']);
+
+/**
+ * Scan a single `<script runat="server">` block body for calls whose callee is
+ * declared only in a LATER block. Extracted from
+ * `collectCrossBlockForwardRefDiagnostics` so its `break`/`continue` live in a
+ * single (non-nested) loop.
+ * @param text - Full document text.
+ * @param sanitized - String/comment-blanked copy of the document.
+ * @param commentRanges - Comment ranges to skip.
+ * @param block - The block whose body is scanned.
+ * @param resolvableHere - Function names declared in this or any earlier block.
+ * @param declaredAnywhere - Function names declared anywhere in the document.
+ * @param budget - Maximum number of diagnostics to emit.
+ * @returns Diagnostics for this block's forward references (length ≤ budget).
+ */
+function collectBlockForwardRefDiagnostics(
+    text: string,
+    sanitized: string,
+    commentRanges: Array<[number, number]>,
+    block: ServerScriptBlock,
+    resolvableHere: Set<string>,
+    declaredAnywhere: Set<string>,
+    budget: number,
+): Diagnostic[] {
+    const diagnostics: Diagnostic[] = [];
+    // Match `name(` call sites. A call is flagged only when the callee is a
+    // user function declared somewhere later — never in this or an earlier block.
+    const callPattern = /(?<![.\w$])([A-Za-z_$][\w$]*)\s*\(/g;
+    callPattern.lastIndex = block.bodyStart;
+    let match: RegExpExecArray | null;
+    while ((match = callPattern.exec(sanitized)) !== null && diagnostics.length < budget) {
+        if (match.index >= block.bodyEnd) break;
+        const name = match[1];
+        // Skip language keywords, calls that resolve here, comments, and names
+        // that are not declared as a user function anywhere in the document.
+        const isForwardRef =
+            !FORWARD_REF_SKIP_KEYWORDS.has(name) &&
+            !isInCommentRange(match.index, commentRanges) &&
+            declaredAnywhere.has(name) &&
+            !resolvableHere.has(name);
+        if (!isForwardRef) continue;
+        const nameStart = match.index + match[0].indexOf(name);
+        diagnostics.push({
+            severity: DiagnosticSeverity.Error,
+            range: {
+                start: offsetToPosition(text, nameStart),
+                end: offsetToPosition(text, nameStart + name.length),
+            },
+            message:
+                `'${name}()' is declared in a later <script runat="server"> block. SSJS ` +
+                'executes server blocks in document order over one shared scope, so this ' +
+                'forward reference throws "Object expected" at runtime. Move the declaration ' +
+                'to this block or an earlier one.',
+            source: 'ssjs',
+            code: DIAG_CODE_SSJS_CROSS_BLOCK_FORWARD_REF,
+        });
+    }
+    return diagnostics;
+}
+
+/**
  * Validate an SSJS document and return LSP Diagnostics.
  * @param text - Full document text.
  * @param settings - Validation settings.
@@ -1691,6 +2245,49 @@ export function validateSsjs(
         );
         problems += nonFunctionalDiagnostics.length;
         diagnostics.push(...nonFunctionalDiagnostics);
+    }
+
+    // 4h. switch statements that rely on fall-through, which the SFMC SSJS engine
+    // never performs (empty stacked labels and break-less bodies both fail).
+    // Reported as a Warning. Skipped in MCN (SSJS unsupported there anyway).
+    if (settings.targetPlatform !== 'next' && problems < max) {
+        const switchDiagnostics = collectSwitchFallthroughDiagnostics(
+            text,
+            commentRanges,
+            max - problems,
+        );
+        problems += switchDiagnostics.length;
+        diagnostics.push(...switchDiagnostics);
+    }
+
+    // 4i. `new X()` where X is a user constructor that returns an object literal
+    // (the engine discards the returned object and returns the empty `this`), and
+    // 4j. a call to a function whose only declaration is in a LATER
+    // `<script runat="server">` block (a forward cross-block reference). Both need
+    // the string/comment-blanked copy so braces/keywords inside strings and
+    // comments are ignored. Skipped in MCN (SSJS unsupported there anyway).
+    if (settings.targetPlatform !== 'next' && problems < max) {
+        const sanitizedForScope = blankStringsAndComments(text);
+
+        const newObjectReturnDiagnostics = collectNewObjectReturnDiagnostics(
+            text,
+            sanitizedForScope,
+            commentRanges,
+            max - problems,
+        );
+        problems += newObjectReturnDiagnostics.length;
+        diagnostics.push(...newObjectReturnDiagnostics);
+
+        if (problems < max) {
+            const forwardRefDiagnostics = collectCrossBlockForwardRefDiagnostics(
+                text,
+                sanitizedForScope,
+                commentRanges,
+                max - problems,
+            );
+            problems += forwardRefDiagnostics.length;
+            diagnostics.push(...forwardRefDiagnostics);
+        }
     }
 
     // MCN compatibility — SSJS is not supported in Marketing Cloud Next.

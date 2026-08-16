@@ -531,6 +531,44 @@ describe('SSJS validation', () => {
         assert.ok(diags.some((d) => d.message.includes('"1.1.5"')));
     });
 
+    it('reports an empty stacked case label as switch-fallthrough', () => {
+        const doc = {
+            text: 'switch (level) {\n case "admin":\n case "superuser":\n access = "Full";\n break;\n}',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((x) => x.code === 'ssjs/switch-fallthrough');
+        assert.ok(d, 'expected ssjs/switch-fallthrough for the empty leading case');
+        assert.strictEqual(d.severity, 2 /* Warning */);
+    });
+
+    it('reports a break-less case body as switch-fallthrough', () => {
+        const doc = {
+            text: 'switch (level) {\n case "admin":\n access = "Admin";\n case "superuser":\n access = "Super";\n break;\n}',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.some((x) => x.code === 'ssjs/switch-fallthrough'));
+    });
+
+    it('does not flag a switch whose every case ends in break', () => {
+        const doc = {
+            text: 'switch (level) {\n case "admin":\n access = "A";\n break;\n case "superuser":\n access = "S";\n break;\n}',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((x) => x.code !== 'ssjs/switch-fallthrough'));
+    });
+
+    it('does not flag the last empty case in a switch', () => {
+        const doc = {
+            text: 'switch (level) {\n case "admin":\n access = "A";\n break;\n case "superuser":\n}',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((x) => x.code !== 'ssjs/switch-fallthrough'));
+    });
+
     it('does not flag bare-name Redirect() as nonexistent-global (runtime-verified Core global)', () => {
         // ssjs-data verified that bare-name `Redirect` IS defined at runtime after
         // Platform.Load("core", ...) and performs the redirect (differsFromOfficialDocs).
@@ -1074,6 +1112,145 @@ describe('SSJS validation', () => {
             diags.every((d) => !(d.source === 'ssjs' && d.message.includes('Object.keys'))),
             'no-polyfill members must not produce an ssjs diagnostic',
         );
+    });
+});
+
+// ── SSJS new-on-object-returning-constructor ─────────────────────────────────
+
+describe('SSJS new-object-returning-constructor diagnostics', () => {
+    const code = 'ssjs/new-object-returning-constructor';
+
+    it('flags new X() when X returns an object literal', () => {
+        const doc = {
+            text: 'function Foo(){ return { method1: function(){} }; }\nvar x = new Foo();',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((x) => x.code === code);
+        assert.ok(d, 'expected new-object-returning-constructor diagnostic');
+        assert.strictEqual(d.severity, 2 /* Warning */);
+        assert.match(d.message, /new Foo\(\)/);
+    });
+
+    it('flags new X() for a function-expression constructor that returns an object literal', () => {
+        const doc = {
+            text: 'var Make = function(){ return { go: function(){} }; };\nvar m = new Make();',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.some((x) => x.code === code));
+    });
+
+    it('does not flag a constructor that assigns this.<member> instead of returning', () => {
+        const doc = {
+            text: 'function Foo(){ this.method1 = function(){}; }\nvar x = new Foo();',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((x) => x.code !== code));
+    });
+
+    it('does not flag calling the object-returning function without new', () => {
+        const doc = {
+            text: 'function Foo(){ return { a: 1 }; }\nvar x = Foo();',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((x) => x.code !== code));
+    });
+
+    it('does not flag built-in constructors (new Date())', () => {
+        const doc = { text: 'var d = new Date();', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((x) => x.code !== code));
+    });
+
+    it('does not flag a constructor whose body has no object-literal return', () => {
+        const doc = {
+            text: 'function Foo(){ this.n = 1; return 5; }\nvar x = new Foo();',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((x) => x.code !== code));
+    });
+
+    it('does not flag the outer constructor when only a nested inner function returns an object', () => {
+        const doc = {
+            text: 'function Outer(){ function inner(){ return { a: 1 }; }\n this.x = 1; }\nvar o = new Outer();',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((x) => x.code !== code));
+    });
+});
+
+// ── SSJS cross-block forward reference ───────────────────────────────────────
+
+/**
+ * Build a two-`<script runat="server">`-block SSJS document.
+ * @param {string} a - Body of the first server block.
+ * @param {string} b - Body of the second server block.
+ * @returns {string} The combined document text.
+ */
+const twoServerBlocks = (a, b) =>
+    `<script runat="server">\n${a}\n</script>\n<script runat="server">\n${b}\n</script>`;
+
+describe('SSJS cross-block-forward-reference diagnostics', () => {
+    const code = 'ssjs/cross-block-forward-reference';
+    const twoBlocks = twoServerBlocks;
+
+    it('flags a call to a function declared only in a later block', () => {
+        const doc = {
+            text: twoBlocks('foo();', 'function foo(){ return 1; }'),
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        const d = diags.find((x) => x.code === code);
+        assert.ok(d, 'expected cross-block-forward-reference diagnostic');
+        assert.strictEqual(d.severity, 1 /* Error */);
+        assert.match(d.message, /later <script runat="server"> block/);
+    });
+
+    it('does not flag a call to a function declared in an earlier block (backward reference)', () => {
+        const doc = {
+            text: twoBlocks('function foo(){ return 1; }', 'foo();'),
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((x) => x.code !== code));
+    });
+
+    it('does not flag a call to a function declared in the same block (intra-block hoisting)', () => {
+        const doc = {
+            text: '<script runat="server">\nfoo();\nfunction foo(){ return 1; }\n</script>',
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((x) => x.code !== code));
+    });
+
+    it('does not flag a call to a built-in/global (not a user function anywhere)', () => {
+        const doc = {
+            text: twoBlocks('Stringify(x);', 'function foo(){ return 1; }'),
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((x) => x.code !== code));
+    });
+
+    it('does not flag a member call (o.foo()) matching a later function name', () => {
+        const doc = {
+            text: twoBlocks('var o = {}; o.foo();', 'function foo(){ return 1; }'),
+            languageId: 'ssjs',
+        };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((x) => x.code !== code));
+    });
+
+    it('does not flag a single-block (pure .ssjs) document with a hoisted call', () => {
+        const doc = { text: 'foo();\nfunction foo(){ return 1; }', languageId: 'ssjs' };
+        const diags = service.validate(doc);
+        assert.ok(diags.every((x) => x.code !== code));
     });
 });
 
