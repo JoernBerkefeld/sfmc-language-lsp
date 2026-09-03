@@ -491,3 +491,9 @@ export { validateAmpscript, extractAmpscriptFunctionCalls } from './validators/a
 export { validateSsjs } from './validators/ssjs.js';
 export { validateGtlBlocks } from './validators/gtl.js';
 export { extractLocalSsjsFunctions } from './definitions/ssjs.js';
+
+// Re-export the Handlebars block-scope tracker so consumers (and the parity
+// snapshot gate) can inspect block-scope tracking through the stable public
+// surface rather than reaching into dist internals.
+export { buildHandlebarsScopes } from './utils/handlebarsScopeTracker.js';
+export type { HandlebarsScope, HandlebarsLocal } from './utils/handlebarsScopeTracker.js';

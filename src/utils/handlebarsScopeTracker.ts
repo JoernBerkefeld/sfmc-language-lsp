@@ -19,7 +19,7 @@
  * {@link ../utils/ampscriptVariableTracker.buildVariableTypeMap} for AMPscript.
  */
 
-import type { AST } from '@handlebars/parser';
+import type { AST } from 'sfmc-handlebars-parser';
 import { parseHandlebars, walkHandlebars, astLocToRange } from './handlebarsAst.js';
 import { getSanitizedHandlebarsText } from './regions.js';
 import { positionToOffset } from './positions.js';
@@ -82,7 +82,7 @@ function blockHelperName(node: AST.BlockStatement): string | null {
     if (path.data || (path.depth ?? 0) > 0) return null;
     const parts = path.parts ?? [];
     if (parts.length !== 1) return null;
-    // @handlebars/parser v2 types `parts` as (string | SubExpression)[]; a simple
+    // sfmc-handlebars-parser types `parts` as (string | SubExpression)[]; a simple
     // helper name is always a string part.
     const first = parts[0];
     return typeof first === 'string' ? first.toLowerCase() : null;

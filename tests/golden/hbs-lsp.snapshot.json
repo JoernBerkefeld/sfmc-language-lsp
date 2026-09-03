@@ -1,0 +1,1815 @@
+{
+  "inline/ampscript-mixed-html": {
+    "diagnostics": [],
+    "probes": [
+      {
+        "completions": [
+          "{!$link.EmailAddressOptOutUrl}",
+          "{!$link.PreferenceCenterUrl}",
+          "{!$organization.Address}"
+        ],
+        "hover": "```handlebars\n{!$organization.Address}\n```\n\nThe physical address of the organization that is sending the email.\n\n*Built-in binding · organization namespace · MCN API v65.0+*\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/guide/mcn-handlebars-guide-data-sources.html)",
+        "position": {
+          "character": 6,
+          "line": 0
+        }
+      },
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": null,
+        "position": {
+          "character": 8,
+          "line": 2
+        }
+      }
+    ],
+    "scopes": [
+      {
+        "end": 83,
+        "locals": [
+          {
+            "kind": "loop-var",
+            "name": "@first"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@index"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@key"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@last"
+          }
+        ],
+        "start": 66
+      }
+    ]
+  },
+  "inline/block-after-ampscript-region": {
+    "diagnostics": [],
+    "probes": [
+      {
+        "completions": [],
+        "hover": null,
+        "position": {
+          "character": 32,
+          "line": 1
+        }
+      }
+    ],
+    "scopes": [
+      {
+        "end": 84,
+        "locals": [
+          {
+            "kind": "loop-var",
+            "name": "@first"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@index"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@key"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@last"
+          },
+          {
+            "kind": "block-param",
+            "name": "p"
+          }
+        ],
+        "start": 70
+      }
+    ]
+  },
+  "inline/decorator": {
+    "diagnostics": [
+      {
+        "code": "handlebars/unsupported-construct",
+        "message": "Decorators ({{* ...}}) are not supported in Handlebars for Marketing Cloud Next. The MCN engine cannot register decorators.",
+        "range": {
+          "end": {
+            "character": 16,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "severity": 1
+      }
+    ],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": null,
+        "position": {
+          "character": 4,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": []
+  },
+  "inline/decorator-block": {
+    "diagnostics": [
+      {
+        "code": "handlebars/unsupported-construct",
+        "message": "Inline partials and decorator blocks ({{#*inline ...}}...{{/inline}}) are not supported in Handlebars for Marketing Cloud Next.",
+        "range": {
+          "end": {
+            "character": 32,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "severity": 1
+      }
+    ],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": null,
+        "position": {
+          "character": 5,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": []
+  },
+  "inline/else-if-chain": {
+    "diagnostics": [],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": "```typescript\n(helper) if(condition: any): string\n```\n\nConditionally renders a block based on whether a value evaluates to true.\n\n*Handlebars built-in · Comparison · block helper · MCN API v65.0+*\n\n*@param* `condition` — The value to evaluate.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-comparison-references/mcn-handlebars-reference-comparison-if.html)",
+        "position": {
+          "character": 4,
+          "line": 0
+        }
+      },
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": "```typescript\n(helper) if(condition: any): string\n```\n\nConditionally renders a block based on whether a value evaluates to true.\n\n*Handlebars built-in · Comparison · block helper · MCN API v65.0+*\n\n*@param* `condition` — The value to evaluate.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-comparison-references/mcn-handlebars-reference-comparison-if.html)",
+        "position": {
+          "character": 17,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": []
+  },
+  "inline/empty-body-block-with-params": {
+    "diagnostics": [],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": "```typescript\n(helper) each(collection: array): string\n```\n\nIterates over arrays, lists, and objects, rendering a block for each element.\n\n*Handlebars built-in · Objects · block helper · MCN API v65.0+*\n\n*@param* `collection` — The array, list, or object to iterate over.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-objects-references/mcn-handlebars-reference-objects-each.html)",
+        "position": {
+          "character": 6,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": []
+  },
+  "inline/error-exception-close-mismatch": {
+    "diagnostics": [
+      {
+        "code": "handlebars/syntax-error",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 1
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "severity": 1
+      }
+    ],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": null,
+        "position": {
+          "character": 3,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": []
+  },
+  "inline/error-jison-unclosed-block": {
+    "diagnostics": [
+      {
+        "code": "handlebars/syntax-error",
+        "range": {
+          "end": {
+            "character": 0,
+            "line": 1
+          },
+          "start": {
+            "character": 6,
+            "line": 0
+          }
+        },
+        "severity": 1
+      }
+    ],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": null,
+        "position": {
+          "character": 3,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": []
+  },
+  "inline/hash-pairs": {
+    "diagnostics": [],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": "```typescript\n(helper) add(value1: number, value2: number): number\n```\n\nReturns the sum of two numbers, rounded to 2 decimal places.\n\n*MCN helper · Math · inline helper · MCN API v65.0+*\n\n*@param* `value1` — First value to add.\n\n*@param* `value2` — Second value to add.\n\n*@return* `number`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-math-references/mcn-handlebars-reference-math-add.html)",
+        "position": {
+          "character": 3,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": []
+  },
+  "inline/index-key-data-vars": {
+    "diagnostics": [],
+    "probes": [
+      {
+        "completions": [
+          "@first",
+          "@index",
+          "@key",
+          "@last",
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": "**@index** — loop variable of #each",
+        "position": {
+          "character": 3,
+          "line": 1
+        }
+      }
+    ],
+    "scopes": [
+      {
+        "end": 45,
+        "locals": [
+          {
+            "kind": "loop-var",
+            "name": "@first"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@index"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@key"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@last"
+          }
+        ],
+        "start": 15
+      }
+    ]
+  },
+  "inline/mid-line-block": {
+    "diagnostics": [],
+    "probes": [
+      {
+        "completions": [],
+        "hover": null,
+        "position": {
+          "character": 20,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": [
+      {
+        "end": 31,
+        "locals": [
+          {
+            "kind": "loop-var",
+            "name": "@first"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@index"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@key"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@last"
+          }
+        ],
+        "start": 16
+      }
+    ]
+  },
+  "inline/nested-each-with-block-params": {
+    "diagnostics": [],
+    "probes": [
+      {
+        "completions": [
+          "@first",
+          "@index",
+          "@key",
+          "@last",
+          "add",
+          "and",
+          "cell",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "r",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "row",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": "**cell** — block param of #with",
+        "position": {
+          "character": 2,
+          "line": 2
+        }
+      },
+      {
+        "completions": [],
+        "hover": null,
+        "position": {
+          "character": 9,
+          "line": 2
+        }
+      }
+    ],
+    "scopes": [
+      {
+        "end": 74,
+        "locals": [
+          {
+            "kind": "loop-var",
+            "name": "@first"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@index"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@key"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@last"
+          },
+          {
+            "kind": "block-param",
+            "name": "r"
+          },
+          {
+            "kind": "block-param",
+            "name": "row"
+          }
+        ],
+        "start": 25
+      },
+      {
+        "end": 64,
+        "locals": [
+          {
+            "kind": "block-param",
+            "name": "cell"
+          }
+        ],
+        "start": 49
+      }
+    ]
+  },
+  "inline/partial": {
+    "diagnostics": [
+      {
+        "code": "handlebars/unsupported-construct",
+        "message": "Partials ({{> ...}}) are not supported in Handlebars for Marketing Cloud Next. The MCN engine is locked down and cannot register partials.",
+        "range": {
+          "end": {
+            "character": 15,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "severity": 1
+      }
+    ],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": null,
+        "position": {
+          "character": 3,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": []
+  },
+  "inline/partial-block": {
+    "diagnostics": [
+      {
+        "code": "handlebars/unsupported-construct",
+        "message": "Partial blocks ({{#> ...}}...{{/...}}) are not supported in Handlebars for Marketing Cloud Next. The MCN engine cannot register partials.",
+        "range": {
+          "end": {
+            "character": 38,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "severity": 1
+      }
+    ],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": null,
+        "position": {
+          "character": 5,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": []
+  },
+  "inline/raw-block": {
+    "diagnostics": [
+      {
+        "code": "handlebars/unknown-helper",
+        "message": "Unknown Handlebars block helper 'raw'. It is not part of the Marketing Cloud Next catalog, and the MCN engine cannot register custom helpers.",
+        "range": {
+          "end": {
+            "character": 34,
+            "line": 0
+          },
+          "start": {
+            "character": 0,
+            "line": 0
+          }
+        },
+        "severity": 2
+      }
+    ],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": null,
+        "position": {
+          "character": 6,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": []
+  },
+  "inline/segment-literal": {
+    "diagnostics": [],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": null,
+        "position": {
+          "character": 4,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": []
+  },
+  "inline/subexpression": {
+    "diagnostics": [],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": "```typescript\n(helper) lowercase(subject: string, culture?: string): string\n```\n\nConverts all letters in a string to lowercase.\n\n*MCN helper · String · inline helper · MCN API v65.0+*\n\n*@param* `subject` — The string to convert to lowercase.\n\n*@param* `culture` *(optional)* — POSIX locale code for culture-specific conversion.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-string-references/mcn-handlebars-reference-string-lowercase.html)",
+        "position": {
+          "character": 14,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": []
+  },
+  "plugin/next-apiversion/test-handlebars-apiversion.html": {
+    "diagnostics": [],
+    "probes": [
+      {
+        "completions": [],
+        "hover": null,
+        "position": {
+          "character": 0,
+          "line": 0
+        }
+      }
+    ],
+    "scopes": [
+      {
+        "end": 1056,
+        "locals": [
+          {
+            "kind": "loop-var",
+            "name": "@first"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@index"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@key"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@last"
+          }
+        ],
+        "start": 1036
+      }
+    ]
+  },
+  "plugin/next/test-handlebars.html": {
+    "diagnostics": [
+      {
+        "code": "handlebars/unknown-helper",
+        "message": "Unknown Handlebars helper 'uppercasee'. It is not part of the Marketing Cloud Next catalog, and the MCN engine cannot register custom helpers. Did you mean 'uppercase'?",
+        "range": {
+          "end": {
+            "character": 31,
+            "line": 27
+          },
+          "start": {
+            "character": 7,
+            "line": 27
+          }
+        },
+        "severity": 2
+      },
+      {
+        "code": "handlebars/unknown-helper",
+        "message": "Unknown Handlebars helper 'truncateWords'. It is not part of the Marketing Cloud Next catalog, and the MCN engine cannot register custom helpers.",
+        "range": {
+          "end": {
+            "character": 32,
+            "line": 30
+          },
+          "start": {
+            "character": 7,
+            "line": 30
+          }
+        },
+        "severity": 2
+      },
+      {
+        "code": "handlebars/unsupported-construct",
+        "message": "Partials ({{> ...}}) are not supported in Handlebars for Marketing Cloud Next. The MCN engine is locked down and cannot register partials.",
+        "range": {
+          "end": {
+            "character": 19,
+            "line": 42
+          },
+          "start": {
+            "character": 4,
+            "line": 42
+          }
+        },
+        "severity": 1
+      },
+      {
+        "code": "handlebars/unsupported-construct",
+        "message": "The {{log}} helper is a handlebars.js debugging helper and is not available in Handlebars for Marketing Cloud Next.",
+        "range": {
+          "end": {
+            "character": 27,
+            "line": 45
+          },
+          "start": {
+            "character": 4,
+            "line": 45
+          }
+        },
+        "severity": 1
+      },
+      {
+        "code": "handlebars/unknown-binding",
+        "message": "Unknown built-in binding '{!$organization.Phone}'. It is not a recognized Marketing Cloud Next data binding.",
+        "range": {
+          "end": {
+            "character": 29,
+            "line": 33
+          },
+          "start": {
+            "character": 7,
+            "line": 33
+          }
+        },
+        "severity": 2
+      }
+    ],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": "```typescript\n(helper) add(value1: number, value2: number): number\n```\n\nReturns the sum of two numbers, rounded to 2 decimal places.\n\n*MCN helper · Math · inline helper · MCN API v65.0+*\n\n*@param* `value1` — First value to add.\n\n*@param* `value2` — Second value to add.\n\n*@return* `number`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-math-references/mcn-handlebars-reference-math-add.html)",
+        "position": {
+          "character": 9,
+          "line": 18
+        }
+      },
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": "```typescript\n(helper) each(collection: array): string\n```\n\nIterates over arrays, lists, and objects, rendering a block for each element.\n\n*Handlebars built-in · Objects · block helper · MCN API v65.0+*\n\n*@param* `collection` — The array, list, or object to iterate over.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-objects-references/mcn-handlebars-reference-objects-each.html)",
+        "position": {
+          "character": 8,
+          "line": 20
+        }
+      }
+    ],
+    "scopes": [
+      {
+        "end": 890,
+        "locals": [
+          {
+            "kind": "loop-var",
+            "name": "@first"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@index"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@key"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@last"
+          }
+        ],
+        "start": 873
+      }
+    ]
+  },
+  "plugin/next/test-standalone.hbs": {
+    "diagnostics": [
+      {
+        "code": "handlebars/unknown-helper",
+        "message": "Unknown Handlebars helper 'uppercasee'. It is not part of the Marketing Cloud Next catalog, and the MCN engine cannot register custom helpers. Did you mean 'uppercase'?",
+        "range": {
+          "end": {
+            "character": 27,
+            "line": 22
+          },
+          "start": {
+            "character": 3,
+            "line": 22
+          }
+        },
+        "severity": 2
+      },
+      {
+        "code": "handlebars/unsupported-construct",
+        "message": "Partials ({{> ...}}) are not supported in Handlebars for Marketing Cloud Next. The MCN engine is locked down and cannot register partials.",
+        "range": {
+          "end": {
+            "character": 15,
+            "line": 31
+          },
+          "start": {
+            "character": 0,
+            "line": 31
+          }
+        },
+        "severity": 1
+      },
+      {
+        "code": "handlebars/unknown-binding",
+        "message": "Unknown built-in binding '{!$organization.Phone}'. It is not a recognized Marketing Cloud Next data binding.",
+        "range": {
+          "end": {
+            "character": 25,
+            "line": 25
+          },
+          "start": {
+            "character": 3,
+            "line": 25
+          }
+        },
+        "severity": 2
+      }
+    ],
+    "probes": [
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": "```typescript\n(helper) uppercase(subject: string, culture?: string): string\n```\n\nConverts all letters in a string to uppercase.\n\n*MCN helper · String · inline helper · MCN API v65.0+*\n\n*@param* `subject` — The string to convert to uppercase.\n\n*@param* `culture` *(optional)* — POSIX locale code for culture-specific conversion.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-string-references/mcn-handlebars-reference-string-uppercase.html)",
+        "position": {
+          "character": 5,
+          "line": 13
+        }
+      },
+      {
+        "completions": [
+          "add",
+          "and",
+          "char",
+          "compare",
+          "concat",
+          "dateAdd",
+          "dateDiff",
+          "divide",
+          "each",
+          "equals",
+          "fallback",
+          "filter",
+          "flatten",
+          "format",
+          "formatCurrency",
+          "formatNumber",
+          "get",
+          "getContentBlock",
+          "hash",
+          "if",
+          "iif",
+          "indexOf",
+          "isEmpty",
+          "jsonPath",
+          "length",
+          "lookup",
+          "lowercase",
+          "map",
+          "modulo",
+          "multiply",
+          "not",
+          "now",
+          "or",
+          "personalizationResult",
+          "properCase",
+          "query",
+          "queryFirst",
+          "raiseError",
+          "random",
+          "repeat",
+          "replace",
+          "set",
+          "slice",
+          "sort",
+          "substring",
+          "subtract",
+          "timeZoneConversion",
+          "trim",
+          "unless",
+          "uppercase",
+          "with"
+        ],
+        "hover": "```typescript\n(helper) each(collection: array): string\n```\n\nIterates over arrays, lists, and objects, rendering a block for each element.\n\n*Handlebars built-in · Objects · block helper · MCN API v65.0+*\n\n*@param* `collection` — The array, list, or object to iterate over.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-objects-references/mcn-handlebars-reference-objects-each.html)",
+        "position": {
+          "character": 6,
+          "line": 16
+        }
+      }
+    ],
+    "scopes": [
+      {
+        "end": 655,
+        "locals": [
+          {
+            "kind": "loop-var",
+            "name": "@first"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@index"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@key"
+          },
+          {
+            "kind": "loop-var",
+            "name": "@last"
+          }
+        ],
+        "start": 638
+      }
+    ]
+  }
+}

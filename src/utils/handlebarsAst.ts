@@ -1,12 +1,12 @@
 /**
- * Thin wrapper around the `@handlebars/parser` for Marketing Cloud Next.
+ * Thin wrapper around the `sfmc-handlebars-parser` for Marketing Cloud Next.
  *
  * Provides a safe parse that converts parser exceptions into a structured
  * result, plus helpers to map the parser's 1-based-line / 0-based-column
  * locations onto LSP Positions and to walk every node in the AST.
  */
 
-import { parse, type AST } from '@handlebars/parser';
+import { parse, type AST } from 'sfmc-handlebars-parser';
 import type { Position, Range } from 'vscode-languageserver-types';
 
 /**
@@ -124,16 +124,21 @@ type AnyNode = AST.Node & Record<string, unknown>;
  * Depth-first walk over every node in a Handlebars AST, invoking the visitor
  * for each. Traversal descends into block programs/inverses, statement params,
  * subexpressions, and hash pair values.
- * @param node - The root node (typically a Program).
+ * @param node - The root node (typically a Program). A `Program` is accepted
+ *   as well as any `Node`; `sfmc-handlebars-parser` narrows `Program.loc` to
+ *   `SourceLocation | undefined`, so `Program` is not structurally a `Node`.
  * @param visit - Callback invoked for every node.
  */
-export function walkHandlebars(node: AST.Node, visit: (node: AST.Node) => void): void {
+export function walkHandlebars(
+    node: AST.Node | AST.Program,
+    visit: (node: AST.Node) => void,
+): void {
     if (!node || typeof node !== 'object') {
         return;
     }
-    visit(node);
+    visit(node as AST.Node);
 
-    const n = node as AnyNode;
+    const n = node as unknown as AnyNode;
 
     // Program / block bodies
     if (Array.isArray(n.body)) {
