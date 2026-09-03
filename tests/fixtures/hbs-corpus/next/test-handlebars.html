@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>MCN mode · Handlebars test fixture</title>
+  </head>
+  <body>
+    <!-- ── Handlebars (MCN) test fixture ─────────────────────────────────────
+       Handlebars is the MCN templating language. These rules ONLY run in the
+       `-next` configs, and ONLY on HTML files (the sfmc/sfmc processor extracts
+       a virtual .hbs region from the whole document). In classic (MCE) HTML the
+       same `{{...}}` is plain content and is NOT flagged.
+
+       Open this file in VS Code — the ESLint extension shows live squiggles.
+       Each block notes the expected diagnostic (or absence of one).
+       ────────────────────────────────────────────────────────────────────── -->
+
+    <!-- ✅ Known helpers → no error -->
+    <p>{{uppercase firstName}}</p>
+    <p>{{add price tax}}</p>
+    {{#if isVip}}<p>VIP</p>{{/if}}
+    {{#each items}}<li>{{this}}</li>{{/each}}
+
+    <!-- ✅ Known built-in bindings → no error -->
+    <p>{!$organization.Address}</p>
+    <a href="{!$link.EmailAddressOptOutUrl}">Unsubscribe</a>
+
+    <!-- ❌ Unknown helper → [hbs-no-unknown-helper] (typo of uppercase) -->
+    <p>{{uppercasee firstName}}</p>
+
+    <!-- ❌ Unknown helper (not in MCN catalog) → [hbs-no-unknown-helper] -->
+    <p>{{truncateWords body 20}}</p>
+
+    <!-- ❌ Unknown binding → [hbs-no-unknown-binding] -->
+    <p>{!$organization.Phone}</p>
+
+    <!-- ❌ Too few arguments → [hbs-helper-arity] (add requires 2) -->
+    <p>{{add price}}</p>
+
+    <!-- ❌ Too many arguments → [hbs-helper-arity] (uppercase accepts at most 2) -->
+    <p>{{uppercase firstName "en-US" extra}}</p>
+
+    <!-- ❌ Partial → [hbs-no-unsupported-construct] (MCN cannot register partials) -->
+    {{> myPartial}}
+
+    <!-- ❌ log helper → [hbs-no-unsupported-construct] -->
+    {{log "debug message"}}
+
+    <!-- ✅ hbs-no-mcn-unsupported runs in embedded-next but with no apiVersion set,
+         so only never-in-MCN items flag. `dateAdd`/`now` (mcnSince 67) are
+         supported at some point in MCN and do NOT error here. Open
+         test-handlebars-apiversion.html to see them flagged with apiVersion 65. -->
+    <p>{{dateAdd startDate 7 "D"}}</p>
+    <p>{{now}}</p>
+  </body>
+</html>

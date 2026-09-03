@@ -1,0 +1,32 @@
+{{!--
+  MCN mode · standalone .hbs test fixture
+
+  A real Handlebars file on disk (VS Code's built-in `handlebars` language id).
+  Handlebars only runs on Marketing Cloud Next, so `eslint-plugin-sfmc` always
+  treats a `.hbs` file as MCN and applies the full hbs rule set — no HTML
+  wrapper and no processor extraction. These rules are wired ONLY into the
+  `-next` configs; `recommended`/`strict` (MCE) never lint `.hbs`.
+
+  Open this file in VS Code — the ESLint extension shows live squiggles.
+--}}
+
+{{! Known helpers → no error }}
+<p>{{uppercase firstName}}</p>
+<p>{{add price tax}}</p>
+{{#if isVip}}<p>VIP</p>{{/if}}
+{{#each items}}<li>{{this}}</li>{{/each}}
+
+{{! Known built-in bindings → no error }}
+<p>{!$organization.Address}</p>
+
+{{! Unknown helper → [hbs-no-unknown-helper] (typo of uppercase) }}
+<p>{{uppercasee firstName}}</p>
+
+{{! Unknown binding → [hbs-no-unknown-binding] }}
+<p>{!$organization.Phone}</p>
+
+{{! Too few arguments → [hbs-helper-arity] (add requires 2) }}
+<p>{{add price}}</p>
+
+{{! Partial → [hbs-no-unsupported-construct] (MCN cannot register partials) }}
+{{> myPartial}}

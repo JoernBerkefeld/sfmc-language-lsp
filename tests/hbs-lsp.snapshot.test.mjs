@@ -34,9 +34,10 @@ const NEXT_SETTINGS = { maxNumberOfProblems: 100, targetPlatform: 'next' };
 const SYNTAX_ERROR_CODE = 'handlebars/syntax-error';
 
 /**
- * Read a committed plugin fixture by path relative to this test file.
- * Referencing (not copying) the plugin corpus keeps the LSP gate and the
- * plugin gate from silently diverging.
+ * Read a committed corpus file by path relative to this test file.
+ * Copies of the eslint-plugin-sfmc fixtures live under `tests/fixtures/`
+ * because this package is a standalone git repo — CI cannot see the sibling
+ * plugin folder.
  * @param {string} relPath - Path relative to this test's directory.
  * @returns {string} The fixture contents with CRLF normalised to LF.
  */
@@ -51,10 +52,10 @@ const readFixture = (relPath) =>
  * @type {Array<{ name: string, text: string, probes: Array<{ line: number, character: number }> }>}
  */
 const CORPUS = [
-    // ── Referenced plugin fixtures (shared corpus, no-copy) ────────────────
+    // ── Plugin-corpus copies (self-contained for standalone-repo CI) ───────
     {
         name: 'plugin/next/test-standalone.hbs',
-        text: readFixture('../../eslint-plugin-sfmc/testFixture/next/test-standalone.hbs'),
+        text: readFixture('./fixtures/hbs-corpus/next/test-standalone.hbs'),
         probes: [
             { line: 13, character: 5 },
             { line: 16, character: 6 },
@@ -62,7 +63,7 @@ const CORPUS = [
     },
     {
         name: 'plugin/next/test-handlebars.html',
-        text: readFixture('../../eslint-plugin-sfmc/testFixture/next/test-handlebars.html'),
+        text: readFixture('./fixtures/hbs-corpus/next/test-handlebars.html'),
         probes: [
             { line: 18, character: 9 },
             { line: 20, character: 8 },
@@ -70,9 +71,7 @@ const CORPUS = [
     },
     {
         name: 'plugin/next-apiversion/test-handlebars-apiversion.html',
-        text: readFixture(
-            '../../eslint-plugin-sfmc/testFixture/next-apiversion/test-handlebars-apiversion.html',
-        ),
+        text: readFixture('./fixtures/hbs-corpus/next-apiversion/test-handlebars-apiversion.html'),
         probes: [{ line: 0, character: 0 }],
     },
 

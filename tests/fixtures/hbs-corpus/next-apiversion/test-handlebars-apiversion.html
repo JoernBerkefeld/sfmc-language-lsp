@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>MCN mode · hbs-no-mcn-unsupported fixture (apiVersion 65)</title>
+  </head>
+  <body>
+    <!-- ── hbs-no-mcn-unsupported · apiVersion 65 (Winter '26) ────────────────
+       This folder's eslint.config.mjs sets apiVersion: 65. Helpers whose
+       `mcnSince` is 67 (Summer '26) are flagged as "too new for target".
+       ────────────────────────────────────────────────────────────────────── -->
+
+    <!-- ✅ mcnSince 65 helpers → available at apiVersion 65 → no error -->
+    <p>{{uppercase firstName}}</p>
+    <p>{{add price tax}}</p>
+
+    <!-- ❌ dateAdd shipped in 67 → [hbs-no-mcn-unsupported helperTooNew] -->
+    <p>{{dateAdd startDate 7 "D"}}</p>
+
+    <!-- ❌ now shipped in 67 → [hbs-no-mcn-unsupported helperTooNew] -->
+    <p>{{now}}</p>
+
+    <!-- ❌ getContentBlock shipped in 67 → [hbs-no-mcn-unsupported helperTooNew] -->
+    <p>{{getContentBlock "welcome-banner"}}</p>
+
+    <!-- ❌ query shipped in 67 → [hbs-no-mcn-unsupported helperTooNew] -->
+    {{#each (query "Account" "CRM")}}<p>{{this.Name}}</p>{{/each}}
+  </body>
+</html>
