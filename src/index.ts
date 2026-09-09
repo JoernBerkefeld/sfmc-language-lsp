@@ -18,14 +18,10 @@ import type {
 import type { SfmcSettings } from './types.js';
 import { DEFAULT_SETTINGS } from './types.js';
 
-import {
-    validateAmpscript,
-    extractAmpscriptFunctionCalls,
-    ESLINT_DUPLICATE_DIAG_CODES,
-} from './validators/ampscript.js';
+import { validateAmpscript, extractAmpscriptFunctionCalls } from './validators/ampscript.js';
+import { decodeDiagnosticData, getDiagnosticRule } from './diagnostic-rules.js';
 import type { AmpscriptCallSite } from './validators/ampscript.js';
-import { validateSsjs, SSJS_ESLINT_DUPLICATE_DIAG_CODES } from './validators/ssjs.js';
-import { HBS_ESLINT_DUPLICATE_DIAG_CODES } from './validators/mcnHandlebars.js';
+import { validateSsjs } from './validators/ssjs.js';
 
 import {
     getAmpscriptCompletions,
@@ -87,6 +83,22 @@ import { findFunctionContext } from './utils/text.js';
 
 export type { DocumentContext, SfmcSettings } from './types.js';
 export { DEFAULT_SETTINGS } from './types.js';
+export {
+    DIAGNOSTIC_RULES,
+    LSP_PACKAGE_VERSION,
+    getDiagnosticRule,
+    getDiagnosticDocumentationUrl,
+    encodeDiagnosticData,
+    decodeDiagnosticData,
+    createDiagnostic,
+} from './diagnostic-rules.js';
+export type {
+    DiagnosticVariant,
+    DiagnosticRuleId,
+    DiagnosticRule,
+    SfmcDiagnosticData,
+    DecodedDiagnosticData,
+} from './diagnostic-rules.js';
 export type { AmpscriptFunction, AmpscriptFunctionParam } from './data/ampscript.js';
 export { isMcnSupported, getMcnApiVersion, getMcnNotes } from './data/ampscript.js';
 export type { AmpscriptCallSite } from './validators/ampscript.js';
@@ -124,25 +136,15 @@ export class SfmcLanguageService {
      * @returns Array of LSP Diagnostic objects.
      */
     validate(doc: DocumentContext, settings: SfmcSettings = DEFAULT_SETTINGS): Diagnostic[] {
-        if (doc.languageId === 'ssjs') {
-            const ssjsDiagnostics = validateSsjs(doc.text, settings);
-            if (settings.disableLspDiagnosticsForEslintRules) {
-                return ssjsDiagnostics.filter(
-                    (d) => !d.code || !SSJS_ESLINT_DUPLICATE_DIAG_CODES.has(String(d.code)),
-                );
-            }
-            return ssjsDiagnostics;
-        }
-        const diagnostics = validateAmpscript(doc.text, settings);
-        if (settings.disableLspDiagnosticsForEslintRules) {
-            return diagnostics.filter(
-                (d) =>
-                    !d.code ||
-                    (!ESLINT_DUPLICATE_DIAG_CODES.has(String(d.code)) &&
-                        !HBS_ESLINT_DUPLICATE_DIAG_CODES.has(String(d.code))),
-            );
-        }
-        return diagnostics;
+        const diagnostics =
+            doc.languageId === 'ssjs'
+                ? validateSsjs(doc.text, settings)
+                : validateAmpscript(doc.text, settings);
+        if (!settings.disableLspDiagnosticsForEslintRules) return diagnostics;
+        return diagnostics.filter((diagnostic) => {
+            const decoded = decodeDiagnosticData(diagnostic.code, diagnostic.data);
+            return !decoded || !getDiagnosticRule(decoded.variant)?.suppressWithEslint;
+        });
     }
 
     // ── Completions ───────────────────────────────────────────────────────────

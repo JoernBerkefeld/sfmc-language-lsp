@@ -23,12 +23,19 @@ jobs:
             contents: read
         steps:
             - uses: actions/checkout@v6
+              with:
+                  ref: ${{ github.event.release.tag_name }}
+                  fetch-depth: 0
             - uses: actions/setup-node@v6
               with:
                   node-version: ${{ matrix.node }}
 
             - run: npm ci
             - run: npm run build
+            - name: Validate producer release tag and documentation
+              run: npm run validate:release-documentation
+              env:
+                  RELEASE_TAG: ${{ github.event.release.tag_name }}
             - run: npm run lint
             - run: npm test
 
@@ -37,11 +44,20 @@ jobs:
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v6
+              with:
+                  ref: ${{ github.event.release.tag_name }}
+                  fetch-depth: 0
             - uses: actions/setup-node@v6
               with:
                   node-version-file: ./package.json
                   registry-url: https://registry.npmjs.org/
             - run: npm ci
+            - run: npm run build
+            - name: Validate producer release tag and documentation
+              run: npm run validate:release-documentation
+              env:
+                  RELEASE_TAG: ${{ github.event.release.tag_name }}
+            - run: npm run test:release-safeguards
             - run: npm publish
 
             - name: Close release milestone if empty

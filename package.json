@@ -1,6 +1,6 @@
 {
     "name": "sfmc-language-lsp",
-    "version": "3.17.1",
+    "version": "4.0.0",
     "type": "module",
     "description": "Protocol-agnostic, browser-compatible language service for Salesforce Marketing Cloud Ã¢â‚¬â€ AMPscript, SSJS, and GTL. Provides validation, completions, hover, signature help, and code actions.",
     "author": "JÃƒÂ¶rn Berkefeld",
@@ -42,11 +42,13 @@
     "scripts": {
         "prepublishOnly": "npm run clean && npm run build",
         "build": "npm run build:cjs && npm run build:esm && npm run build:types",
-        "build:cjs": "tsc -p tsconfig.cjs.json && node ./scripts/rename-cjs-output.mjs",
-        "build:esm": "tsc -p tsconfig.esm.json",
-        "build:types": "tsc -p tsconfig.types.json",
+        "build:cjs": "node ./scripts/generate-package-version.mjs && tsc -p tsconfig.cjs.json && node ./scripts/rename-cjs-output.mjs",
+        "build:esm": "node ./scripts/generate-package-version.mjs && tsc -p tsconfig.esm.json",
+        "build:types": "node ./scripts/generate-package-version.mjs && tsc -p tsconfig.types.json",
         "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
         "test": "node --test tests/*.test.mjs",
+        "test:release-safeguards": "node --test tests/release-safeguards.test.mjs",
+        "validate:release-documentation": "node scripts/validate-release-documentation.mjs",
         "lint": "eslint .",
         "lint:fix": "eslint --fix .",
         "prepare": "husky || true",
@@ -57,7 +59,7 @@
         "ampscript-data": "^4.0.0",
         "handlebars-data": "^0.4.0",
         "sfmc-handlebars-parser": "^0.1.1",
-        "ssjs-data": "^2.0.0",
+        "ssjs-data": "^2.1.0",
         "vscode-languageserver-types": "^3.18.0"
     },
     "engines": {

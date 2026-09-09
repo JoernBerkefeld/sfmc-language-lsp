@@ -31,7 +31,7 @@ const GOLDEN_PATH = path.join(HERE, 'golden', 'hbs-lsp.snapshot.json');
 
 const service = new SfmcLanguageService();
 const NEXT_SETTINGS = { maxNumberOfProblems: 100, targetPlatform: 'next' };
-const SYNTAX_ERROR_CODE = 'handlebars/syntax-error';
+const SYNTAX_ERROR_CODE = 'sfmc/hbs-syntax-error';
 
 /**
  * Read a committed corpus file by path relative to this test file.
@@ -230,6 +230,8 @@ function captureEntry(entry) {
          */
         const record = {
             code: d.code ?? null,
+            codeDescription: d.codeDescription ?? null,
+            data: d.data ?? null,
             severity: d.severity ?? null,
             range: {
                 start: { line: d.range.start.line, character: d.range.start.character },

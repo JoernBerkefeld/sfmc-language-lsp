@@ -13,6 +13,7 @@ import {
     coreDeprecatedMethodLookup,
     coreObjectNames,
     ERROR_UTIL_METHODS,
+    KNOWN_UNSUPPORTED,
 } from 'ssjs-data';
 import {
     SfmcLanguageService,
@@ -21,6 +22,39 @@ import {
 } from '../dist/esm/index.js';
 
 const service = new SfmcLanguageService();
+
+it('adopts the nine 2.1.0 absences without fabricating actionable diagnostics', () => {
+    const members = [
+        'fromEntries',
+        'toReversed',
+        'toSorted',
+        'toSpliced',
+        'replaceAll',
+        'matchAll',
+        'structuredClone',
+        'groupBy',
+        'findLastIndex',
+    ];
+    for (const member of members) {
+        const entry = KNOWN_UNSUPPORTED.find((candidate) => candidate.member === member);
+        assert.ok(entry, `released catalog missing ${member}`);
+        assert.equal(entry.hasPolyfill, false);
+        assert.equal(entry.category, 'unavailable');
+        assert.equal(entry.isConfirmed, true);
+        const receiver = entry.isStatic ? entry.owner : 'value';
+        const text = entry.owner === 'Global' ? `${member}();` : `${receiver}.${member}();`;
+        const diagnostics = service.validate({ text, languageId: 'ssjs' });
+        assert.equal(
+            diagnostics.some((diagnostic) =>
+                ['ssjs/polyfill-required', 'ssjs/replace-with-platform-function'].includes(
+                    diagnostic.data?.sfmc?.variant,
+                ),
+            ),
+            false,
+            member,
+        );
+    }
+});
 
 /**
  * Validate an SSJS snippet.
@@ -89,7 +123,11 @@ describe('ssjs/deprecated catalog invariants', () => {
         for (const g of deprecatedCallableGlobals) {
             // Minimal 1-arg call — ContentArea/ContentAreaByName accept string/number.
             const text = `${g.name}("x");`;
-            const diags = validate(text).filter((d) => d.code === 'ssjs/deprecated');
+            const diags = validate(text).filter(
+                (d) =>
+                    d.code === 'sfmc/ssjs-no-deprecated-function' &&
+                    d.data.sfmc.variant === 'ssjs/deprecated',
+            );
             assert.ok(
                 diags.some((d) => d.message.includes(g.name)),
                 `expected ssjs/deprecated for bare call ${text}, got: ${JSON.stringify(diags)}`,
@@ -100,7 +138,11 @@ describe('ssjs/deprecated catalog invariants', () => {
     it('emits ssjs/deprecated for every currently deprecated Platform.Function call', () => {
         for (const f of deprecatedPlatformFns) {
             const text = `Platform.Function.${f.name}("x");`;
-            const diags = validate(text).filter((d) => d.code === 'ssjs/deprecated');
+            const diags = validate(text).filter(
+                (d) =>
+                    d.code === 'sfmc/ssjs-no-deprecated-function' &&
+                    d.data.sfmc.variant === 'ssjs/deprecated',
+            );
             assert.ok(
                 diags.some((d) => d.message.includes(f.name)),
                 `expected ssjs/deprecated for ${text}, got: ${JSON.stringify(diags)}`,
@@ -111,7 +153,11 @@ describe('ssjs/deprecated catalog invariants', () => {
     it('emits ssjs/deprecated for every deprecated ErrorUtil method call', () => {
         for (const m of deprecatedErrorUtilMethods) {
             const text = `ErrorUtil.${m.name}(result);`;
-            const diags = validate(text).filter((d) => d.code === 'ssjs/deprecated');
+            const diags = validate(text).filter(
+                (d) =>
+                    d.code === 'sfmc/ssjs-no-deprecated-function' &&
+                    d.data.sfmc.variant === 'ssjs/deprecated',
+            );
             assert.ok(
                 diags.some((d) => d.message.includes(m.name)),
                 `expected ssjs/deprecated for ${text}, got: ${JSON.stringify(diags)}`,
@@ -135,7 +181,11 @@ describe('ssjs/deprecated catalog invariants', () => {
             const text = row.isStatic
                 ? `${row.className}.${row.methodName}("Name", "x");`
                 : `var _x = ${row.className}.Init("ck"); _x.${row.methodName}();`;
-            const diags = validate(text).filter((d) => d.code === 'ssjs/deprecated');
+            const diags = validate(text).filter(
+                (d) =>
+                    d.code === 'sfmc/ssjs-no-deprecated-function' &&
+                    d.data.sfmc.variant === 'ssjs/deprecated',
+            );
             assert.ok(
                 diags.length > 0,
                 `expected ssjs/deprecated for core sample ${text}, got none`,

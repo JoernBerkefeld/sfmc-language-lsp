@@ -1,4 +1,5 @@
 import { CodeActionKind } from '../types.js';
+import { decodeDiagnosticData } from '../diagnostic-rules.js';
 import type { CodeAction, Diagnostic, Range } from '../types.js';
 import { positionToOffset, getTextInRange, offsetToPosition } from '../utils/positions.js';
 import {
@@ -48,11 +49,15 @@ function buildActionsForDiagnostic(
     const range = diagnostic.range;
     const originalText = getTextInRange(text, range);
 
-    switch (diagnostic.code) {
+    const decoded = decodeDiagnosticData(diagnostic.code, diagnostic.data);
+    if (!decoded) return actions;
+    const { variant, payload } = decoded;
+
+    switch (variant) {
         case DIAG_CODE_HTML_WRAPPED_COMMENT: {
             const inner =
-                typeof diagnostic.data === 'string'
-                    ? diagnostic.data
+                typeof payload === 'string'
+                    ? payload
                     : originalText.replace(/^<!--/, '').replace(/-->$/, '').trim();
             actions.push({
                 title: 'Remove HTML comment wrapper',
@@ -76,9 +81,7 @@ function buildActionsForDiagnostic(
         }
         case DIAG_CODE_JS_LINE_COMMENT: {
             const commentText =
-                typeof diagnostic.data === 'string'
-                    ? diagnostic.data
-                    : originalText.replace(/^\/\/\s*/, '').trim();
+                typeof payload === 'string' ? payload : originalText.replace(/^\/\/\s*/, '').trim();
             actions.push({
                 title: 'Convert to AMPscript block comment',
                 kind: CodeActionKind.QuickFix,
@@ -109,7 +112,7 @@ function buildActionsForDiagnostic(
         }
         case DIAG_CODE_NESTED_DELIMITER_IN_SCRIPT:
         case DIAG_CODE_NESTED_DELIMITER: {
-            const delimiter = typeof diagnostic.data === 'string' ? diagnostic.data : originalText;
+            const delimiter = typeof payload === 'string' ? payload : originalText;
             const isBlock = delimiter === '%%[';
             const actualCloseToken = isBlock ? ']%%' : '=%%';
             const actualCloseLen = actualCloseToken.length;

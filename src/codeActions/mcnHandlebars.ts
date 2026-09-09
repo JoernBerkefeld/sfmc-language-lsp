@@ -7,6 +7,7 @@
  */
 
 import { CodeActionKind } from '../types.js';
+import { decodeDiagnosticData } from '../diagnostic-rules.js';
 import type { CodeAction, Diagnostic, Range } from '../types.js';
 import { positionToOffset, offsetToPosition, getTextInRange } from '../utils/positions.js';
 import {
@@ -67,15 +68,15 @@ export function getHandlebarsCodeActions(
 
     for (const diagnostic of diagnostics) {
         if (diagnostic.source !== 'handlebars') continue;
-        if (
-            diagnostic.code !== DIAG_CODE_HBS_UNKNOWN_HELPER &&
-            diagnostic.code !== DIAG_CODE_HBS_UNKNOWN_BINDING
-        ) {
+        const decoded = decodeDiagnosticData(diagnostic.code, diagnostic.data);
+        if (!decoded) continue;
+        const { variant, payload } = decoded;
+        if (variant !== DIAG_CODE_HBS_UNKNOWN_HELPER && variant !== DIAG_CODE_HBS_UNKNOWN_BINDING) {
             continue;
         }
-        if (!isSuggestionData(diagnostic.data)) continue;
+        if (!isSuggestionData(payload)) continue;
 
-        const { typed, suggestion } = diagnostic.data;
+        const { typed, suggestion } = payload;
         const editRange = tokenRange(text, diagnostic.range, typed);
 
         actions.push({

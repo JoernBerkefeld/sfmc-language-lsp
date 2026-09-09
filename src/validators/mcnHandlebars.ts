@@ -15,6 +15,7 @@
  * catalog is therefore flagged.
  */
 
+import { createDiagnostic } from '../diagnostic-rules.js';
 import { DiagnosticSeverity } from '../types.js';
 import type { Diagnostic } from '../types.js';
 import { offsetToPosition } from '../utils/positions.js';
@@ -139,13 +140,14 @@ function flagUnsupportedConstruct(
         if (entry.helperName !== null && entry.helperName !== helperName) {
             continue;
         }
-        diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: astLocToRange(node.loc),
-            message: entry.message,
-            source: 'handlebars',
-            code: DIAG_CODE_HBS_UNSUPPORTED_CONSTRUCT,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_HBS_UNSUPPORTED_CONSTRUCT, {
+                severity: DiagnosticSeverity.Error,
+                range: astLocToRange(node.loc),
+                message: entry.message,
+                source: 'handlebars',
+            }),
+        );
         return true;
     }
     return false;
@@ -167,16 +169,15 @@ function unknownHelperDiagnostic(
     const kind = isBlock ? 'block helper' : 'helper';
     const suggestion = closestMatch(helperName, helperNames);
     const hint = suggestion ? ` Did you mean '${suggestion}'?` : '';
-    return {
+    return createDiagnostic(DIAG_CODE_HBS_UNKNOWN_HELPER, {
         severity: DiagnosticSeverity.Warning,
         range: astLocToRange(node.loc),
         message: `Unknown Handlebars ${kind} '${helperName}'. It is not part of the Marketing Cloud Next catalog, and the MCN engine cannot register custom helpers.${hint}`,
         source: 'handlebars',
-        code: DIAG_CODE_HBS_UNKNOWN_HELPER,
         ...(suggestion && {
             data: { typed: helperName, suggestion } satisfies HandlebarsSuggestionData,
         }),
-    };
+    });
 }
 
 /**
@@ -206,13 +207,14 @@ export function validateMcnHandlebars(
     // 1. Parse. A syntax error is terminal — we cannot walk a null AST.
     const { ast, error } = parseHandlebars(sanitized);
     if (error) {
-        diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: error.range,
-            message: error.message,
-            source: 'handlebars',
-            code: DIAG_CODE_HBS_SYNTAX,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_HBS_SYNTAX, {
+                severity: DiagnosticSeverity.Error,
+                range: error.range,
+                message: error.message,
+                source: 'handlebars',
+            }),
+        );
         return;
     }
 
@@ -267,22 +269,23 @@ export function validateMcnHandlebars(
                 ? BINDING_TOKEN_BY_NAME.get(suggestionName.toLowerCase())
                 : undefined;
             const hint = suggestionToken ? ` Did you mean '${suggestionToken}'?` : '';
-            diagnostics.push({
-                severity: DiagnosticSeverity.Warning,
-                range: {
-                    start: offsetToPosition(text, match.index),
-                    end: offsetToPosition(text, match.index + match[0].length),
-                },
-                message: `Unknown built-in binding '${match[0]}'. It is not a recognized Marketing Cloud Next data binding.${hint}`,
-                source: 'handlebars',
-                code: DIAG_CODE_HBS_UNKNOWN_BINDING,
-                ...(suggestionToken && {
-                    data: {
-                        typed: match[0],
-                        suggestion: suggestionToken,
-                    } satisfies HandlebarsSuggestionData,
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_HBS_UNKNOWN_BINDING, {
+                    severity: DiagnosticSeverity.Warning,
+                    range: {
+                        start: offsetToPosition(text, match.index),
+                        end: offsetToPosition(text, match.index + match[0].length),
+                    },
+                    message: `Unknown built-in binding '${match[0]}'. It is not a recognized Marketing Cloud Next data binding.${hint}`,
+                    source: 'handlebars',
+                    ...(suggestionToken && {
+                        data: {
+                            typed: match[0],
+                            suggestion: suggestionToken,
+                        } satisfies HandlebarsSuggestionData,
+                    }),
                 }),
-            });
+            );
         }
     }
 }

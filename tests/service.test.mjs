@@ -101,7 +101,7 @@ describe('AMPscript validation', () => {
     it('reports // line comment inside AMPscript', () => {
         const doc = { text: '%%[ // this is wrong ]%%', languageId: 'ampscript' };
         const diags = service.validate(doc);
-        assert.ok(diags.some((d) => d.code === 'ampscript/js-line-comment'));
+        assert.ok(diags.some((d) => d.code === 'sfmc/amp-no-js-line-comment'));
     });
 
     it('does not flag sibling AMPscript <script> blocks as nested', () => {
@@ -116,7 +116,7 @@ describe('AMPscript validation', () => {
         const doc = { text, languageId: 'html' };
         const diags = service.validate(doc);
         assert.equal(
-            diags.filter((d) => d.code === 'ampscript/nested-script-tag').length,
+            diags.filter((d) => d.code === 'sfmc/amp-no-nested-script-tag').length,
             0,
             'sibling script blocks must not be flagged',
         );
@@ -133,7 +133,7 @@ describe('AMPscript validation', () => {
         ].join('\n');
         const doc = { text, languageId: 'html' };
         const diags = service.validate(doc);
-        const nested = diags.filter((d) => d.code === 'ampscript/nested-script-tag');
+        const nested = diags.filter((d) => d.code === 'sfmc/amp-no-nested-script-tag');
         assert.equal(nested.length, 1, 'nested opener must be flagged once');
         assert.equal(nested[0].range.start.line, 2, 'diagnostic on the inner opener line');
     });
@@ -148,7 +148,7 @@ describe('AMPscript validation', () => {
         const doc = { text, languageId: 'html' };
         const diags = service.validate(doc);
         assert.equal(
-            diags.filter((d) => d.code === 'ampscript/nested-script-tag').length,
+            diags.filter((d) => d.code === 'sfmc/amp-no-nested-script-tag').length,
             0,
             'commented-out script tags must not distort nesting depth',
         );
@@ -164,7 +164,7 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
         const doc = { text: '%%[ set @x = Now() ]%%', languageId: 'ampscript' };
         const diags = service.validate(doc, nextSettings);
         assert.ok(
-            diags.every((d) => d.code !== 'ampscript/mcn-unsupported-function'),
+            diags.every((d) => d.code !== 'sfmc/amp-no-mcn-unsupported'),
             'Now() is MCN-supported and should not be flagged',
         );
     });
@@ -172,7 +172,7 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
     it('reports MCN-unsupported function as error with targetPlatform:next', () => {
         const doc = { text: '%%[ InsertDE("MyDE", "Col", "Val") ]%%', languageId: 'ampscript' };
         const diags = service.validate(doc, nextSettings);
-        const mcnDiag = diags.find((d) => d.code === 'ampscript/mcn-unsupported-function');
+        const mcnDiag = diags.find((d) => d.code === 'sfmc/amp-no-mcn-unsupported');
         assert.ok(mcnDiag, 'expected an MCN unsupported diagnostic for InsertDE');
         assert.ok(mcnDiag.message.includes('InsertDE'));
         assert.strictEqual(mcnDiag.severity, 1 /* Error */);
@@ -182,7 +182,7 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
         const doc = { text: '%%[ InsertDE("MyDE", "Col", "Val") ]%%', languageId: 'ampscript' };
         const diags = service.validate(doc);
         assert.ok(
-            diags.every((d) => d.code !== 'ampscript/mcn-unsupported-function'),
+            diags.every((d) => d.code !== 'sfmc/amp-no-mcn-unsupported'),
             'MCN diagnostics should not fire without targetPlatform:next',
         );
     });
@@ -194,7 +194,7 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
             targetPlatform: 'engagement',
         });
         assert.ok(
-            diags.every((d) => d.code !== 'ampscript/mcn-unsupported-function'),
+            diags.every((d) => d.code !== 'sfmc/amp-no-mcn-unsupported'),
             'MCN diagnostics should not fire with targetPlatform:engagement',
         );
     });
@@ -216,7 +216,7 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
         ].join('\n');
         const doc = { text: code, languageId: 'ampscript' };
         const diags = service.validate(doc, { maxNumberOfProblems: 100, targetPlatform: 'next' });
-        const mcnDiag = diags.find((d) => d.code === 'ampscript/mcn-unsupported-function');
+        const mcnDiag = diags.find((d) => d.code === 'sfmc/amp-no-mcn-unsupported');
         assert.ok(mcnDiag, 'expected MCN diagnostic for InsertDE');
         assert.strictEqual(mcnDiag.range.start.line, 7, 'diagnostic must be on line 7 (0-indexed)');
     });
@@ -237,7 +237,7 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
         ].join('\n');
         const doc = { text: code, languageId: 'ampscript' };
         const diags = service.validate(doc, { maxNumberOfProblems: 100, targetPlatform: 'next' });
-        const mcnDiag = diags.find((d) => d.code === 'ampscript/mcn-unsupported-function');
+        const mcnDiag = diags.find((d) => d.code === 'sfmc/amp-no-mcn-unsupported');
         assert.ok(mcnDiag, 'expected MCN diagnostic for InsertDE in HTML script block');
         assert.strictEqual(mcnDiag.range.start.line, 5, 'diagnostic must be on line 5 (0-indexed)');
     });
@@ -294,7 +294,7 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
         ].join('\n');
         const doc = { text: code, languageId: 'ampscript' };
         const diags = service.validate(doc, { maxNumberOfProblems: 100 });
-        const d = diags.find((x) => x.code === 'ampscript/html-comment');
+        const d = diags.find((x) => x.code === 'sfmc/amp-no-html-comment');
         assert.ok(d, 'expected html-comment diagnostic');
         assert.strictEqual(
             d.range.start.line,
@@ -315,7 +315,7 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
         ].join('\n');
         const doc = { text: code, languageId: 'ampscript' };
         const diags = service.validate(doc, { maxNumberOfProblems: 100 });
-        const d = diags.find((x) => x.code === 'ampscript/js-line-comment');
+        const d = diags.find((x) => x.code === 'sfmc/amp-no-js-line-comment');
         assert.ok(d, 'expected js-line-comment diagnostic');
         assert.strictEqual(
             d.range.start.line,
@@ -475,7 +475,7 @@ describe('MCN SSJS diagnostics (targetPlatform: next)', () => {
     it('reports SSJS as not supported in MCN with targetPlatform:next', () => {
         const doc = { text: 'Platform.Function.Lookup("DE", "F", "K", "V");', languageId: 'ssjs' };
         const diags = service.validate(doc, nextSettings);
-        const mcnDiag = diags.find((d) => d.code === 'ssjs/mcn-not-supported');
+        const mcnDiag = diags.find((d) => d.code === 'sfmc/ssjs-no-mcn-unsupported');
         assert.ok(mcnDiag, 'expected MCN SSJS diagnostic');
         assert.ok(mcnDiag.message.includes('SSJS is not supported in Marketing Cloud Next'));
         assert.strictEqual(mcnDiag.severity, 1 /* Error */);
@@ -485,7 +485,7 @@ describe('MCN SSJS diagnostics (targetPlatform: next)', () => {
         const doc = { text: 'Platform.Function.Lookup("DE", "F", "K", "V");', languageId: 'ssjs' };
         const diags = service.validate(doc);
         assert.ok(
-            diags.every((d) => d.code !== 'ssjs/mcn-not-supported'),
+            diags.every((d) => d.code !== 'sfmc/ssjs-no-mcn-unsupported'),
             'MCN SSJS diagnostic should not fire without targetPlatform:next',
         );
     });
@@ -537,7 +537,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((x) => x.code === 'ssjs/switch-fallthrough');
+        const d = diags.find((x) => x.code === 'sfmc/ssjs-no-switch-fallthrough');
         assert.ok(d, 'expected ssjs/switch-fallthrough for the empty leading case');
         assert.strictEqual(d.severity, 2 /* Warning */);
     });
@@ -548,7 +548,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.some((x) => x.code === 'ssjs/switch-fallthrough'));
+        assert.ok(diags.some((x) => x.code === 'sfmc/ssjs-no-switch-fallthrough'));
     });
 
     it('does not flag a switch whose every case ends in break', () => {
@@ -557,7 +557,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((x) => x.code !== 'ssjs/switch-fallthrough'));
+        assert.ok(diags.every((x) => x.code !== 'sfmc/ssjs-no-switch-fallthrough'));
     });
 
     it('does not flag the last empty case in a switch', () => {
@@ -566,7 +566,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((x) => x.code !== 'ssjs/switch-fallthrough'));
+        assert.ok(diags.every((x) => x.code !== 'sfmc/ssjs-no-switch-fallthrough'));
     });
 
     it('does not flag bare-name Redirect() as nonexistent-global (runtime-verified Core global)', () => {
@@ -575,7 +575,7 @@ describe('SSJS validation', () => {
         // It is therefore a valid SSJS global and must not be reported as nonexistent.
         const doc = { text: 'Redirect("https://example.com", false);', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/nonexistent-global'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-nonexistent-global'));
     });
 
     it('does not flag Platform.Response.Redirect (member call) as nonexistent-global', () => {
@@ -584,13 +584,13 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/nonexistent-global'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-nonexistent-global'));
     });
 
     it('does not flag Redirect() inside a comment', () => {
         const doc = { text: '// Redirect("https://example.com");', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/nonexistent-global'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-nonexistent-global'));
     });
 
     it('reports reading the write-only postData property as an Error', () => {
@@ -603,7 +603,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((x) => x.code === 'ssjs/invalid-property-access');
+        const d = diags.find((x) => x.code === 'sfmc/ssjs-no-invalid-property-access');
         assert.ok(d, 'expected ssjs/invalid-property-access for reading req.postData');
         assert.equal(d.severity, 1, 'expected Error severity');
         assert.equal(d.range.start.line, 2, 'expected the read on line 2 to be flagged');
@@ -618,7 +618,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((x) => x.code === 'ssjs/invalid-property-access');
+        const d = diags.find((x) => x.code === 'sfmc/ssjs-no-invalid-property-access');
         assert.ok(d, 'expected ssjs/invalid-property-access for reading ContentType');
         assert.equal(d.severity, 2, 'expected Warning severity');
         assert.equal(d.range.start.line, 1, 'the assignment on line 0 must not be flagged');
@@ -627,7 +627,7 @@ describe('SSJS validation', () => {
     it('reports assigning the read-only Platform.Request.Method as an Error', () => {
         const doc = { text: 'Platform.Request.Method = "POST";', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        const d = diags.find((x) => x.code === 'ssjs/invalid-property-access');
+        const d = diags.find((x) => x.code === 'sfmc/ssjs-no-invalid-property-access');
         assert.ok(d, 'expected ssjs/invalid-property-access for assigning Method');
         assert.equal(d.severity, 1, 'expected Error severity');
     });
@@ -642,13 +642,13 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-property-access'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-invalid-property-access'));
     });
 
     it('reports deprecated ErrorUtil.ThrowWSProxyError as deprecated Warning', () => {
         const doc = { text: 'ErrorUtil.ThrowWSProxyError(result);', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/deprecated');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-no-deprecated-function');
         assert.ok(d, 'expected deprecated diagnostic for ErrorUtil.ThrowWSProxyError');
         assert.equal(d.severity, 2, 'expected Warning severity');
         assert.ok(d.message.includes('ThrowWSProxyError'));
@@ -662,7 +662,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/deprecated');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-no-deprecated-function');
         assert.ok(d, 'expected deprecated diagnostic for ErrorUtil.ThrowWSProxyError');
         assert.equal(d.severity, 1, 'expected Error severity');
         assert.match(d.message, /undefined under Platform\.Load\("Core", "1\.1\.5"\)/);
@@ -676,7 +676,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/deprecated');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-no-deprecated-function');
         assert.ok(d, 'expected deprecated diagnostic for ErrorUtil.ThrowWSProxyError');
         assert.equal(d.severity, 2, 'expected Warning severity');
         assert.match(d.message, /is deprecated/);
@@ -685,7 +685,7 @@ describe('SSJS validation', () => {
     it('does not flag ErrorUtil.ThrowWSProxyError inside a comment', () => {
         const doc = { text: '// ErrorUtil.ThrowWSProxyError(result);', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/deprecated'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-deprecated-function'));
     });
 
     it('reports deprecated static call Portfolio.Retrieve as deprecated Warning', () => {
@@ -694,7 +694,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/deprecated');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-no-deprecated-function');
         assert.ok(d, 'expected deprecated diagnostic for Portfolio.Retrieve');
         assert.equal(d.severity, 2, 'expected Warning severity');
         assert.ok(d.message.includes('Retrieve'));
@@ -706,7 +706,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const deprecatedDiags = diags.filter((d) => d.code === 'ssjs/deprecated');
+        const deprecatedDiags = diags.filter((d) => d.code === 'sfmc/ssjs-no-deprecated-function');
         assert.ok(
             deprecatedDiags.some((d) => d.message.includes('Send')),
             `expected a deprecated diagnostic mentioning Send, got: ${JSON.stringify(deprecatedDiags)}`,
@@ -716,13 +716,13 @@ describe('SSJS validation', () => {
     it('does not flag Portfolio.Retrieve inside a comment', () => {
         const doc = { text: '// Portfolio.Retrieve("Name", "MyPortfolio");', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/deprecated'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-deprecated-function'));
     });
 
     it('reports deprecated bare ContentArea("key") as ssjs/deprecated Warning', () => {
         const doc = { text: 'var html = ContentArea("key");', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        const d = diags.find((x) => x.code === 'ssjs/deprecated');
+        const d = diags.find((x) => x.code === 'sfmc/ssjs-no-deprecated-function');
         assert.ok(d, 'expected ssjs/deprecated for ContentArea("key")');
         assert.equal(d.severity, 2, 'expected Warning severity');
         assert.ok(d.message.includes('ContentArea'));
@@ -731,7 +731,7 @@ describe('SSJS validation', () => {
     it('reports deprecated bare ContentAreaByName("name") as ssjs/deprecated Warning', () => {
         const doc = { text: 'var html = ContentAreaByName("name");', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        const d = diags.find((x) => x.code === 'ssjs/deprecated');
+        const d = diags.find((x) => x.code === 'sfmc/ssjs-no-deprecated-function');
         assert.ok(d, 'expected ssjs/deprecated for ContentAreaByName("name")');
         assert.equal(d.severity, 2, 'expected Warning severity');
         assert.ok(d.message.includes('ContentAreaByName'));
@@ -743,7 +743,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((x) => x.code === 'ssjs/deprecated');
+        const d = diags.find((x) => x.code === 'sfmc/ssjs-no-deprecated-function');
         assert.ok(d, 'expected ssjs/deprecated for Platform.Function.ContentArea');
         assert.equal(d.severity, 2, 'expected Warning severity');
         assert.ok(d.message.includes('Platform.Function.ContentArea'));
@@ -752,7 +752,7 @@ describe('SSJS validation', () => {
     it('does not flag ContentArea inside a comment', () => {
         const doc = { text: '// ContentArea("key");', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/deprecated'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-deprecated-function'));
     });
 
     it('reports deprecated Template.Retrieve as ssjs/deprecated Warning', () => {
@@ -761,7 +761,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((x) => x.code === 'ssjs/deprecated');
+        const d = diags.find((x) => x.code === 'sfmc/ssjs-no-deprecated-function');
         assert.ok(d, 'expected ssjs/deprecated for Template.Retrieve');
         assert.equal(d.severity, 2, 'expected Warning severity');
     });
@@ -774,7 +774,7 @@ describe('SSJS validation', () => {
         };
         const diags = service.validate(doc);
         assert.ok(
-            diags.every((d) => d.code !== 'ssjs/invalid-arity'),
+            diags.every((d) => d.code !== 'sfmc/ssjs-platform-function-arity'),
             'HTTPGet(url) is a valid 1-arg call',
         );
     });
@@ -786,7 +786,7 @@ describe('SSJS validation', () => {
         };
         const diags = service.validate(doc);
         assert.ok(
-            diags.every((d) => d.code !== 'ssjs/invalid-arity'),
+            diags.every((d) => d.code !== 'sfmc/ssjs-platform-function-arity'),
             'HTTPGet with 6 args is a valid full call',
         );
     });
@@ -797,7 +797,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/invalid-arity');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-platform-function-arity');
         assert.ok(d, 'expected invalid-arity diagnostic for 2-arg HTTPGet');
         assert.equal(d.severity, 1, 'expected Error severity');
         assert.ok(d.message.includes('1 or 6'), 'message should render valid arities as "1 or 6"');
@@ -810,7 +810,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/invalid-arity');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-platform-function-arity');
         assert.ok(d, 'expected invalid-arity diagnostic for 4-arg HTTPGet');
         assert.ok(d.message.includes('got 4'));
     });
@@ -822,7 +822,7 @@ describe('SSJS validation', () => {
         };
         const diags = service.validate(doc);
         assert.ok(
-            diags.every((d) => d.code !== 'ssjs/invalid-arity'),
+            diags.every((d) => d.code !== 'sfmc/ssjs-platform-function-arity'),
             'HTTPPost(url, contentType, payload) is a valid 3-arg call',
         );
     });
@@ -834,7 +834,7 @@ describe('SSJS validation', () => {
         };
         const diags = service.validate(doc);
         assert.ok(
-            diags.every((d) => d.code !== 'ssjs/invalid-arity'),
+            diags.every((d) => d.code !== 'sfmc/ssjs-platform-function-arity'),
             'HTTPPost with 6 args is a valid full call',
         );
     });
@@ -845,7 +845,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/invalid-arity');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-platform-function-arity');
         assert.ok(d, 'expected invalid-arity diagnostic for 4-arg HTTPPost');
         assert.equal(d.severity, 1, 'expected Error severity');
         assert.ok(d.message.includes('3 or 6'), 'message should render valid arities as "3 or 6"');
@@ -858,7 +858,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/invalid-arity');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-platform-function-arity');
         assert.ok(d, 'expected invalid-arity diagnostic for 5-arg HTTPPost');
         assert.ok(d.message.includes('got 5'));
     });
@@ -869,7 +869,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-arity'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-platform-function-arity'));
     });
 
     it('does not miscount HTTPGet args when a string argument contains commas', () => {
@@ -880,7 +880,7 @@ describe('SSJS validation', () => {
         };
         const diags = service.validate(doc);
         assert.ok(
-            diags.every((d) => d.code !== 'ssjs/invalid-arity'),
+            diags.every((d) => d.code !== 'sfmc/ssjs-platform-function-arity'),
             'commas inside a string arg must not be counted as argument separators',
         );
     });
@@ -894,7 +894,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/nonfunctional-method');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-no-nonfunctional-method');
         assert.ok(d, 'expected nonfunctional-method diagnostic for fd.Update()');
         assert.equal(d.severity, 1, 'expected Error severity');
         assert.ok(
@@ -909,7 +909,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/nonfunctional-method');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-no-nonfunctional-method');
         assert.ok(d, 'expected nonfunctional-method diagnostic for fd.Remove()');
         assert.equal(d.severity, 1, 'expected Error severity');
     });
@@ -921,7 +921,7 @@ describe('SSJS validation', () => {
         };
         const diags = service.validate(doc);
         assert.ok(
-            diags.every((d) => d.code !== 'ssjs/nonfunctional-method'),
+            diags.every((d) => d.code !== 'sfmc/ssjs-no-nonfunctional-method'),
             'Init/Add/Retrieve are working methods',
         );
     });
@@ -932,7 +932,7 @@ describe('SSJS validation', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/nonfunctional-method'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-nonfunctional-method'));
     });
 
     it('reports let/const as Error severity (not Warning)', () => {
@@ -1118,7 +1118,7 @@ describe('SSJS validation', () => {
 // ── SSJS new-on-object-returning-constructor ─────────────────────────────────
 
 describe('SSJS new-object-returning-constructor diagnostics', () => {
-    const code = 'ssjs/new-object-returning-constructor';
+    const code = 'sfmc/ssjs-no-object-returning-constructor';
 
     it('flags new X() when X returns an object literal', () => {
         const doc = {
@@ -1196,7 +1196,7 @@ const twoServerBlocks = (a, b) =>
     `<script runat="server">\n${a}\n</script>\n<script runat="server">\n${b}\n</script>`;
 
 describe('SSJS cross-block-forward-reference diagnostics', () => {
-    const code = 'ssjs/cross-block-forward-reference';
+    const code = 'sfmc/ssjs-no-cross-block-forward-reference';
     const twoBlocks = twoServerBlocks;
 
     it('flags a call to a function declared only in a later block', () => {
@@ -1261,24 +1261,38 @@ describe('SSJS polyfill-required diagnostics', () => {
         const doc = { text: 'var b = Array.isArray(x);', languageId: 'ssjs' };
         const diags = service.validate(doc);
         const d = diags.find(
-            (d) => d.code === 'ssjs/polyfill-required' && d.message.includes('Array.isArray'),
+            (d) =>
+                d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                d.data?.sfmc?.variant === 'ssjs/polyfill-required' &&
+                d.message.includes('Array.isArray'),
         );
         assert.ok(d, 'expected polyfill-required diagnostic for Array.isArray');
         assert.equal(d.severity, 1, 'expected Error severity');
-        assert.ok(d.data && typeof d.data.polyfill === 'string' && d.data.polyfill.length > 0);
-        assert.equal(d.data.owner, 'Array');
-        assert.equal(d.data.method, 'isArray');
+        assert.ok(
+            d.data &&
+                typeof d.data.sfmc.payload.polyfill === 'string' &&
+                d.data.sfmc.payload.polyfill.length > 0,
+        );
+        assert.equal(d.data.sfmc.payload.owner, 'Array');
+        assert.equal(d.data.sfmc.payload.method, 'isArray');
     });
 
     it('reports a prototype polyfillable member (.forEach) as an Error with polyfill data', () => {
         const doc = { text: 'arr.forEach(fn);', languageId: 'ssjs' };
         const diags = service.validate(doc);
         const d = diags.find(
-            (d) => d.code === 'ssjs/polyfill-required' && d.message.includes('forEach'),
+            (d) =>
+                d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                d.data?.sfmc?.variant === 'ssjs/polyfill-required' &&
+                d.message.includes('forEach'),
         );
         assert.ok(d, 'expected polyfill-required diagnostic for .forEach');
         assert.equal(d.severity, 1, 'expected Error severity');
-        assert.ok(d.data && typeof d.data.polyfill === 'string' && d.data.polyfill.length > 0);
+        assert.ok(
+            d.data &&
+                typeof d.data.sfmc.payload.polyfill === 'string' &&
+                d.data.sfmc.payload.polyfill.length > 0,
+        );
     });
 
     it('does not flag ambiguous-with-string members (.slice) to avoid string false positives', () => {
@@ -1286,7 +1300,12 @@ describe('SSJS polyfill-required diagnostics', () => {
         const diags = service.validate(doc);
         assert.ok(
             diags.every(
-                (d) => !(d.code === 'ssjs/polyfill-required' && d.message.includes('slice')),
+                (d) =>
+                    !(
+                        d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                        d.data?.sfmc?.variant === 'ssjs/polyfill-required' &&
+                        d.message.includes('slice')
+                    ),
             ),
             '.slice() must not be flagged by the polyfill-required warning',
         );
@@ -1297,7 +1316,10 @@ describe('SSJS polyfill-required diagnostics', () => {
         const d = service
             .validate(doc)
             .find(
-                (d) => d.code === 'ssjs/polyfill-required' && d.message.includes('Array.isArray'),
+                (d) =>
+                    d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                    d.data?.sfmc?.variant === 'ssjs/polyfill-required' &&
+                    d.message.includes('Array.isArray'),
             );
         assert.ok(d, 'expected polyfill-required diagnostic for Array.isArray');
         assert.ok(
@@ -1310,7 +1332,12 @@ describe('SSJS polyfill-required diagnostics', () => {
         const doc = { text: 'var removed = arr.splice(1, 2);', languageId: 'ssjs' };
         const d = service
             .validate(doc)
-            .find((d) => d.code === 'ssjs/polyfill-required' && d.message.includes('splice'));
+            .find(
+                (d) =>
+                    d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                    d.data?.sfmc?.variant === 'ssjs/polyfill-required' &&
+                    d.message.includes('splice'),
+            );
         assert.ok(d, 'expected polyfill-required diagnostic for Array.splice');
         assert.ok(
             d.message.includes('is broken in the SFMC SSJS engine'),
@@ -1325,10 +1352,14 @@ describe('SSJS polyfill-required diagnostics', () => {
     it('suppresses the diagnostic once the polyfill is already present in the document', () => {
         const probe = service
             .validate({ text: 'Array.isArray(x);', languageId: 'ssjs' })
-            .find((d) => d.code === 'ssjs/polyfill-required');
+            .find(
+                (d) =>
+                    d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                    d.data?.sfmc?.variant === 'ssjs/polyfill-required',
+            );
         // Marker = first code line, skipping the leading JSDoc block — matches
         // polyfillMarker() in src/utils/polyfill.ts.
-        const marker = probe.data.polyfill
+        const marker = probe.data.sfmc.payload.polyfill
             .split('\n')
             .map((l) => l.trim())
             .find(
@@ -1342,7 +1373,12 @@ describe('SSJS polyfill-required diagnostics', () => {
         const diags = service.validate(doc);
         assert.ok(
             diags.every(
-                (d) => !(d.code === 'ssjs/polyfill-required' && d.message.includes('isArray')),
+                (d) =>
+                    !(
+                        d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                        d.data?.sfmc?.variant === 'ssjs/polyfill-required' &&
+                        d.message.includes('isArray')
+                    ),
             ),
             'diagnostic must be suppressed when the polyfill is present',
         );
@@ -1362,7 +1398,12 @@ describe('SSJS polyfill-required diagnostics', () => {
         const diags = service.validate(doc);
         assert.ok(
             diags.every(
-                (d) => !(d.code === 'ssjs/polyfill-required' && d.message.includes('isArray')),
+                (d) =>
+                    !(
+                        d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                        d.data?.sfmc?.variant === 'ssjs/polyfill-required' &&
+                        d.message.includes('isArray')
+                    ),
             ),
             'diagnostic must be suppressed when the self-guarded polyfill is present',
         );
@@ -1380,7 +1421,12 @@ describe('SSJS polyfill-required diagnostics', () => {
         const diags = service.validate(doc);
         assert.ok(
             diags.every(
-                (d) => !(d.code === 'ssjs/polyfill-required' && d.message.includes('isArray')),
+                (d) =>
+                    !(
+                        d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                        d.data?.sfmc?.variant === 'ssjs/polyfill-required' &&
+                        d.message.includes('isArray')
+                    ),
             ),
             'diagnostic must be suppressed when a minified polyfill is present',
         );
@@ -1401,7 +1447,8 @@ describe('SSJS polyfill-required diagnostics', () => {
             diags.every(
                 (d) =>
                     !(
-                        d.code === 'ssjs/polyfill-required' &&
+                        d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                        d.data?.sfmc?.variant === 'ssjs/polyfill-required' &&
                         (d.message.includes('Math.max') || d.message.includes('Math.min'))
                     ),
             ),
@@ -1418,14 +1465,15 @@ describe('SSJS replace-with-platform-function diagnostics', () => {
         const diags = service.validate(doc);
         const d = diags.find(
             (d) =>
-                d.code === 'ssjs/replace-with-platform-function' &&
+                d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                d.data?.sfmc?.variant === 'ssjs/replace-with-platform-function' &&
                 d.message.includes('JSON.parse'),
         );
         assert.ok(d, 'expected replace diagnostic for JSON.parse');
         assert.equal(d.severity, 2, 'expected Warning severity');
-        assert.equal(d.data.owner, 'JSON');
-        assert.equal(d.data.member, 'parse');
-        assert.equal(d.data.replacement, 'Platform.Function.ParseJSON');
+        assert.equal(d.data.sfmc.payload.owner, 'JSON');
+        assert.equal(d.data.sfmc.payload.member, 'parse');
+        assert.equal(d.data.sfmc.payload.replacement, 'Platform.Function.ParseJSON');
     });
 
     it('reports JSON.stringify with a replacement to Platform.Function.Stringify', () => {
@@ -1433,17 +1481,24 @@ describe('SSJS replace-with-platform-function diagnostics', () => {
         const diags = service.validate(doc);
         const d = diags.find(
             (d) =>
-                d.code === 'ssjs/replace-with-platform-function' &&
+                d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                d.data?.sfmc?.variant === 'ssjs/replace-with-platform-function' &&
                 d.message.includes('JSON.stringify'),
         );
         assert.ok(d, 'expected replace diagnostic for JSON.stringify');
-        assert.equal(d.data.replacement, 'Platform.Function.Stringify');
+        assert.equal(d.data.sfmc.payload.replacement, 'Platform.Function.Stringify');
     });
 
     it('does not flag JSON.parse inside a comment', () => {
         const doc = { text: '// var o = JSON.parse(str);', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/replace-with-platform-function'));
+        assert.ok(
+            diags.every(
+                (d) =>
+                    d.code !== 'sfmc/ssjs-no-unavailable-method' ||
+                    d.data?.sfmc?.variant !== 'ssjs/replace-with-platform-function',
+            ),
+        );
     });
 
     it('offers a replace code action for the replace diagnostic', () => {
@@ -1453,7 +1508,11 @@ describe('SSJS replace-with-platform-function diagnostics', () => {
             uri: 'file:///t.ssjs',
         };
         const diags = service.validate(doc);
-        const replaceDiag = diags.find((d) => d.code === 'ssjs/replace-with-platform-function');
+        const replaceDiag = diags.find(
+            (d) =>
+                d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                d.data?.sfmc?.variant === 'ssjs/replace-with-platform-function',
+        );
         assert.ok(replaceDiag, 'expected a replace diagnostic');
         const actions = service.getCodeActions(doc, [replaceDiag]);
         const action = actions.find((a) => a.title.includes('Platform.Function.ParseJSON'));
@@ -1476,11 +1535,11 @@ describe('SSJS clr-header-access diagnostics', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/clr-header-access');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-no-clr-header-access');
         assert.ok(d, 'expected clr-header-access diagnostic');
         assert.equal(d.severity, 1, 'expected Error severity');
-        assert.equal(d.data.respName, 'resp');
-        assert.equal(d.data.keyText, '"Content-Type"');
+        assert.equal(d.data.sfmc.payload.respName, 'resp');
+        assert.equal(d.data.sfmc.payload.keyText, '"Content-Type"');
     });
 
     it('flags .Get() call on a tracked HttpGet response header', () => {
@@ -1489,10 +1548,10 @@ describe('SSJS clr-header-access diagnostics', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/clr-header-access');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-no-clr-header-access');
         assert.ok(d, 'expected clr-header-access diagnostic');
-        assert.equal(d.data.respName, 'gresp');
-        assert.equal(d.data.keyText, '"Location"');
+        assert.equal(d.data.sfmc.payload.respName, 'gresp');
+        assert.equal(d.data.sfmc.payload.keyText, '"Location"');
     });
 
     it('flags .Item() call on a tracked response header', () => {
@@ -1501,7 +1560,7 @@ describe('SSJS clr-header-access diagnostics', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.some((d) => d.code === 'ssjs/clr-header-access'));
+        assert.ok(diags.some((d) => d.code === 'sfmc/ssjs-no-clr-header-access'));
     });
 
     it('does not flag .headers on an untracked object', () => {
@@ -1510,7 +1569,7 @@ describe('SSJS clr-header-access diagnostics', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-header-access'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-clr-header-access'));
     });
 
     it('does not flag a for..in read of a tracked response', () => {
@@ -1519,7 +1578,7 @@ describe('SSJS clr-header-access diagnostics', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-header-access'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-clr-header-access'));
     });
 
     it('does not flag inside a comment', () => {
@@ -1528,7 +1587,7 @@ describe('SSJS clr-header-access diagnostics', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-header-access'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-clr-header-access'));
     });
 
     it('offers a getHeaderMap code action that rewrites and inserts the helper', () => {
@@ -1538,7 +1597,7 @@ describe('SSJS clr-header-access diagnostics', () => {
             uri: 'file:///h.ssjs',
         };
         const diags = service.validate(doc);
-        const diag = diags.find((d) => d.code === 'ssjs/clr-header-access');
+        const diag = diags.find((d) => d.code === 'sfmc/ssjs-no-clr-header-access');
         assert.ok(diag, 'expected a clr-header-access diagnostic');
         const actions = service.getCodeActions(doc, [diag]);
         const action = actions.find((a) => a.title.includes('getHeaderMap'));
@@ -1558,7 +1617,7 @@ describe('SSJS clr-header-access diagnostics', () => {
             uri: 'file:///h2.ssjs',
         };
         const diags = service.validate(doc);
-        const diag = diags.find((d) => d.code === 'ssjs/clr-header-access');
+        const diag = diags.find((d) => d.code === 'sfmc/ssjs-no-clr-header-access');
         const actions = service.getCodeActions(doc, [diag]);
         const action = actions.find((a) => a.title.includes('getHeaderMap'));
         assert.ok(action);
@@ -1575,7 +1634,7 @@ describe('SSJS clr-header-access diagnostics', () => {
             maxNumberOfProblems: 100,
             disableLspDiagnosticsForEslintRules: true,
         });
-        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-header-access'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-clr-header-access'));
     });
 });
 
@@ -1592,11 +1651,11 @@ describe('SSJS clr-content-access diagnostics', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/clr-content-access');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-require-string-clr-content');
         assert.ok(d, 'expected clr-content-access diagnostic');
         assert.equal(d.severity, 1, 'expected Error severity');
-        assert.equal(d.data.respName, 'resp');
-        assert.equal(d.data.contentText, 'resp.content');
+        assert.equal(d.data.sfmc.payload.respName, 'resp');
+        assert.equal(d.data.sfmc.payload.contentText, 'resp.content');
     });
 
     it('flags a raw .content read on an HttpGet response', () => {
@@ -1605,10 +1664,10 @@ describe('SSJS clr-content-access diagnostics', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/clr-content-access');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-require-string-clr-content');
         assert.ok(d, 'expected clr-content-access diagnostic');
-        assert.equal(d.data.respName, 'gresp');
-        assert.equal(d.data.contentText, 'gresp.content');
+        assert.equal(d.data.sfmc.payload.respName, 'gresp');
+        assert.equal(d.data.sfmc.payload.contentText, 'gresp.content');
     });
 
     it('does not flag .content already wrapped in String()', () => {
@@ -1617,7 +1676,7 @@ describe('SSJS clr-content-access diagnostics', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-content-access'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-require-string-clr-content'));
     });
 
     it('does not flag .content on an untracked object', () => {
@@ -1626,7 +1685,7 @@ describe('SSJS clr-content-access diagnostics', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-content-access'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-require-string-clr-content'));
     });
 
     it('does not flag a longer identifier like .contentType', () => {
@@ -1635,7 +1694,7 @@ describe('SSJS clr-content-access diagnostics', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-content-access'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-require-string-clr-content'));
     });
 
     it('does not flag inside a comment', () => {
@@ -1644,7 +1703,7 @@ describe('SSJS clr-content-access diagnostics', () => {
             languageId: 'ssjs',
         };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-content-access'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-require-string-clr-content'));
     });
 
     it('offers a String() wrap code action', () => {
@@ -1654,7 +1713,7 @@ describe('SSJS clr-content-access diagnostics', () => {
             uri: 'file:///c.ssjs',
         };
         const diags = service.validate(doc);
-        const diag = diags.find((d) => d.code === 'ssjs/clr-content-access');
+        const diag = diags.find((d) => d.code === 'sfmc/ssjs-require-string-clr-content');
         assert.ok(diag, 'expected a clr-content-access diagnostic');
         const actions = service.getCodeActions(doc, [diag]);
         const action = actions.find((a) => a.title.includes('String(resp.content)'));
@@ -1673,7 +1732,7 @@ describe('SSJS clr-content-access diagnostics', () => {
             maxNumberOfProblems: 100,
             disableLspDiagnosticsForEslintRules: true,
         });
-        assert.ok(diags.every((d) => d.code !== 'ssjs/clr-content-access'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-require-string-clr-content'));
     });
 });
 
@@ -1686,63 +1745,63 @@ describe('SSJS invalid-http-property-value diagnostics', () => {
     it('flags an out-of-range emptyContentHandling enum value', () => {
         const doc = { text: `${reqSetup}req.emptyContentHandling = 5;`, languageId: 'ssjs' };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/invalid-http-property-value');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-http-property-value');
         assert.ok(d, 'expected invalid-http-property-value diagnostic');
         assert.equal(d.severity, 1, 'expected Error severity');
-        assert.equal(d.data.propName, 'emptyContentHandling');
+        assert.equal(d.data.sfmc.payload.propName, 'emptyContentHandling');
     });
 
     it('flags a negative / non-integer retries value', () => {
         const doc = { text: `${reqSetup}req.retries = -2.45;`, languageId: 'ssjs' };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/invalid-http-property-value');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-http-property-value');
         assert.ok(d, 'expected invalid-http-property-value diagnostic');
-        assert.equal(d.data.propName, 'retries');
+        assert.equal(d.data.sfmc.payload.propName, 'retries');
     });
 
     it('flags an invalid method enum value', () => {
         const doc = { text: `${reqSetup}req.method = 'POT';`, languageId: 'ssjs' };
         const diags = service.validate(doc);
-        const d = diags.find((d) => d.code === 'ssjs/invalid-http-property-value');
+        const d = diags.find((d) => d.code === 'sfmc/ssjs-http-property-value');
         assert.ok(d, 'expected invalid-http-property-value diagnostic');
-        assert.equal(d.data.propName, 'method');
-        assert.ok(d.data.suggestions.length > 0, 'expected enum suggestions');
+        assert.equal(d.data.sfmc.payload.propName, 'method');
+        assert.ok(d.data.sfmc.payload.suggestions.length > 0, 'expected enum suggestions');
     });
 
     it('flags invalid values on an HttpGet instance', () => {
         const doc = { text: `${getSetup}greq.emptyContentHandling = 9;`, languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.some((d) => d.code === 'ssjs/invalid-http-property-value'));
+        assert.ok(diags.some((d) => d.code === 'sfmc/ssjs-http-property-value'));
     });
 
     it('does not flag a valid enum value', () => {
         const doc = { text: `${reqSetup}req.method = 'POST';`, languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-http-property-value'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-http-property-value'));
     });
 
     it('does not flag a valid numeric value', () => {
         const doc = { text: `${reqSetup}req.retries = 3;`, languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-http-property-value'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-http-property-value'));
     });
 
     it('does not flag non-literal (variable) assignments', () => {
         const doc = { text: `${reqSetup}req.method = someVar;`, languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-http-property-value'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-http-property-value'));
     });
 
     it('does not flag assignments on an untracked object', () => {
         const doc = { text: 'other.method = "POT";', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-http-property-value'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-http-property-value'));
     });
 
     it('does not flag inside a comment', () => {
         const doc = { text: `${reqSetup}// req.method = 'POT';`, languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-http-property-value'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-http-property-value'));
     });
 
     it('offers replacement code actions for an enum violation', () => {
@@ -1752,7 +1811,7 @@ describe('SSJS invalid-http-property-value diagnostics', () => {
             uri: 'file:///p.ssjs',
         };
         const diags = service.validate(doc);
-        const diag = diags.find((d) => d.code === 'ssjs/invalid-http-property-value');
+        const diag = diags.find((d) => d.code === 'sfmc/ssjs-http-property-value');
         assert.ok(diag, 'expected an invalid-http-property-value diagnostic');
         const actions = service.getCodeActions(doc, [diag]);
         assert.ok(actions.length > 0, 'expected at least one replacement action');
@@ -1767,7 +1826,7 @@ describe('SSJS invalid-http-property-value diagnostics', () => {
             uri: 'file:///p.ssjs',
         };
         const diags = service.validate(doc);
-        const diag = diags.find((d) => d.code === 'ssjs/invalid-http-property-value');
+        const diag = diags.find((d) => d.code === 'sfmc/ssjs-http-property-value');
         assert.ok(diag, 'expected an invalid-http-property-value diagnostic');
         const actions = service.getCodeActions(doc, [diag]);
         const titles = new Set(actions.map((a) => a.title));
@@ -1782,7 +1841,7 @@ describe('SSJS invalid-http-property-value diagnostics', () => {
             maxNumberOfProblems: 100,
             disableLspDiagnosticsForEslintRules: true,
         });
-        assert.ok(diags.every((d) => d.code !== 'ssjs/invalid-http-property-value'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-http-property-value'));
     });
 });
 
@@ -1795,7 +1854,13 @@ describe('SSJS disableLspDiagnosticsForEslintRules', () => {
             maxNumberOfProblems: 100,
             disableLspDiagnosticsForEslintRules: true,
         });
-        assert.ok(diags.every((d) => d.code !== 'ssjs/polyfill-required'));
+        assert.ok(
+            diags.every(
+                (d) =>
+                    d.code !== 'sfmc/ssjs-no-unavailable-method' ||
+                    d.data?.sfmc?.variant !== 'ssjs/polyfill-required',
+            ),
+        );
     });
 
     it('suppresses replace-with-platform-function diagnostics when enabled', () => {
@@ -1804,7 +1869,13 @@ describe('SSJS disableLspDiagnosticsForEslintRules', () => {
             maxNumberOfProblems: 100,
             disableLspDiagnosticsForEslintRules: true,
         });
-        assert.ok(diags.every((d) => d.code !== 'ssjs/replace-with-platform-function'));
+        assert.ok(
+            diags.every(
+                (d) =>
+                    d.code !== 'sfmc/ssjs-no-unavailable-method' ||
+                    d.data?.sfmc?.variant !== 'ssjs/replace-with-platform-function',
+            ),
+        );
     });
 
     it('suppresses mcn-not-supported diagnostic when enabled', () => {
@@ -1814,7 +1885,7 @@ describe('SSJS disableLspDiagnosticsForEslintRules', () => {
             targetPlatform: 'next',
             disableLspDiagnosticsForEslintRules: true,
         });
-        assert.ok(diags.every((d) => d.code !== 'ssjs/mcn-not-supported'));
+        assert.ok(diags.every((d) => d.code !== 'sfmc/ssjs-no-mcn-unsupported'));
     });
 
     it('still reports mcn-not-supported diagnostic when disabled (default)', () => {
@@ -1823,13 +1894,19 @@ describe('SSJS disableLspDiagnosticsForEslintRules', () => {
             maxNumberOfProblems: 100,
             targetPlatform: 'next',
         });
-        assert.ok(diags.some((d) => d.code === 'ssjs/mcn-not-supported'));
+        assert.ok(diags.some((d) => d.code === 'sfmc/ssjs-no-mcn-unsupported'));
     });
 
     it('still reports polyfill-required diagnostics when disabled (default)', () => {
         const doc = { text: 'var b = Array.isArray(x);', languageId: 'ssjs' };
         const diags = service.validate(doc);
-        assert.ok(diags.some((d) => d.code === 'ssjs/polyfill-required'));
+        assert.ok(
+            diags.some(
+                (d) =>
+                    d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                    d.data?.sfmc?.variant === 'ssjs/polyfill-required',
+            ),
+        );
     });
 });
 
@@ -1843,7 +1920,11 @@ describe('SSJS insert-polyfill code action', () => {
             uri: 'file:///t.ssjs',
         };
         const diags = service.validate(doc);
-        const polyDiag = diags.find((d) => d.code === 'ssjs/polyfill-required');
+        const polyDiag = diags.find(
+            (d) =>
+                d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                d.data?.sfmc?.variant === 'ssjs/polyfill-required',
+        );
         assert.ok(polyDiag, 'expected a polyfill-required diagnostic');
         const actions = service.getCodeActions(doc, [polyDiag]);
         const action = actions.find((a) => a.title.includes('Insert polyfill'));
@@ -1860,7 +1941,11 @@ describe('SSJS insert-polyfill code action', () => {
             uri: 'file:///t.ssjs',
         };
         const diags = service.validate(doc);
-        const polyDiag = diags.find((d) => d.code === 'ssjs/polyfill-required');
+        const polyDiag = diags.find(
+            (d) =>
+                d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                d.data?.sfmc?.variant === 'ssjs/polyfill-required',
+        );
         assert.ok(polyDiag, 'expected a polyfill-required diagnostic');
         const action = service
             .getCodeActions(doc, [polyDiag])
@@ -1881,7 +1966,11 @@ describe('SSJS insert-polyfill code action', () => {
             uri: 'file:///t.ssjs',
         };
         const diags = service.validate(doc);
-        const polyDiag = diags.find((d) => d.code === 'ssjs/polyfill-required');
+        const polyDiag = diags.find(
+            (d) =>
+                d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                d.data?.sfmc?.variant === 'ssjs/polyfill-required',
+        );
         const action = service
             .getCodeActions(doc, [polyDiag])
             .find((a) => a.title.includes('Insert polyfill'));
@@ -1891,10 +1980,14 @@ describe('SSJS insert-polyfill code action', () => {
 
     it('does not offer the action when the polyfill is already present', () => {
         const diagsProbe = service.validate({ text: 'Array.isArray(x);', languageId: 'ssjs' });
-        const probe = diagsProbe.find((d) => d.code === 'ssjs/polyfill-required');
+        const probe = diagsProbe.find(
+            (d) =>
+                d.code === 'sfmc/ssjs-no-unavailable-method' &&
+                d.data?.sfmc?.variant === 'ssjs/polyfill-required',
+        );
         // Marker = first code line, skipping the leading JSDoc block — matches
         // polyfillMarker() in src/utils/polyfill.ts.
-        const marker = probe.data.polyfill
+        const marker = probe.data.sfmc.payload.polyfill
             .split('\n')
             .map((l) => l.trim())
             .find(
@@ -1914,7 +2007,7 @@ describe('SSJS insert-polyfill code action', () => {
         const polyDiag = {
             code: 'ssjs/polyfill-required',
             source: 'ssjs',
-            data: probe.data,
+            data: probe.data.sfmc.payload,
             range: { start: { line: 1, character: 0 }, end: { line: 1, character: 0 } },
             message: probe.message,
             severity: 2,
@@ -2296,7 +2389,7 @@ describe('Code Actions', () => {
     it('suggests converting // to /* */ for JS line comment diagnostic', () => {
         const doc = { text: '%%[ // wrong ]%%', languageId: 'ampscript', uri: 'file:///test.amp' };
         const diags = service.validate(doc);
-        const jsComment = diags.find((d) => d.code === 'ampscript/js-line-comment');
+        const jsComment = diags.find((d) => d.code === 'sfmc/amp-no-js-line-comment');
         assert.ok(jsComment, 'expected js-line-comment diagnostic');
         const actions = service.getCodeActions(doc, [jsComment]);
         assert.ok(actions.length > 0, 'expected at least one code action');
@@ -2783,7 +2876,7 @@ describe('AMPscript deprecated function diagnostics', () => {
     it('does not flag non-deprecated functions', () => {
         const diags = ampValidate('%%[ set @x = Add(1,2) ]%%');
         assert.ok(
-            diags.every((d) => d.code !== 'ampscript/deprecated-function'),
+            diags.every((d) => d.code !== 'sfmc/amp-no-deprecated-function'),
             `unexpected deprecated diagnostic: ${JSON.stringify(diags)}`,
         );
     });
@@ -2794,7 +2887,7 @@ describe('AMPscript deprecated function diagnostics', () => {
 describe('AMPscript non-functional-at-runtime diagnostics', () => {
     it('reports GetPortfolioItem as a non-functional Error', () => {
         const diags = ampValidate("%%=GetPortfolioItem('key')=%%");
-        const d = diags.find((x) => x.code === 'ampscript/nonfunctional-function');
+        const d = diags.find((x) => x.code === 'sfmc/amp-no-nonfunctional-function');
         assert.ok(d, `expected non-functional diagnostic, got: ${JSON.stringify(diags)}`);
         assert.equal(d.severity, 1, 'non-functional diagnostic must be an Error (severity 1)');
         assert.match(d.message, /no known working invocation/i);
@@ -2803,7 +2896,7 @@ describe('AMPscript non-functional-at-runtime diagnostics', () => {
     it('reports GetPublishedSocialContent as a non-functional Error', () => {
         const diags = ampValidate("%%=GetPublishedSocialContent('id')=%%");
         assert.ok(
-            diags.some((x) => x.code === 'ampscript/nonfunctional-function'),
+            diags.some((x) => x.code === 'sfmc/amp-no-nonfunctional-function'),
             `expected non-functional diagnostic, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -2811,7 +2904,7 @@ describe('AMPscript non-functional-at-runtime diagnostics', () => {
     it('does not flag normal functions as non-functional', () => {
         const diags = ampValidate('%%[ set @x = Add(1,2) ]%%');
         assert.ok(
-            diags.every((d) => d.code !== 'ampscript/nonfunctional-function'),
+            diags.every((d) => d.code !== 'sfmc/amp-no-nonfunctional-function'),
             `unexpected non-functional diagnostic: ${JSON.stringify(diags)}`,
         );
     });
@@ -2821,7 +2914,7 @@ describe('AMPscript non-functional-at-runtime diagnostics', () => {
         const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
         const diags = service.validate(doc, settings);
         assert.ok(
-            diags.every((d) => d.code !== 'ampscript/nonfunctional-function'),
+            diags.every((d) => d.code !== 'sfmc/amp-no-nonfunctional-function'),
             `expected non-functional diagnostic to be suppressed, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -2835,7 +2928,7 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
         const diags = service.validate(doc, settings);
         assert.ok(
-            diags.every((d) => d.code !== 'ampscript/unknown-function'),
+            diags.every((d) => d.code !== 'sfmc/amp-no-unknown-function'),
             `expected unknown-function to be suppressed, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -2858,7 +2951,7 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
         const diags = service.validate(doc, settings);
         assert.ok(
-            diags.every((d) => d.code !== 'ampscript/enum-value'),
+            diags.every((d) => d.code !== 'sfmc/amp-arg-types'),
             `expected enum-value to be suppressed, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -2873,7 +2966,7 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         };
         const diags = service.validate(doc, settings);
         assert.ok(
-            diags.every((d) => d.code !== 'ampscript/mcn-unsupported-function'),
+            diags.every((d) => d.code !== 'sfmc/amp-no-mcn-unsupported'),
             `expected mcn-unsupported-function to be suppressed, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -2887,7 +2980,7 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         };
         const diags = service.validate(doc, settings);
         assert.ok(
-            diags.every((d) => d.code !== 'handlebars/unknown-binding'),
+            diags.every((d) => d.code !== 'sfmc/hbs-no-unknown-binding'),
             `expected unknown-binding to be suppressed, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -2897,7 +2990,7 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
         const diags = service.validate(doc, settings);
         assert.ok(
-            diags.every((d) => d.code !== 'ssjs/require-platform-load'),
+            diags.every((d) => d.code !== 'sfmc/ssjs-require-platform-load'),
             `expected require-platform-load to be suppressed, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -2906,7 +2999,7 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         const doc = { text: 'var de = DataExtension.Init("MyDE");', languageId: 'ssjs' };
         const diags = service.validate(doc, { maxNumberOfProblems: 100 });
         assert.ok(
-            diags.some((d) => d.code === 'ssjs/require-platform-load'),
+            diags.some((d) => d.code === 'sfmc/ssjs-require-platform-load'),
             `expected require-platform-load diagnostic, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -2916,7 +3009,7 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
         const diags = service.validate(doc, settings);
         assert.ok(
-            diags.every((d) => d.code !== 'ssjs/platform-load-version'),
+            diags.every((d) => d.code !== 'sfmc/ssjs-prefer-platform-load-version'),
             `expected platform-load-version to be suppressed, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -2925,7 +3018,7 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         const doc = { text: 'Platform.Load("core", "1.1.1");', languageId: 'ssjs' };
         const diags = service.validate(doc, { maxNumberOfProblems: 100 });
         assert.ok(
-            diags.some((d) => d.code === 'ssjs/platform-load-version'),
+            diags.some((d) => d.code === 'sfmc/ssjs-prefer-platform-load-version'),
             `expected platform-load-version diagnostic, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -2935,7 +3028,7 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
         const diags = service.validate(doc, settings);
         assert.ok(
-            diags.every((d) => d.code !== 'ssjs/unsupported-syntax'),
+            diags.every((d) => d.code !== 'sfmc/ssjs-no-unsupported-syntax'),
             `expected unsupported-syntax to be suppressed, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -2944,7 +3037,7 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         const doc = { text: 'let x = 1;', languageId: 'ssjs' };
         const diags = service.validate(doc, { maxNumberOfProblems: 100 });
         assert.ok(
-            diags.some((d) => d.code === 'ssjs/unsupported-syntax'),
+            diags.some((d) => d.code === 'sfmc/ssjs-no-unsupported-syntax'),
             `expected unsupported-syntax diagnostic, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -3100,7 +3193,7 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
     it('flags an unsupported construct (partial) as an error', () => {
         const doc = { text: '{{> myPartial}}', languageId: 'ampscript' };
         const diags = service.validate(doc, nextSettings);
-        const d = diags.find((x) => x.code === 'handlebars/unsupported-construct');
+        const d = diags.find((x) => x.code === 'sfmc/hbs-no-unsupported-construct');
         assert.ok(d, `expected unsupported-construct diagnostic, got: ${JSON.stringify(diags)}`);
         assert.strictEqual(d.severity, 1 /* Error */);
         assert.strictEqual(d.source, 'handlebars');
@@ -3109,7 +3202,7 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
     it('flags an unknown helper with a "did you mean" suggestion', () => {
         const doc = { text: '{{eech items}}', languageId: 'ampscript' };
         const diags = service.validate(doc, nextSettings);
-        const d = diags.find((x) => x.code === 'handlebars/unknown-helper');
+        const d = diags.find((x) => x.code === 'sfmc/hbs-no-unknown-helper');
         assert.ok(d, `expected unknown-helper diagnostic, got: ${JSON.stringify(diags)}`);
         assert.strictEqual(d.severity, 2 /* Warning */);
         assert.ok(d.message.includes('each'), `expected suggestion of "each", got: ${d.message}`);
@@ -3118,7 +3211,7 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
     it('flags an unknown {!$...} built-in binding', () => {
         const doc = { text: '{!$foo.Bar}', languageId: 'ampscript' };
         const diags = service.validate(doc, nextSettings);
-        const d = diags.find((x) => x.code === 'handlebars/unknown-binding');
+        const d = diags.find((x) => x.code === 'sfmc/hbs-no-unknown-binding');
         assert.ok(d, `expected unknown-binding diagnostic, got: ${JSON.stringify(diags)}`);
         assert.strictEqual(d.severity, 2 /* Warning */);
     });
@@ -3127,7 +3220,7 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
         const doc = { text: '{{add 1 2}}', languageId: 'ampscript' };
         const diags = service.validate(doc, nextSettings);
         assert.ok(
-            diags.every((x) => !String(x.code ?? '').startsWith('handlebars/')),
+            diags.every((x) => !String(x.code ?? '').startsWith('sfmc/hbs-')),
             `expected no Handlebars diagnostics, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -3135,7 +3228,7 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
     it('does not flag a known {!$...} binding', () => {
         const doc = { text: '{!$organization.Address}', languageId: 'ampscript' };
         const diags = service.validate(doc, nextSettings);
-        assert.ok(diags.every((x) => x.code !== 'handlebars/unknown-binding'));
+        assert.ok(diags.every((x) => x.code !== 'sfmc/hbs-no-unknown-binding'));
     });
 
     it('does NOT run Handlebars validation without targetPlatform:next', () => {
@@ -3143,7 +3236,7 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
         const doc = { text: '{{> myPartial}}', languageId: 'ampscript' };
         const diags = service.validate(doc);
         assert.ok(
-            diags.every((x) => !String(x.code ?? '').startsWith('handlebars/')),
+            diags.every((x) => !String(x.code ?? '').startsWith('sfmc/hbs-')),
             `Handlebars diagnostics must not fire without targetPlatform:next, got: ${JSON.stringify(diags)}`,
         );
     });
@@ -3281,7 +3374,7 @@ describe('MCN Handlebars code actions (targetPlatform: next)', () => {
     it('offers a "did you mean" replacement for an unknown helper', () => {
         const doc = { text: '{{eech items}}', languageId: 'ampscript', uri: 'file:///t.amp' };
         const diags = service.validate(doc, nextSettings);
-        const unknownHelper = diags.find((d) => d.code === 'handlebars/unknown-helper');
+        const unknownHelper = diags.find((d) => d.code === 'sfmc/hbs-no-unknown-helper');
         assert.ok(unknownHelper, 'expected an unknown-helper diagnostic');
         const actions = service.getCodeActions(doc, [unknownHelper], nextSettings);
         const action = actions.find((a) => a.title.includes("'each'"));

@@ -1,4 +1,5 @@
 import { CodeActionKind } from '../types.js';
+import { decodeDiagnosticData } from '../diagnostic-rules.js';
 import type { CodeAction, Diagnostic } from '../types.js';
 import {
     DIAG_CODE_SSJS_POLYFILL_REQUIRED,
@@ -159,14 +160,14 @@ export function getSsjsCodeActions(
 
     for (const diagnostic of diagnostics) {
         if (diagnostic.source !== 'ssjs') continue;
+        const decoded = decodeDiagnosticData(diagnostic.code, diagnostic.data);
+        if (!decoded) continue;
+        const { variant, payload } = decoded;
 
         // "Replace with Platform.Function.*" — for static members that have no
         // polyfill but a direct SFMC alternative (e.g. JSON.parse → ParseJSON).
-        if (
-            diagnostic.code === DIAG_CODE_SSJS_REPLACE_WITH_PLATFORM_FUNCTION &&
-            isReplaceData(diagnostic.data)
-        ) {
-            const { owner, member, replacement } = diagnostic.data;
+        if (variant === DIAG_CODE_SSJS_REPLACE_WITH_PLATFORM_FUNCTION && isReplaceData(payload)) {
+            const { owner, member, replacement } = payload;
             actions.push({
                 title: `Replace ${owner}.${member} with ${replacement}`,
                 kind: CodeActionKind.QuickFix,
@@ -185,11 +186,8 @@ export function getSsjsCodeActions(
 
         // "Read headers via getHeaderMap()" — rewrite a CLR-unsafe `.headers`
         // read and insert the helper (once) at the top of the document.
-        if (
-            diagnostic.code === DIAG_CODE_SSJS_CLR_HEADER_ACCESS &&
-            isClrHeaderAccessData(diagnostic.data)
-        ) {
-            const { respName, keyText } = diagnostic.data;
+        if (variant === DIAG_CODE_SSJS_CLR_HEADER_ACCESS && isClrHeaderAccessData(payload)) {
+            const { respName, keyText } = payload;
             const edits = [
                 {
                     // Replace the whole flagged expression with getHeaderMap(resp)[key].
@@ -216,11 +214,8 @@ export function getSsjsCodeActions(
         }
 
         // "Wrap with String()" — rewrite a raw `.content` read to String(resp.content).
-        if (
-            diagnostic.code === DIAG_CODE_SSJS_CLR_CONTENT_ACCESS &&
-            isClrContentAccessData(diagnostic.data)
-        ) {
-            const { contentText } = diagnostic.data;
+        if (variant === DIAG_CODE_SSJS_CLR_CONTENT_ACCESS && isClrContentAccessData(payload)) {
+            const { contentText } = payload;
             actions.push({
                 title: `Wrap with String(${contentText})`,
                 kind: CodeActionKind.QuickFix,
@@ -239,10 +234,10 @@ export function getSsjsCodeActions(
         // HttpRequest/HttpGet property with an enum constraint. One action per
         // allowed value; numeric constraints offer no replacement (empty list).
         if (
-            diagnostic.code === DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY &&
-            isInvalidHttpPropertyData(diagnostic.data)
+            variant === DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY &&
+            isInvalidHttpPropertyData(payload)
         ) {
-            const { suggestions } = diagnostic.data;
+            const { suggestions } = payload;
             for (const [index, suggestion] of suggestions.entries()) {
                 const title = suggestion.label
                     ? `Replace with ${suggestion.code} (${suggestion.label})`
@@ -263,10 +258,10 @@ export function getSsjsCodeActions(
             continue;
         }
 
-        if (diagnostic.code !== DIAG_CODE_SSJS_POLYFILL_REQUIRED) continue;
-        if (!isPolyfillData(diagnostic.data)) continue;
+        if (variant !== DIAG_CODE_SSJS_POLYFILL_REQUIRED) continue;
+        if (!isPolyfillData(payload)) continue;
 
-        const { owner, method, polyfill } = diagnostic.data;
+        const { owner, method, polyfill } = payload;
 
         // Avoid offering the fix when the polyfill is already present in the
         // document. The first non-blank line of the polyfill is a stable marker.

@@ -1,3 +1,4 @@
+import { createDiagnostic } from '../diagnostic-rules.js';
 import { DiagnosticSeverity } from '../types.js';
 import type { Diagnostic } from '../types.js';
 import type { SfmcSettings } from '../types.js';
@@ -268,16 +269,17 @@ function collectArgumentDiagnostics(
                 literal !== null &&
                 param.enum.every((v) => String(v).toLowerCase() !== literal.toLowerCase())
             ) {
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: offsetToPosition(text, argSpans[ai].start),
-                        end: offsetToPosition(text, argSpans[ai].end),
-                    },
-                    message: `Argument '${param.name}' of '${functionName}' must be one of: ${param.enum.join(', ')}.`,
-                    source: 'ampscript',
-                    code: DIAG_CODE_ENUM_VALUE,
-                });
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_ENUM_VALUE, {
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: offsetToPosition(text, argSpans[ai].start),
+                            end: offsetToPosition(text, argSpans[ai].end),
+                        },
+                        message: `Argument '${param.name}' of '${functionName}' must be one of: ${param.enum.join(', ')}.`,
+                        source: 'ampscript',
+                    }),
+                );
             }
             continue;
         }
@@ -292,16 +294,17 @@ function collectArgumentDiagnostics(
         // Check literal type mismatch
         const inferredLiteralType = inferLiteralType(argText);
         if (inferredLiteralType && !allowedTypes.includes(inferredLiteralType)) {
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, argSpans[ai].start),
-                    end: offsetToPosition(text, argSpans[ai].end),
-                },
-                message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but received a ${inferredLiteralType}.`,
-                source: 'ampscript',
-                code: DIAG_CODE_ARG_TYPE,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_ARG_TYPE, {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, argSpans[ai].start),
+                        end: offsetToPosition(text, argSpans[ai].end),
+                    },
+                    message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but received a ${inferredLiteralType}.`,
+                    source: 'ampscript',
+                }),
+            );
             continue;
         }
 
@@ -313,16 +316,17 @@ function collectArgumentDiagnostics(
             const varName = argText.slice(1).toLowerCase();
             const varType = variableTypeMap.get(varName);
             if (varType !== undefined && !allowedTypes.includes(varType.toLowerCase())) {
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: offsetToPosition(text, argSpans[ai].start),
-                        end: offsetToPosition(text, argSpans[ai].end),
-                    },
-                    message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but '@${varName}' is a ${varType}.`,
-                    source: 'ampscript',
-                    code: DIAG_CODE_ARG_TYPE,
-                });
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_ARG_TYPE, {
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: offsetToPosition(text, argSpans[ai].start),
+                            end: offsetToPosition(text, argSpans[ai].end),
+                        },
+                        message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but '@${varName}' is a ${varType}.`,
+                        source: 'ampscript',
+                    }),
+                );
             }
         }
     }
@@ -351,28 +355,32 @@ export function validateAmpscript(
     if (blockOpens.length > blockCloses.length) {
         for (let i = blockCloses.length; i < blockOpens.length && problems < max; i++) {
             problems++;
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, blockOpens[i]),
-                    end: offsetToPosition(text, blockOpens[i] + 3),
-                },
-                message: 'Unclosed AMPscript block. Expected a matching ]%%.',
-                source: 'ampscript',
-            });
+            diagnostics.push(
+                createDiagnostic('ampscript/unclosed-block', {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, blockOpens[i]),
+                        end: offsetToPosition(text, blockOpens[i] + 3),
+                    },
+                    message: 'Unclosed AMPscript block. Expected a matching ]%%.',
+                    source: 'ampscript',
+                }),
+            );
         }
     } else if (blockCloses.length > blockOpens.length) {
         for (let i = blockOpens.length; i < blockCloses.length && problems < max; i++) {
             problems++;
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, blockCloses[i]),
-                    end: offsetToPosition(text, blockCloses[i] + 3),
-                },
-                message: 'Unexpected ]%% without a matching %%[ opener.',
-                source: 'ampscript',
-            });
+            diagnostics.push(
+                createDiagnostic('ampscript/unexpected-block-close', {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, blockCloses[i]),
+                        end: offsetToPosition(text, blockCloses[i] + 3),
+                    },
+                    message: 'Unexpected ]%% without a matching %%[ opener.',
+                    source: 'ampscript',
+                }),
+            );
         }
     }
 
@@ -382,28 +390,32 @@ export function validateAmpscript(
     if (inlineOpens.length > inlineCloses.length) {
         for (let i = inlineCloses.length; i < inlineOpens.length && problems < max; i++) {
             problems++;
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, inlineOpens[i]),
-                    end: offsetToPosition(text, inlineOpens[i] + 3),
-                },
-                message: 'Unclosed inline AMPscript expression. Expected a matching =%%.',
-                source: 'ampscript',
-            });
+            diagnostics.push(
+                createDiagnostic('ampscript/unclosed-inline', {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, inlineOpens[i]),
+                        end: offsetToPosition(text, inlineOpens[i] + 3),
+                    },
+                    message: 'Unclosed inline AMPscript expression. Expected a matching =%%.',
+                    source: 'ampscript',
+                }),
+            );
         }
     } else if (inlineCloses.length > inlineOpens.length) {
         for (let i = inlineOpens.length; i < inlineCloses.length && problems < max; i++) {
             problems++;
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, inlineCloses[i]),
-                    end: offsetToPosition(text, inlineCloses[i] + 3),
-                },
-                message: 'Unexpected =%% without a matching %%= opener.',
-                source: 'ampscript',
-            });
+            diagnostics.push(
+                createDiagnostic('ampscript/unexpected-inline-close', {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, inlineCloses[i]),
+                        end: offsetToPosition(text, inlineCloses[i] + 3),
+                    },
+                    message: 'Unexpected =%% without a matching %%= opener.',
+                    source: 'ampscript',
+                }),
+            );
         }
     }
 
@@ -425,15 +437,17 @@ export function validateAmpscript(
                 ifStack.pop();
             } else if (problems < max) {
                 problems++;
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Warning,
-                    range: {
-                        start: { line: lineIndex, character: 0 },
-                        end: { line: lineIndex, character: line.length },
-                    },
-                    message: 'ENDIF without a matching IF.',
-                    source: 'ampscript',
-                });
+                diagnostics.push(
+                    createDiagnostic('ampscript/unmatched-endif', {
+                        severity: DiagnosticSeverity.Warning,
+                        range: {
+                            start: { line: lineIndex, character: 0 },
+                            end: { line: lineIndex, character: line.length },
+                        },
+                        message: 'ENDIF without a matching IF.',
+                        source: 'ampscript',
+                    }),
+                );
             }
         }
 
@@ -447,15 +461,17 @@ export function validateAmpscript(
                 forStack.pop();
             } else if (problems < max) {
                 problems++;
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Warning,
-                    range: {
-                        start: { line: lineIndex, character: 0 },
-                        end: { line: lineIndex, character: line.length },
-                    },
-                    message: 'NEXT without a matching FOR.',
-                    source: 'ampscript',
-                });
+                diagnostics.push(
+                    createDiagnostic('ampscript/unmatched-next', {
+                        severity: DiagnosticSeverity.Warning,
+                        range: {
+                            start: { line: lineIndex, character: 0 },
+                            end: { line: lineIndex, character: line.length },
+                        },
+                        message: 'NEXT without a matching FOR.',
+                        source: 'ampscript',
+                    }),
+                );
             }
         }
     }
@@ -463,28 +479,32 @@ export function validateAmpscript(
     for (const lineIndex of ifStack) {
         if (problems >= max) break;
         problems++;
-        diagnostics.push({
-            severity: DiagnosticSeverity.Warning,
-            range: {
-                start: { line: lineIndex, character: 0 },
-                end: { line: lineIndex, character: lines[lineIndex].length },
-            },
-            message: 'IF without a matching ENDIF.',
-            source: 'ampscript',
-        });
+        diagnostics.push(
+            createDiagnostic('ampscript/unclosed-if', {
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: { line: lineIndex, character: 0 },
+                    end: { line: lineIndex, character: lines[lineIndex].length },
+                },
+                message: 'IF without a matching ENDIF.',
+                source: 'ampscript',
+            }),
+        );
     }
     for (const lineIndex of forStack) {
         if (problems >= max) break;
         problems++;
-        diagnostics.push({
-            severity: DiagnosticSeverity.Warning,
-            range: {
-                start: { line: lineIndex, character: 0 },
-                end: { line: lineIndex, character: lines[lineIndex].length },
-            },
-            message: 'FOR without a matching NEXT.',
-            source: 'ampscript',
-        });
+        diagnostics.push(
+            createDiagnostic('ampscript/unclosed-for', {
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: { line: lineIndex, character: 0 },
+                    end: { line: lineIndex, character: lines[lineIndex].length },
+                },
+                message: 'FOR without a matching NEXT.',
+                source: 'ampscript',
+            }),
+        );
     }
 
     // 4. Unknown functions + arity validation + deprecated function warnings
@@ -497,16 +517,17 @@ export function validateAmpscript(
 
         if (!isKnownAmpscriptConstruct(normalizedName)) {
             problems++;
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, functionMatch.index),
-                    end: offsetToPosition(text, functionMatch.index + functionName.length),
-                },
-                message: `Unknown AMPscript function '${functionName}'. AMPscript does not support custom functions.`,
-                source: 'ampscript',
-                code: DIAG_CODE_UNKNOWN_FUNCTION,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_UNKNOWN_FUNCTION, {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, functionMatch.index),
+                        end: offsetToPosition(text, functionMatch.index + functionName.length),
+                    },
+                    message: `Unknown AMPscript function '${functionName}'. AMPscript does not support custom functions.`,
+                    source: 'ampscript',
+                }),
+            );
             continue;
         }
 
@@ -522,17 +543,18 @@ export function validateAmpscript(
             let message = `'${fnEntry.name}' is deprecated.`;
             if (reason) message += ` ${reason}`;
             if (replacement) message += ` Use '${replacement}' instead.`;
-            diagnostics.push({
-                severity: DiagnosticSeverity.Warning,
-                range: {
-                    start: offsetToPosition(text, functionMatch.index),
-                    end: offsetToPosition(text, functionMatch.index + functionName.length),
-                },
-                message,
-                source: 'ampscript',
-                code: DIAG_CODE_DEPRECATED_FUNCTION,
-                data: replacement || undefined,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_DEPRECATED_FUNCTION, {
+                    severity: DiagnosticSeverity.Warning,
+                    range: {
+                        start: offsetToPosition(text, functionMatch.index),
+                        end: offsetToPosition(text, functionMatch.index + functionName.length),
+                    },
+                    message,
+                    source: 'ampscript',
+                    data: replacement || undefined,
+                }),
+            );
         }
 
         // 4b. Non-functional-at-runtime error. The function resolves but every
@@ -543,16 +565,17 @@ export function validateAmpscript(
         if (fnEntry?.nonFunctionalAtRuntime && problems < max) {
             problems++;
             const note = nonFunctionalShortNote(fnEntry.officialDocsNote);
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, functionMatch.index),
-                    end: offsetToPosition(text, functionMatch.index + functionName.length),
-                },
-                message: `'${fnEntry.name}' exists in SFMC but has no known working invocation at runtime (every tested call aborts the page).${note ? ` ${note}` : ''}`,
-                source: 'ampscript',
-                code: DIAG_CODE_NONFUNCTIONAL_FUNCTION,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_NONFUNCTIONAL_FUNCTION, {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, functionMatch.index),
+                        end: offsetToPosition(text, functionMatch.index + functionName.length),
+                    },
+                    message: `'${fnEntry.name}' exists in SFMC but has no known working invocation at runtime (every tested call aborts the page).${note ? ` ${note}` : ''}`,
+                    source: 'ampscript',
+                }),
+            );
         }
 
         const arity = functionArityLookup.get(normalizedName);
@@ -562,28 +585,36 @@ export function validateAmpscript(
             if (argCount >= 0) {
                 if (argCount < arity.minArgs) {
                     problems++;
-                    diagnostics.push({
-                        severity: DiagnosticSeverity.Error,
-                        range: {
-                            start: offsetToPosition(text, functionMatch.index),
-                            end: offsetToPosition(text, functionMatch.index + functionName.length),
-                        },
-                        message: `'${functionName}' requires at least ${arity.minArgs} argument(s) but was called with ${argCount}.`,
-                        source: 'ampscript',
-                        code: DIAG_CODE_FUNCTION_ARITY,
-                    });
+                    diagnostics.push(
+                        createDiagnostic(DIAG_CODE_FUNCTION_ARITY, {
+                            severity: DiagnosticSeverity.Error,
+                            range: {
+                                start: offsetToPosition(text, functionMatch.index),
+                                end: offsetToPosition(
+                                    text,
+                                    functionMatch.index + functionName.length,
+                                ),
+                            },
+                            message: `'${functionName}' requires at least ${arity.minArgs} argument(s) but was called with ${argCount}.`,
+                            source: 'ampscript',
+                        }),
+                    );
                 } else if (argCount > arity.maxArgs) {
                     problems++;
-                    diagnostics.push({
-                        severity: DiagnosticSeverity.Error,
-                        range: {
-                            start: offsetToPosition(text, functionMatch.index),
-                            end: offsetToPosition(text, functionMatch.index + functionName.length),
-                        },
-                        message: `'${functionName}' accepts at most ${arity.maxArgs} argument(s) but was called with ${argCount}.`,
-                        source: 'ampscript',
-                        code: DIAG_CODE_FUNCTION_ARITY,
-                    });
+                    diagnostics.push(
+                        createDiagnostic(DIAG_CODE_FUNCTION_ARITY, {
+                            severity: DiagnosticSeverity.Error,
+                            range: {
+                                start: offsetToPosition(text, functionMatch.index),
+                                end: offsetToPosition(
+                                    text,
+                                    functionMatch.index + functionName.length,
+                                ),
+                            },
+                            message: `'${functionName}' accepts at most ${arity.maxArgs} argument(s) but was called with ${argCount}.`,
+                            source: 'ampscript',
+                        }),
+                    );
                 } else if (
                     repeatLookup.has(normalizedName) &&
                     hasIncompleteRepeatGroup(
@@ -593,16 +624,20 @@ export function validateAmpscript(
                     )
                 ) {
                     problems++;
-                    diagnostics.push({
-                        severity: DiagnosticSeverity.Error,
-                        range: {
-                            start: offsetToPosition(text, functionMatch.index),
-                            end: offsetToPosition(text, functionMatch.index + functionName.length),
-                        },
-                        message: `'${functionName}' expects its repeating arguments in complete groups.`,
-                        source: 'ampscript',
-                        code: DIAG_CODE_FUNCTION_ARITY,
-                    });
+                    diagnostics.push(
+                        createDiagnostic(DIAG_CODE_FUNCTION_ARITY, {
+                            severity: DiagnosticSeverity.Error,
+                            range: {
+                                start: offsetToPosition(text, functionMatch.index),
+                                end: offsetToPosition(
+                                    text,
+                                    functionMatch.index + functionName.length,
+                                ),
+                            },
+                            message: `'${functionName}' expects its repeating arguments in complete groups.`,
+                            source: 'ampscript',
+                        }),
+                    );
                 } else if (problems < max) {
                     const fnDef = functionLookup.get(normalizedName);
                     if (fnDef?.params && fnDef.params.length > 0) {
@@ -630,17 +665,18 @@ export function validateAmpscript(
     let setMatch: RegExpExecArray | null;
     while ((setMatch = setWithoutTargetPattern.exec(sanitizedText)) && problems < max) {
         problems++;
-        diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: {
-                start: offsetToPosition(text, setMatch.index),
-                end: offsetToPosition(text, setMatch.index + setMatch[0].length),
-            },
-            message:
-                '`set` statement is missing a target variable. Expected: `set @variable = expression`.',
-            source: 'ampscript',
-            code: DIAG_CODE_SET_NO_TARGET,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SET_NO_TARGET, {
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, setMatch.index),
+                    end: offsetToPosition(text, setMatch.index + setMatch[0].length),
+                },
+                message:
+                    '`set` statement is missing a target variable. Expected: `set @variable = expression`.',
+                source: 'ampscript',
+            }),
+        );
     }
 
     // 6. Smart/curly quotes inside AMPscript regions
@@ -653,17 +689,18 @@ export function validateAmpscript(
         }
 
         problems++;
-        diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: {
-                start: offsetToPosition(text, sqMatch.index),
-                end: offsetToPosition(text, sqMatch.index + 1),
-            },
-            message:
-                'Smart/curly quote character detected. AMPscript only supports straight ASCII quotes (\' or ").',
-            source: 'ampscript',
-            code: DIAG_CODE_SMART_QUOTES,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SMART_QUOTES, {
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, sqMatch.index),
+                    end: offsetToPosition(text, sqMatch.index + 1),
+                },
+                message:
+                    'Smart/curly quote character detected. AMPscript only supports straight ASCII quotes (\' or ").',
+                source: 'ampscript',
+            }),
+        );
     }
 
     // 7. Bare subscriber attribute access warning
@@ -680,15 +717,20 @@ export function validateAmpscript(
         const attrName = attributeMatch[1].toLowerCase();
         if (commonAttributes.has(attrName)) {
             problems++;
-            diagnostics.push({
-                severity: DiagnosticSeverity.Information,
-                range: {
-                    start: offsetToPosition(text, attributeMatch.index),
-                    end: offsetToPosition(text, attributeMatch.index + attributeMatch[0].length),
-                },
-                message: `Consider using AttributeValue("${attributeMatch[1]}") instead of the bare attribute name for null safety.`,
-                source: 'ampscript',
-            });
+            diagnostics.push(
+                createDiagnostic('ampscript/prefer-attribute-value', {
+                    severity: DiagnosticSeverity.Information,
+                    range: {
+                        start: offsetToPosition(text, attributeMatch.index),
+                        end: offsetToPosition(
+                            text,
+                            attributeMatch.index + attributeMatch[0].length,
+                        ),
+                    },
+                    message: `Consider using AttributeValue("${attributeMatch[1]}") instead of the bare attribute name for null safety.`,
+                    source: 'ampscript',
+                }),
+            );
         }
     }
 
@@ -700,19 +742,23 @@ export function validateAmpscript(
         const fullMatch = htmlCommentMatch[0];
         const isWrappedBlockComment = /^<!--\/\*[\s\S]*?\*\/-->$/.test(fullMatch);
         const innerContent = isWrappedBlockComment ? fullMatch.slice(4, -3).trim() : undefined;
-        diagnostics.push({
-            severity: DiagnosticSeverity.Warning,
-            range: {
-                start: offsetToPosition(text, htmlCommentMatch.index),
-                end: offsetToPosition(text, htmlCommentMatch.index + fullMatch.length),
-            },
-            message: isWrappedBlockComment
-                ? 'HTML comment wrapper around an AMPscript comment is not valid. Use /* ... */ directly.'
-                : 'HTML comment syntax is not valid inside AMPscript. Use /* ... */ instead.',
-            source: 'ampscript',
-            code: isWrappedBlockComment ? DIAG_CODE_HTML_WRAPPED_COMMENT : DIAG_CODE_HTML_COMMENT,
-            data: isWrappedBlockComment ? innerContent : undefined,
-        });
+        diagnostics.push(
+            createDiagnostic(
+                isWrappedBlockComment ? DIAG_CODE_HTML_WRAPPED_COMMENT : DIAG_CODE_HTML_COMMENT,
+                {
+                    severity: DiagnosticSeverity.Warning,
+                    range: {
+                        start: offsetToPosition(text, htmlCommentMatch.index),
+                        end: offsetToPosition(text, htmlCommentMatch.index + fullMatch.length),
+                    },
+                    message: isWrappedBlockComment
+                        ? 'HTML comment wrapper around an AMPscript comment is not valid. Use /* ... */ directly.'
+                        : 'HTML comment syntax is not valid inside AMPscript. Use /* ... */ instead.',
+                    source: 'ampscript',
+                    data: isWrappedBlockComment ? innerContent : undefined,
+                },
+            ),
+        );
     }
 
     // 9. JavaScript // line comments inside AMPscript
@@ -721,18 +767,19 @@ export function validateAmpscript(
     while ((jsCommentMatch = jsLineCommentPattern.exec(sanitizedText)) !== null && problems < max) {
         problems++;
         const commentText = jsCommentMatch[0].slice(2).trim();
-        diagnostics.push({
-            severity: DiagnosticSeverity.Warning,
-            range: {
-                start: offsetToPosition(text, jsCommentMatch.index),
-                end: offsetToPosition(text, jsCommentMatch.index + jsCommentMatch[0].length),
-            },
-            message:
-                'Single-line // comments are not valid AMPscript syntax. Use /* ... */ instead.',
-            source: 'ampscript',
-            code: DIAG_CODE_JS_LINE_COMMENT,
-            data: commentText,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_JS_LINE_COMMENT, {
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, jsCommentMatch.index),
+                    end: offsetToPosition(text, jsCommentMatch.index + jsCommentMatch[0].length),
+                },
+                message:
+                    'Single-line // comments are not valid AMPscript syntax. Use /* ... */ instead.',
+                source: 'ampscript',
+                data: commentText,
+            }),
+        );
     }
 
     // 10. Nested <script language="ampscript"> inside an already-open block.
@@ -766,17 +813,18 @@ export function validateAmpscript(
         if (token.isOpen) {
             if (scriptDepth > 0) {
                 problems++;
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: offsetToPosition(text, token.index),
-                        end: offsetToPosition(text, token.index + token.length),
-                    },
-                    message:
-                        'Nested <script language="ampscript"> inside an already-open AMPscript block. Did you forget a </script> closing tag?',
-                    source: 'ampscript',
-                    code: DIAG_CODE_NESTED_SCRIPT_TAG,
-                });
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_NESTED_SCRIPT_TAG, {
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: offsetToPosition(text, token.index),
+                            end: offsetToPosition(text, token.index + token.length),
+                        },
+                        message:
+                            'Nested <script language="ampscript"> inside an already-open AMPscript block. Did you forget a </script> closing tag?',
+                        source: 'ampscript',
+                    }),
+                );
             }
             scriptDepth++;
         } else {
@@ -799,17 +847,18 @@ export function validateAmpscript(
             while ((dm = delimiterPattern.exec(body)) !== null && problems < max) {
                 problems++;
                 const delimStart = bodyStart + dm.index;
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: offsetToPosition(text, delimStart),
-                        end: offsetToPosition(text, delimStart + dm[0].length),
-                    },
-                    message: `AMPscript delimiter ${dm[0]} is not needed inside a <script language="ampscript"> block.`,
-                    source: 'ampscript',
-                    code: DIAG_CODE_NESTED_DELIMITER_IN_SCRIPT,
-                    data: dm[0],
-                });
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_NESTED_DELIMITER_IN_SCRIPT, {
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: offsetToPosition(text, delimStart),
+                            end: offsetToPosition(text, delimStart + dm[0].length),
+                        },
+                        message: `AMPscript delimiter ${dm[0]} is not needed inside a <script language="ampscript"> block.`,
+                        source: 'ampscript',
+                        data: dm[0],
+                    }),
+                );
             }
         }
     }
@@ -824,17 +873,18 @@ export function validateAmpscript(
             while ((dm = delimiterPattern.exec(inner)) !== null && problems < max) {
                 problems++;
                 const delimStart = innerStart + dm.index;
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: offsetToPosition(text, delimStart),
-                        end: offsetToPosition(text, delimStart + dm[0].length),
-                    },
-                    message: `Nested ${dm[0]} inside an already-open AMPscript block.`,
-                    source: 'ampscript',
-                    code: DIAG_CODE_NESTED_DELIMITER,
-                    data: dm[0],
-                });
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_NESTED_DELIMITER, {
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: offsetToPosition(text, delimStart),
+                            end: offsetToPosition(text, delimStart + dm[0].length),
+                        },
+                        message: `Nested ${dm[0]} inside an already-open AMPscript block.`,
+                        source: 'ampscript',
+                        data: dm[0],
+                    }),
+                );
             }
         }
     }
@@ -849,17 +899,18 @@ export function validateAmpscript(
             while ((dm = delimiterPattern.exec(inner)) !== null && problems < max) {
                 problems++;
                 const delimStart = innerStart + dm.index;
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: offsetToPosition(text, delimStart),
-                        end: offsetToPosition(text, delimStart + dm[0].length),
-                    },
-                    message: `Nested ${dm[0]} inside an already-open AMPscript inline expression.`,
-                    source: 'ampscript',
-                    code: DIAG_CODE_NESTED_DELIMITER,
-                    data: dm[0],
-                });
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_NESTED_DELIMITER, {
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: offsetToPosition(text, delimStart),
+                            end: offsetToPosition(text, delimStart + dm[0].length),
+                        },
+                        message: `Nested ${dm[0]} inside an already-open AMPscript inline expression.`,
+                        source: 'ampscript',
+                        data: dm[0],
+                    }),
+                );
             }
         }
     }
@@ -875,16 +926,17 @@ export function validateAmpscript(
             if (problems >= max) break;
             if (!isMcnSupported(site.name)) {
                 problems++;
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: { line: site.line, character: site.col },
-                        end: { line: site.line, character: site.col + site.name.length },
-                    },
-                    message: `'${site.name}' is not supported in Marketing Cloud Next.`,
-                    source: 'ampscript',
-                    code: DIAG_CODE_MCN_UNSUPPORTED_FUNCTION,
-                });
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_MCN_UNSUPPORTED_FUNCTION, {
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: { line: site.line, character: site.col },
+                            end: { line: site.line, character: site.col + site.name.length },
+                        },
+                        message: `'${site.name}' is not supported in Marketing Cloud Next.`,
+                        source: 'ampscript',
+                    }),
+                );
             }
         }
 

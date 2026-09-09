@@ -144,7 +144,15 @@
   "inline/decorator": {
     "diagnostics": [
       {
-        "code": "handlebars/unsupported-construct",
+        "code": "sfmc/hbs-no-unsupported-construct",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unsupported-construct.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/unsupported-construct"
+          }
+        },
         "message": "Decorators ({{* ...}}) are not supported in Handlebars for Marketing Cloud Next. The MCN engine cannot register decorators.",
         "range": {
           "end": {
@@ -226,7 +234,15 @@
   "inline/decorator-block": {
     "diagnostics": [
       {
-        "code": "handlebars/unsupported-construct",
+        "code": "sfmc/hbs-no-unsupported-construct",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unsupported-construct.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/unsupported-construct"
+          }
+        },
         "message": "Inline partials and decorator blocks ({{#*inline ...}}...{{/inline}}) are not supported in Handlebars for Marketing Cloud Next.",
         "range": {
           "end": {
@@ -500,7 +516,15 @@
   "inline/error-exception-close-mismatch": {
     "diagnostics": [
       {
-        "code": "handlebars/syntax-error",
+        "code": "sfmc/hbs-syntax-error",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/syntax-error.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/syntax-error"
+          }
+        },
         "range": {
           "end": {
             "character": 0,
@@ -581,7 +605,15 @@
   "inline/error-jison-unclosed-block": {
     "diagnostics": [
       {
-        "code": "handlebars/syntax-error",
+        "code": "sfmc/hbs-syntax-error",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/syntax-error.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/syntax-error"
+          }
+        },
         "range": {
           "end": {
             "character": 0,
@@ -980,7 +1012,15 @@
   "inline/partial": {
     "diagnostics": [
       {
-        "code": "handlebars/unsupported-construct",
+        "code": "sfmc/hbs-no-unsupported-construct",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unsupported-construct.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/unsupported-construct"
+          }
+        },
         "message": "Partials ({{> ...}}) are not supported in Handlebars for Marketing Cloud Next. The MCN engine is locked down and cannot register partials.",
         "range": {
           "end": {
@@ -1062,7 +1102,15 @@
   "inline/partial-block": {
     "diagnostics": [
       {
-        "code": "handlebars/unsupported-construct",
+        "code": "sfmc/hbs-no-unsupported-construct",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unsupported-construct.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/unsupported-construct"
+          }
+        },
         "message": "Partial blocks ({{#> ...}}...{{/...}}) are not supported in Handlebars for Marketing Cloud Next. The MCN engine cannot register partials.",
         "range": {
           "end": {
@@ -1144,7 +1192,15 @@
   "inline/raw-block": {
     "diagnostics": [
       {
-        "code": "handlebars/unknown-helper",
+        "code": "sfmc/hbs-no-unknown-helper",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unknown-helper.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/unknown-helper"
+          }
+        },
         "message": "Unknown Handlebars block helper 'raw'. It is not part of the Marketing Cloud Next catalog, and the MCN engine cannot register custom helpers.",
         "range": {
           "end": {
@@ -1395,7 +1451,19 @@
   "plugin/next/test-handlebars.html": {
     "diagnostics": [
       {
-        "code": "handlebars/unknown-helper",
+        "code": "sfmc/hbs-no-unknown-helper",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unknown-helper.md"
+        },
+        "data": {
+          "sfmc": {
+            "payload": {
+              "suggestion": "uppercase",
+              "typed": "uppercasee"
+            },
+            "variant": "handlebars/unknown-helper"
+          }
+        },
         "message": "Unknown Handlebars helper 'uppercasee'. It is not part of the Marketing Cloud Next catalog, and the MCN engine cannot register custom helpers. Did you mean 'uppercase'?",
         "range": {
           "end": {
@@ -1410,7 +1478,15 @@
         "severity": 2
       },
       {
-        "code": "handlebars/unknown-helper",
+        "code": "sfmc/hbs-no-unknown-helper",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unknown-helper.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/unknown-helper"
+          }
+        },
         "message": "Unknown Handlebars helper 'truncateWords'. It is not part of the Marketing Cloud Next catalog, and the MCN engine cannot register custom helpers.",
         "range": {
           "end": {
@@ -1425,7 +1501,15 @@
         "severity": 2
       },
       {
-        "code": "handlebars/unsupported-construct",
+        "code": "sfmc/hbs-no-unsupported-construct",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unsupported-construct.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/unsupported-construct"
+          }
+        },
         "message": "Partials ({{> ...}}) are not supported in Handlebars for Marketing Cloud Next. The MCN engine is locked down and cannot register partials.",
         "range": {
           "end": {
@@ -1440,7 +1524,15 @@
         "severity": 1
       },
       {
-        "code": "handlebars/unsupported-construct",
+        "code": "sfmc/hbs-no-unsupported-construct",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unsupported-construct.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/unsupported-construct"
+          }
+        },
         "message": "The {{log}} helper is a handlebars.js debugging helper and is not available in Handlebars for Marketing Cloud Next.",
         "range": {
           "end": {
@@ -1455,7 +1547,15 @@
         "severity": 1
       },
       {
-        "code": "handlebars/unknown-binding",
+        "code": "sfmc/hbs-no-unknown-binding",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unknown-binding.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/unknown-binding"
+          }
+        },
         "message": "Unknown built-in binding '{!$organization.Phone}'. It is not a recognized Marketing Cloud Next data binding.",
         "range": {
           "end": {
@@ -1620,7 +1720,19 @@
   "plugin/next/test-standalone.hbs": {
     "diagnostics": [
       {
-        "code": "handlebars/unknown-helper",
+        "code": "sfmc/hbs-no-unknown-helper",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unknown-helper.md"
+        },
+        "data": {
+          "sfmc": {
+            "payload": {
+              "suggestion": "uppercase",
+              "typed": "uppercasee"
+            },
+            "variant": "handlebars/unknown-helper"
+          }
+        },
         "message": "Unknown Handlebars helper 'uppercasee'. It is not part of the Marketing Cloud Next catalog, and the MCN engine cannot register custom helpers. Did you mean 'uppercase'?",
         "range": {
           "end": {
@@ -1635,7 +1747,15 @@
         "severity": 2
       },
       {
-        "code": "handlebars/unsupported-construct",
+        "code": "sfmc/hbs-no-unsupported-construct",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unsupported-construct.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/unsupported-construct"
+          }
+        },
         "message": "Partials ({{> ...}}) are not supported in Handlebars for Marketing Cloud Next. The MCN engine is locked down and cannot register partials.",
         "range": {
           "end": {
@@ -1650,7 +1770,15 @@
         "severity": 1
       },
       {
-        "code": "handlebars/unknown-binding",
+        "code": "sfmc/hbs-no-unknown-binding",
+        "codeDescription": {
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.0.0/docs/rules/hbs/no-unknown-binding.md"
+        },
+        "data": {
+          "sfmc": {
+            "variant": "handlebars/unknown-binding"
+          }
+        },
         "message": "Unknown built-in binding '{!$organization.Phone}'. It is not a recognized Marketing Cloud Next data binding.",
         "range": {
           "end": {

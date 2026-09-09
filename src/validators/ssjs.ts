@@ -1,3 +1,4 @@
+import { createDiagnostic } from '../diagnostic-rules.js';
 import { DiagnosticSeverity } from '../types.js';
 import type { Diagnostic } from '../types.js';
 import type { SfmcSettings } from '../types.js';
@@ -270,16 +271,17 @@ function collectCoreLoadCallDiagnostics(
     while ((reqMatch = callPattern.exec(text)) !== null && diagnostics.length < budget) {
         if (isInCommentRange(reqMatch.index, commentRanges)) continue;
         if (reqMatch.index < platformLoadOffset) {
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, reqMatch.index),
-                    end: offsetToPosition(text, reqMatch.index + reqMatch[0].length - 1),
-                },
-                message: `Platform.Load("core", "1.1.5") must be called before using ${entry.prefix}.${entry.name}(). Without it, this call will fail at runtime.`,
-                source: 'ssjs',
-                code: DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD, {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, reqMatch.index),
+                        end: offsetToPosition(text, reqMatch.index + reqMatch[0].length - 1),
+                    },
+                    message: `Platform.Load("core", "1.1.5") must be called before using ${entry.prefix}.${entry.name}(). Without it, this call will fail at runtime.`,
+                    source: 'ssjs',
+                }),
+            );
         }
     }
     return diagnostics;
@@ -308,16 +310,17 @@ function collectEs6PatternDiagnostics(
     let match: RegExpExecArray | null;
     while ((match = pattern.exec(text)) !== null && diagnostics.length < budget) {
         if (isInCommentRange(match.index, commentRanges)) continue;
-        diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: {
-                start: offsetToPosition(text, match.index),
-                end: offsetToPosition(text, match.index + match[0].length),
-            },
-            message,
-            source: 'ssjs',
-            code: DIAG_CODE_SSJS_UNSUPPORTED_SYNTAX,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_UNSUPPORTED_SYNTAX, {
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, match.index),
+                    end: offsetToPosition(text, match.index + match[0].length),
+                },
+                message,
+                source: 'ssjs',
+            }),
+        );
     }
     return diagnostics;
 }
@@ -374,19 +377,20 @@ function collectClrHeaderAccessDiagnostics(
         if (isInCommentRange(im.index, commentRanges)) continue;
         if (!responseVars.has(im[1])) continue;
         const data: ClrHeaderAccessDiagnosticData = { respName: im[1], keyText: im[2].trim() };
-        diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: {
-                start: offsetToPosition(text, im.index),
-                end: offsetToPosition(text, im.index + im[0].length),
-            },
-            message:
-                'Reading a header this way throws "Use of Common Language Runtime (CLR) is not allowed" at runtime. ' +
-                'HttpResponse headers are only readable by enumerating with for..in — use a getHeaderMap() helper.',
-            source: 'ssjs',
-            code: DIAG_CODE_SSJS_CLR_HEADER_ACCESS,
-            data,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_CLR_HEADER_ACCESS, {
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, im.index),
+                    end: offsetToPosition(text, im.index + im[0].length),
+                },
+                message:
+                    'Reading a header this way throws "Use of Common Language Runtime (CLR) is not allowed" at runtime. ' +
+                    'HttpResponse headers are only readable by enumerating with for..in — use a getHeaderMap() helper.',
+                source: 'ssjs',
+                data,
+            }),
+        );
     }
 
     // 3b. CLR method call: `<resp>.headers.Get("x")` / `<resp>.headers.Item("x")`.
@@ -397,19 +401,20 @@ function collectClrHeaderAccessDiagnostics(
         if (isInCommentRange(cm.index, commentRanges)) continue;
         if (!responseVars.has(cm[1])) continue;
         const data: ClrHeaderAccessDiagnosticData = { respName: cm[1], keyText: cm[2].trim() };
-        diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: {
-                start: offsetToPosition(text, cm.index),
-                end: offsetToPosition(text, cm.index + cm[0].length),
-            },
-            message:
-                'Reading a header this way throws "Use of Common Language Runtime (CLR) is not allowed" at runtime. ' +
-                'HttpResponse headers are only readable by enumerating with for..in — use a getHeaderMap() helper.',
-            source: 'ssjs',
-            code: DIAG_CODE_SSJS_CLR_HEADER_ACCESS,
-            data,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_CLR_HEADER_ACCESS, {
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, cm.index),
+                    end: offsetToPosition(text, cm.index + cm[0].length),
+                },
+                message:
+                    'Reading a header this way throws "Use of Common Language Runtime (CLR) is not allowed" at runtime. ' +
+                    'HttpResponse headers are only readable by enumerating with for..in — use a getHeaderMap() helper.',
+                source: 'ssjs',
+                data,
+            }),
+        );
     }
 
     return diagnostics;
@@ -473,19 +478,20 @@ function collectClrContentAccessDiagnostics(
         if (/String\s*\(\s*$/.test(before)) continue;
         const contentText = em[0].replaceAll(/\s+/g, '');
         const data: ClrContentAccessDiagnosticData = { respName: em[1], contentText };
-        diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: {
-                start: offsetToPosition(text, em.index),
-                end: offsetToPosition(text, em.index + em[0].length),
-            },
-            message:
-                'Reading `.content` directly is unreliable — it is a CLR string, not a JavaScript string. ' +
-                'Wrap it with `String(...)` before passing it to ParseJSON() or any string operation.',
-            source: 'ssjs',
-            code: DIAG_CODE_SSJS_CLR_CONTENT_ACCESS,
-            data,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_CLR_CONTENT_ACCESS, {
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, em.index),
+                    end: offsetToPosition(text, em.index + em[0].length),
+                },
+                message:
+                    'Reading `.content` directly is unreliable — it is a CLR string, not a JavaScript string. ' +
+                    'Wrap it with `String(...)` before passing it to ParseJSON() or any string operation.',
+                source: 'ssjs',
+                data,
+            }),
+        );
     }
 
     return diagnostics;
@@ -617,17 +623,18 @@ function collectInvalidHttpPropertyDiagnostics(
         const rhsTrimmed = rhsRaw.trim();
         const rhsRawStart = am.index + am[0].length - rhsRaw.length;
         const rhsStart = rhsRawStart + (rhsRaw.length - rhsRaw.trimStart().length);
-        diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: {
-                start: offsetToPosition(text, rhsStart),
-                end: offsetToPosition(text, rhsStart + rhsTrimmed.length),
-            },
-            message: `Invalid value for ${propName}: it ${violation}.`,
-            source: 'ssjs',
-            code: DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY,
-            data,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_INVALID_HTTP_PROPERTY, {
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, rhsStart),
+                    end: offsetToPosition(text, rhsStart + rhsTrimmed.length),
+                },
+                message: `Invalid value for ${propName}: it ${violation}.`,
+                source: 'ssjs',
+                data,
+            }),
+        );
     }
 
     return diagnostics;
@@ -722,19 +729,20 @@ function collectInvalidPropertyAccessDiagnostics(
         // by the property-call diagnostics — skip it here to avoid duplicates.
         if (!isWrite && /^\s*\(/.test(after)) continue;
 
-        diagnostics.push({
-            severity:
-                entry.access === 'write-only-opaque'
-                    ? DiagnosticSeverity.Warning
-                    : DiagnosticSeverity.Error,
-            range: {
-                start: offsetToPosition(text, am.index),
-                end: offsetToPosition(text, am.index + match.length),
-            },
-            message: propertyAccessMessage(entry.owner, entry.name, entry.access),
-            source: 'ssjs',
-            code: DIAG_CODE_SSJS_INVALID_PROPERTY_ACCESS,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_INVALID_PROPERTY_ACCESS, {
+                severity:
+                    entry.access === 'write-only-opaque'
+                        ? DiagnosticSeverity.Warning
+                        : DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, am.index),
+                    end: offsetToPosition(text, am.index + match.length),
+                },
+                message: propertyAccessMessage(entry.owner, entry.name, entry.access),
+                source: 'ssjs',
+            }),
+        );
     }
 
     return diagnostics;
@@ -894,16 +902,17 @@ function collectPlatformFunctionArityDiagnostics(
                 // Highlight just the function name for a focused squiggle.
                 const nameStart =
                     match.index + match[0].toLowerCase().lastIndexOf(entry.name.toLowerCase());
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: offsetToPosition(text, nameStart),
-                        end: offsetToPosition(text, nameStart + entry.name.length),
-                    },
-                    message: `'${entry.name}' must be called with exactly ${formatArities(validArities)} arguments (got ${actual}); intermediate argument counts throw at runtime.`,
-                    source: 'ssjs',
-                    code: DIAG_CODE_SSJS_INVALID_ARITY,
-                });
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_SSJS_INVALID_ARITY, {
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: offsetToPosition(text, nameStart),
+                            end: offsetToPosition(text, nameStart + entry.name.length),
+                        },
+                        message: `'${entry.name}' must be called with exactly ${formatArities(validArities)} arguments (got ${actual}); intermediate argument counts throw at runtime.`,
+                        source: 'ssjs',
+                    }),
+                );
             }
         }
     }
@@ -1012,18 +1021,19 @@ function collectNonFunctionalMethodDiagnostics(
         const methodOffset =
             callMatch.index + matchText.lastIndexOf(methodName, matchText.length - 1);
         const note = nonFunctionalShortNote(entry);
-        diagnostics.push({
-            // Confirmed non-functional at runtime (every tested call fails) — this is
-            // stronger than a mere deprecation warning, so it is reported as an Error.
-            severity: DiagnosticSeverity.Error,
-            range: {
-                start: offsetToPosition(text, methodOffset),
-                end: offsetToPosition(text, methodOffset + methodName.length),
-            },
-            message: `'${displayReceiver}.${methodName}' exists in SFMC SSJS but has no known working invocation at runtime (every tested call fails).${note ? ` ${note}` : ''}`,
-            source: 'ssjs',
-            code: DIAG_CODE_SSJS_NONFUNCTIONAL_METHOD,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_NONFUNCTIONAL_METHOD, {
+                // Confirmed non-functional at runtime (every tested call fails) — this is
+                // stronger than a mere deprecation warning, so it is reported as an Error.
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, methodOffset),
+                    end: offsetToPosition(text, methodOffset + methodName.length),
+                },
+                message: `'${displayReceiver}.${methodName}' exists in SFMC SSJS but has no known working invocation at runtime (every tested call fails).${note ? ` ${note}` : ''}`,
+                source: 'ssjs',
+            }),
+        );
     }
 
     return diagnostics;
@@ -1176,16 +1186,17 @@ function collectDeprecatedMethodDiagnostics(
         const matchText = callMatch[0];
         const methodOffset =
             callMatch.index + matchText.lastIndexOf(methodName, matchText.length - 1);
-        diagnostics.push({
-            severity: DiagnosticSeverity.Warning,
-            range: {
-                start: offsetToPosition(text, methodOffset),
-                end: offsetToPosition(text, methodOffset + methodName.length),
-            },
-            message: `'${displayReceiver}.${methodName}' is deprecated. ${deprecationNote(entry)}`,
-            source: 'ssjs',
-            code: DIAG_CODE_SSJS_DEPRECATED,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_DEPRECATED, {
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, methodOffset),
+                    end: offsetToPosition(text, methodOffset + methodName.length),
+                },
+                message: `'${displayReceiver}.${methodName}' is deprecated. ${deprecationNote(entry)}`,
+                source: 'ssjs',
+            }),
+        );
     }
 
     return diagnostics;
@@ -1346,23 +1357,24 @@ function clauseFallthroughDiagnostics(
         const terminates = /\b(?:break|return|throw|continue)\b[^;]*;?\s*$/.test(body.trim());
         // A non-empty, properly terminated body does not rely on fall-through.
         if (!isEmpty && terminates) continue;
-        diagnostics.push({
-            severity: DiagnosticSeverity.Warning,
-            range: {
-                start: offsetToPosition(text, clause.keywordOffset),
-                end: offsetToPosition(text, clause.bodyStart),
-            },
-            message: isEmpty
-                ? 'This empty case relies on fall-through into the next label, but SFMC SSJS ' +
-                  'has no fall-through — the shared body never runs. Give this case its own ' +
-                  'break-terminated body, or use if / a lookup map.'
-                : 'This case body has no terminating break/return/throw, so it relies on ' +
-                  'cascading into the next case — but SFMC SSJS has no fall-through and each ' +
-                  'case runs only its own statements. End every case with break, or use if / ' +
-                  'a lookup map.',
-            source: 'ssjs',
-            code: DIAG_CODE_SSJS_SWITCH_FALLTHROUGH,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_SWITCH_FALLTHROUGH, {
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, clause.keywordOffset),
+                    end: offsetToPosition(text, clause.bodyStart),
+                },
+                message: isEmpty
+                    ? 'This empty case relies on fall-through into the next label, but SFMC SSJS ' +
+                      'has no fall-through — the shared body never runs. Give this case its own ' +
+                      'break-terminated body, or use if / a lookup map.'
+                    : 'This case body has no terminating break/return/throw, so it relies on ' +
+                      'cascading into the next case — but SFMC SSJS has no fall-through and each ' +
+                      'case runs only its own statements. End every case with break, or use if / ' +
+                      'a lookup map.',
+                source: 'ssjs',
+            }),
+        );
     }
     return diagnostics;
 }
@@ -1521,21 +1533,22 @@ function collectNewObjectReturnDiagnostics(
         if (!objectReturningNames.has(calleeName)) continue;
         // Highlight the callee name for a focused squiggle.
         const nameStart = match.index + match[0].indexOf(calleeName);
-        diagnostics.push({
-            severity: DiagnosticSeverity.Warning,
-            range: {
-                start: offsetToPosition(text, nameStart),
-                end: offsetToPosition(text, nameStart + calleeName.length),
-            },
-            message:
-                `'new ${calleeName}()' calls a constructor that returns an object literal, which the ` +
-                'SFMC SSJS engine discards — the engine returns the empty `this`, so the returned ' +
-                'members will be undefined and calling one of them aborts the page. Call ' +
-                `'${calleeName}(...)' without 'new', or assign to 'this.<member>' inside the ` +
-                'constructor instead of returning an object.',
-            source: 'ssjs',
-            code: DIAG_CODE_SSJS_NEW_OBJECT_RETURN,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_NEW_OBJECT_RETURN, {
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, nameStart),
+                    end: offsetToPosition(text, nameStart + calleeName.length),
+                },
+                message:
+                    `'new ${calleeName}()' calls a constructor that returns an object literal, which the ` +
+                    'SFMC SSJS engine discards — the engine returns the empty `this`, so the returned ' +
+                    'members will be undefined and calling one of them aborts the page. Call ' +
+                    `'${calleeName}(...)' without 'new', or assign to 'this.<member>' inside the ` +
+                    'constructor instead of returning an object.',
+                source: 'ssjs',
+            }),
+        );
     }
     return diagnostics;
 }
@@ -1707,20 +1720,21 @@ function collectBlockForwardRefDiagnostics(
             !resolvableHere.has(name);
         if (!isForwardRef) continue;
         const nameStart = match.index + match[0].indexOf(name);
-        diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: {
-                start: offsetToPosition(text, nameStart),
-                end: offsetToPosition(text, nameStart + name.length),
-            },
-            message:
-                `'${name}()' is declared in a later <script runat="server"> block. SSJS ` +
-                'executes server blocks in document order over one shared scope, so this ' +
-                'forward reference throws "Object expected" at runtime. Move the declaration ' +
-                'to this block or an earlier one.',
-            source: 'ssjs',
-            code: DIAG_CODE_SSJS_CROSS_BLOCK_FORWARD_REF,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_CROSS_BLOCK_FORWARD_REF, {
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, nameStart),
+                    end: offsetToPosition(text, nameStart + name.length),
+                },
+                message:
+                    `'${name}()' is declared in a later <script runat="server"> block. SSJS ` +
+                    'executes server blocks in document order over one shared scope, so this ' +
+                    'forward reference throws "Object expected" at runtime. Move the declaration ' +
+                    'to this block or an earlier one.',
+                source: 'ssjs',
+            }),
+        );
     }
     return diagnostics;
 }
@@ -1762,16 +1776,17 @@ export function validateSsjs(
         if (isInCommentRange(coreMatch.index, commentRanges)) continue;
         if (coreMatch.index < platformLoadOffset) {
             problems++;
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, coreMatch.index),
-                    end: offsetToPosition(text, coreMatch.index + coreMatch[0].length - 1),
-                },
-                message: `Platform.Load("core", "1.1.5") must be called before using ${coreMatch[1]}.Init(). Without it, this call will fail at runtime.`,
-                source: 'ssjs',
-                code: DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD, {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, coreMatch.index),
+                        end: offsetToPosition(text, coreMatch.index + coreMatch[0].length - 1),
+                    },
+                    message: `Platform.Load("core", "1.1.5") must be called before using ${coreMatch[1]}.Init(). Without it, this call will fail at runtime.`,
+                    source: 'ssjs',
+                }),
+            );
         }
     }
 
@@ -1811,16 +1826,17 @@ export function validateSsjs(
             if (bareMatch.index < platformLoadOffset) {
                 problems++;
                 const name = bareMatch[1];
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: offsetToPosition(text, bareMatch.index),
-                        end: offsetToPosition(text, bareMatch.index + name.length),
-                    },
-                    message: `Platform.Load("core", "1.1.5") must be called before using ${name}(). Without it, this call will fail at runtime.`,
-                    source: 'ssjs',
-                    code: DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD,
-                });
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD, {
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: offsetToPosition(text, bareMatch.index),
+                            end: offsetToPosition(text, bareMatch.index + name.length),
+                        },
+                        message: `Platform.Load("core", "1.1.5") must be called before using ${name}(). Without it, this call will fail at runtime.`,
+                        source: 'ssjs',
+                    }),
+                );
             }
         }
     }
@@ -1840,16 +1856,17 @@ export function validateSsjs(
             const name = phantomMatch[1];
             const entry = nonexistentGlobals.get(name);
             const replacement = phantomReplacement(entry);
-            diagnostics.push({
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, phantomMatch.index),
-                    end: offsetToPosition(text, phantomMatch.index + name.length),
-                },
-                message: `${name}() does not exist at runtime (calling it throws a ReferenceError). Use ${replacement} instead.`,
-                source: 'ssjs',
-                code: DIAG_CODE_SSJS_NONEXISTENT_GLOBAL,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_SSJS_NONEXISTENT_GLOBAL, {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, phantomMatch.index),
+                        end: offsetToPosition(text, phantomMatch.index + name.length),
+                    },
+                    message: `${name}() does not exist at runtime (calling it throws a ReferenceError). Use ${replacement} instead.`,
+                    source: 'ssjs',
+                }),
+            );
         }
     }
 
@@ -1872,16 +1889,17 @@ export function validateSsjs(
             const replacement = entry?.aliasOf
                 ? ` Use '${entry.aliasOf}' instead.`
                 : ' Use a supported alternative.';
-            diagnostics.push({
-                severity: DiagnosticSeverity.Warning,
-                range: {
-                    start: offsetToPosition(text, deprecatedMatch.index),
-                    end: offsetToPosition(text, deprecatedMatch.index + name.length),
-                },
-                message: `'${name}' is deprecated.${replacement}`,
-                source: 'ssjs',
-                code: DIAG_CODE_SSJS_DEPRECATED,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_SSJS_DEPRECATED, {
+                    severity: DiagnosticSeverity.Warning,
+                    range: {
+                        start: offsetToPosition(text, deprecatedMatch.index),
+                        end: offsetToPosition(text, deprecatedMatch.index + name.length),
+                    },
+                    message: `'${name}' is deprecated.${replacement}`,
+                    source: 'ssjs',
+                }),
+            );
         }
     }
 
@@ -1906,16 +1924,17 @@ export function validateSsjs(
                 problems++;
                 const name = pfDepMatch[1];
                 const nameStart = pfDepMatch.index + pfDepMatch[0].indexOf(name);
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Warning,
-                    range: {
-                        start: offsetToPosition(text, nameStart),
-                        end: offsetToPosition(text, nameStart + name.length),
-                    },
-                    message: `'Platform.Function.${name}' is deprecated. Use a supported alternative.`,
-                    source: 'ssjs',
-                    code: DIAG_CODE_SSJS_DEPRECATED,
-                });
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_SSJS_DEPRECATED, {
+                        severity: DiagnosticSeverity.Warning,
+                        range: {
+                            start: offsetToPosition(text, nameStart),
+                            end: offsetToPosition(text, nameStart + name.length),
+                        },
+                        message: `'Platform.Function.${name}' is deprecated. Use a supported alternative.`,
+                        source: 'ssjs',
+                    }),
+                );
             }
         }
     }
@@ -1945,18 +1964,19 @@ export function validateSsjs(
             problems++;
             const name = euMatch[1];
             const nameStart = euMatch.index + euMatch[0].indexOf(name);
-            diagnostics.push({
-                severity: isUnavailable ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
-                range: {
-                    start: offsetToPosition(text, nameStart),
-                    end: offsetToPosition(text, nameStart + name.length),
-                },
-                message: isUnavailable
-                    ? `'ErrorUtil.${name}' is undefined under Platform.Load("Core", "${loadedCoreVersion}") — it only exists in Core version "${maxCoreVersion}", so this call throws a TypeError at runtime. Check 'result.Status' and 'throw new Error(...)' instead.`
-                    : `'ErrorUtil.${name}' is deprecated — it only exists under Platform.Load("Core", "1") and is undefined in newer Core versions. Check 'result.Status' and 'throw new Error(...)' instead.`,
-                source: 'ssjs',
-                code: DIAG_CODE_SSJS_DEPRECATED,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_SSJS_DEPRECATED, {
+                    severity: isUnavailable ? DiagnosticSeverity.Error : DiagnosticSeverity.Warning,
+                    range: {
+                        start: offsetToPosition(text, nameStart),
+                        end: offsetToPosition(text, nameStart + name.length),
+                    },
+                    message: isUnavailable
+                        ? `'ErrorUtil.${name}' is undefined under Platform.Load("Core", "${loadedCoreVersion}") — it only exists in Core version "${maxCoreVersion}", so this call throws a TypeError at runtime. Check 'result.Status' and 'throw new Error(...)' instead.`
+                        : `'ErrorUtil.${name}' is deprecated — it only exists under Platform.Load("Core", "1") and is undefined in newer Core versions. Check 'result.Status' and 'throw new Error(...)' instead.`,
+                    source: 'ssjs',
+                }),
+            );
         }
     }
 
@@ -1983,16 +2003,17 @@ export function validateSsjs(
         if (actualVersion !== '1.1.5') {
             problems++;
             const versionStart = versionMatch.index + versionMatch[0].lastIndexOf(actualVersion);
-            diagnostics.push({
-                severity: DiagnosticSeverity.Warning,
-                range: {
-                    start: offsetToPosition(text, versionStart - 1),
-                    end: offsetToPosition(text, versionStart + actualVersion.length + 1),
-                },
-                message: `Platform.Load("Core", "${actualVersion}") should use version "1.1.5" to get the latest bug-fixes.`,
-                source: 'ssjs',
-                code: DIAG_CODE_SSJS_PLATFORM_LOAD_VERSION,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_SSJS_PLATFORM_LOAD_VERSION, {
+                    severity: DiagnosticSeverity.Warning,
+                    range: {
+                        start: offsetToPosition(text, versionStart - 1),
+                        end: offsetToPosition(text, versionStart + actualVersion.length + 1),
+                    },
+                    message: `Platform.Load("Core", "${actualVersion}") should use version "1.1.5" to get the latest bug-fixes.`,
+                    source: 'ssjs',
+                }),
+            );
         }
     }
 
@@ -2087,19 +2108,23 @@ export function validateSsjs(
                 method: entry.method,
                 polyfill: entry.polyfill,
             };
-            diagnostics.push({
-                // The member is absent/broken in the SFMC engine — code using it
-                // will fail at runtime without the polyfill, so this is an error.
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, m.index),
-                    end: offsetToPosition(text, m.index + m[0].length),
-                },
-                message: polyfillRequiredMessage(`${entry.owner}.${entry.method}`, entry.category),
-                source: 'ssjs',
-                code: DIAG_CODE_SSJS_POLYFILL_REQUIRED,
-                data,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_SSJS_POLYFILL_REQUIRED, {
+                    // The member is absent/broken in the SFMC engine — code using it
+                    // will fail at runtime without the polyfill, so this is an error.
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, m.index),
+                        end: offsetToPosition(text, m.index + m[0].length),
+                    },
+                    message: polyfillRequiredMessage(
+                        `${entry.owner}.${entry.method}`,
+                        entry.category,
+                    ),
+                    source: 'ssjs',
+                    data,
+                }),
+            );
         }
     }
 
@@ -2120,17 +2145,18 @@ export function validateSsjs(
                 member: entry.member,
                 replacement: entry.replacement,
             };
-            diagnostics.push({
-                severity: DiagnosticSeverity.Warning,
-                range: {
-                    start: offsetToPosition(text, m.index),
-                    end: offsetToPosition(text, m.index + m[0].length),
-                },
-                message: `${entry.owner}.${entry.member} is not available in SFMC SSJS. Use ${entry.replacement} instead.`,
-                source: 'ssjs',
-                code: DIAG_CODE_SSJS_REPLACE_WITH_PLATFORM_FUNCTION,
-                data,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_SSJS_REPLACE_WITH_PLATFORM_FUNCTION, {
+                    severity: DiagnosticSeverity.Warning,
+                    range: {
+                        start: offsetToPosition(text, m.index),
+                        end: offsetToPosition(text, m.index + m[0].length),
+                    },
+                    message: `${entry.owner}.${entry.member} is not available in SFMC SSJS. Use ${entry.replacement} instead.`,
+                    source: 'ssjs',
+                    data,
+                }),
+            );
         }
     }
 
@@ -2154,22 +2180,23 @@ export function validateSsjs(
                 method: entry.method,
                 polyfill: entry.polyfill,
             };
-            diagnostics.push({
-                // The member is absent/broken in the SFMC engine — code using it
-                // will fail at runtime without the polyfill, so this is an error.
-                severity: DiagnosticSeverity.Error,
-                range: {
-                    start: offsetToPosition(text, memberStart),
-                    end: offsetToPosition(text, memberStart + m[1].length),
-                },
-                message: polyfillRequiredMessage(
-                    `${owner}.prototype.${entry.method}`,
-                    entry.category,
-                ),
-                source: 'ssjs',
-                code: DIAG_CODE_SSJS_POLYFILL_REQUIRED,
-                data,
-            });
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_SSJS_POLYFILL_REQUIRED, {
+                    // The member is absent/broken in the SFMC engine — code using it
+                    // will fail at runtime without the polyfill, so this is an error.
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, memberStart),
+                        end: offsetToPosition(text, memberStart + m[1].length),
+                    },
+                    message: polyfillRequiredMessage(
+                        `${owner}.prototype.${entry.method}`,
+                        entry.category,
+                    ),
+                    source: 'ssjs',
+                    data,
+                }),
+            );
         }
     }
 
@@ -2296,17 +2323,18 @@ export function validateSsjs(
         const lines = text.split('\n');
         const firstNonBlankLine = lines.findIndex((l) => l.trim().length > 0);
         const lineIndex = Math.max(0, firstNonBlankLine);
-        diagnostics.push({
-            severity: DiagnosticSeverity.Error,
-            range: {
-                start: { line: lineIndex, character: 0 },
-                end: { line: lineIndex, character: lines[lineIndex]?.length ?? 0 },
-            },
-            message:
-                'SSJS is not supported in Marketing Cloud Next. Rewrite this code in AMPscript.',
-            source: 'ssjs',
-            code: DIAG_CODE_SSJS_MCN_NOT_SUPPORTED,
-        });
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_MCN_NOT_SUPPORTED, {
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: { line: lineIndex, character: 0 },
+                    end: { line: lineIndex, character: lines[lineIndex]?.length ?? 0 },
+                },
+                message:
+                    'SSJS is not supported in Marketing Cloud Next. Rewrite this code in AMPscript.',
+                source: 'ssjs',
+            }),
+        );
     }
 
     return diagnostics;

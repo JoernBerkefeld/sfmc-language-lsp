@@ -1,3 +1,4 @@
+import { createDiagnostic } from '../diagnostic-rules.js';
 import { DiagnosticSeverity } from '../types.js';
 import type { Diagnostic } from '../types.js';
 import { offsetToPosition } from '../utils/positions.js';
@@ -62,15 +63,17 @@ export function validateGtlBlocks(
             const matchIndex = findLastMatchingOpen(stack, event.tag);
             if (matchIndex === -1) {
                 problems++;
-                diagnostics.push({
-                    severity: DiagnosticSeverity.Warning,
-                    range: {
-                        start: offsetToPosition(text, event.offset),
-                        end: offsetToPosition(text, event.offset + event.tag.length + 5),
-                    },
-                    message: `Closing {{/${event.tag}}} without a matching opening tag.`,
-                    source: 'gtl',
-                });
+                diagnostics.push(
+                    createDiagnostic('gtl/unexpected-close', {
+                        severity: DiagnosticSeverity.Warning,
+                        range: {
+                            start: offsetToPosition(text, event.offset),
+                            end: offsetToPosition(text, event.offset + event.tag.length + 5),
+                        },
+                        message: `Closing {{/${event.tag}}} without a matching opening tag.`,
+                        source: 'gtl',
+                    }),
+                );
             } else {
                 stack.splice(matchIndex, 1);
             }
@@ -81,14 +84,16 @@ export function validateGtlBlocks(
         if (problems >= remainingBudget) break;
         problems++;
         const tagDisplay = frame.tag.startsWith('.') ? `{{${frame.tag}}}` : `{{#${frame.tag}}}`;
-        diagnostics.push({
-            severity: DiagnosticSeverity.Warning,
-            range: {
-                start: offsetToPosition(text, frame.offset),
-                end: offsetToPosition(text, frame.offset + frame.tag.length + 3),
-            },
-            message: `Unclosed ${tagDisplay} block. Expected a matching closing tag.`,
-            source: 'gtl',
-        });
+        diagnostics.push(
+            createDiagnostic('gtl/unclosed-block', {
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, frame.offset),
+                    end: offsetToPosition(text, frame.offset + frame.tag.length + 3),
+                },
+                message: `Unclosed ${tagDisplay} block. Expected a matching closing tag.`,
+                source: 'gtl',
+            }),
+        );
     }
 }
