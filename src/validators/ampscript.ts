@@ -145,12 +145,12 @@ function nonFunctionalShortNote(note: string | undefined): string {
  * literal (e.g. a variable like `@x` or an expression) and therefore cannot be
  * statically validated against an enum.
  * @param raw - The raw argument text as written in the source.
- * @returns The literal value as a string, or null.
+ * @returns The type-sensitive literal value, or null.
  */
-function resolveStaticLiteral(raw: string): string | null {
+function resolveStaticLiteral(raw: string): string | number | boolean | null {
     const trimmed = raw.trim();
     if (trimmed.length === 0) return null;
-    // Quoted string literal — return inner content.
+    // Quoted string literal — return inner content as a string.
     const first = trimmed[0];
     const last = trimmed.at(-1);
     if (last === first && trimmed.length >= 2 && (first === '"' || first === "'")) {
@@ -158,14 +158,42 @@ function resolveStaticLiteral(raw: string): string | null {
     }
     // Numeric literal (e.g. 5, 3.14, -2).
     if (/^-?\d+(\.\d+)?$/.test(trimmed)) {
-        return trimmed;
+        return Number(trimmed);
     }
     // Boolean literal (true/false, case-insensitive).
     if (/^(true|false)$/i.test(trimmed)) {
-        return trimmed;
+        return trimmed.toLowerCase() === 'true';
     }
     // Variable (@x) or expression — not statically resolvable.
     return null;
+}
+
+/**
+ * Format a catalog enum member as an AMPscript literal.
+ * @param value - Catalog enum member.
+ * @returns AMPscript literal text.
+ */
+function formatAmpscriptEnumLiteral(value: string | number | boolean): string {
+    return typeof value === 'string' ? `"${value}"` : String(value);
+}
+
+/**
+ * Compare an AMPscript static literal with one catalog enum member without
+ * collapsing strings, numbers, and booleans into the same textual value.
+ * String matching remains case-insensitive, matching existing AMPscript enums.
+ * @param allowed - Catalog enum member.
+ * @param actual - Resolved source literal.
+ * @returns True when the values match with type-sensitive semantics.
+ */
+function enumValueMatches(
+    allowed: string | number | boolean,
+    actual: string | number | boolean,
+): boolean {
+    if (typeof allowed !== typeof actual) return false;
+    if (typeof allowed === 'string' && typeof actual === 'string') {
+        return allowed.toLowerCase() === actual.toLowerCase();
+    }
+    return allowed === actual;
 }
 
 /**
@@ -267,7 +295,7 @@ function collectArgumentDiagnostics(
             const literal = resolveStaticLiteral(rawLiteral);
             if (
                 literal !== null &&
-                param.enum.every((v) => String(v).toLowerCase() !== literal.toLowerCase())
+                param.enum.every((value) => !enumValueMatches(value, literal))
             ) {
                 diagnostics.push(
                     createDiagnostic(DIAG_CODE_ENUM_VALUE, {
@@ -276,7 +304,7 @@ function collectArgumentDiagnostics(
                             start: offsetToPosition(text, argSpans[ai].start),
                             end: offsetToPosition(text, argSpans[ai].end),
                         },
-                        message: `Argument '${param.name}' of '${functionName}' must be one of: ${param.enum.join(', ')}.`,
+                        message: `Argument '${param.name}' of '${functionName}' must be one of: ${param.enum.map((value) => formatAmpscriptEnumLiteral(value)).join(', ')}.`,
                         source: 'ampscript',
                     }),
                 );
@@ -536,7 +564,8 @@ export function validateAmpscript(
         if (fnEntry?.deprecated && problems < max) {
             problems++;
             const deprecatedData = fnEntry.deprecated as
-                true | { reason?: string; replacement?: string };
+                | true
+                | { reason?: string; replacement?: string };
             const reason = typeof deprecatedData === 'object' ? (deprecatedData.reason ?? '') : '';
             const replacement =
                 typeof deprecatedData === 'object' ? (deprecatedData.replacement ?? '') : '';

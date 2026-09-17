@@ -9,7 +9,7 @@ declare module 'ampscript-data' {
         description: string;
         type?: string;
         optional?: boolean;
-        enum?: (string | number)[];
+        enum?: readonly (string | number | boolean)[];
         default?: string | number | boolean;
     }
     /**
@@ -56,7 +56,7 @@ declare module 'ampscript-data' {
         /**
          * Fixed set of literal return values, when the function returns an enum.
          */
-        returnEnum?: (string | number)[];
+        returnEnum?: readonly (string | number | boolean)[];
         /**
          * Canonical signature string, e.g. `Add(number1, number2)`.
          */

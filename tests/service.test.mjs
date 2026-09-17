@@ -2776,8 +2776,8 @@ describe('AMPscript enum-typed arguments', () => {
         const doc = { text, languageId: 'ampscript' };
         const items = service.getCompletions(doc, { line: 0, character: text.length });
         const labels = new Set(items.map((i) => i.label));
-        assert.ok(labels.has('monthName'), 'expected monthName enum completion');
-        assert.ok(labels.has('Y'), 'expected Y enum completion');
+        assert.ok(labels.has('"monthName"'), 'expected monthName enum completion');
+        assert.ok(labels.has('"Y"'), 'expected Y enum completion');
     });
 
     it('returns ONLY enum values inside an enum argument (no functions/variables)', () => {
@@ -2805,6 +2805,65 @@ describe('AMPscript enum-typed arguments', () => {
             preselected.length,
             0,
             `expected no preselected items, got: ${preselected.length}`,
+        );
+    });
+
+    it('validates RaiseError preserveDataExt with type-sensitive enum semantics', () => {
+        const accepted = ['true', 'false', '1', '0', "'true'", '"false"', "'1'", '"0"'];
+        for (const literal of accepted) {
+            const diags = ampValidate(`%%[ RaiseError('stop', 1, '', 0, ${literal}) ]%%`);
+            assert.deepEqual(
+                diags,
+                [],
+                `expected ${literal} to be accepted, got: ${JSON.stringify(diags)}`,
+            );
+        }
+
+        const rejected = ['2', '"yes"'];
+        for (const literal of rejected) {
+            const diags = ampValidate(`%%[ RaiseError('stop', 1, '', 0, ${literal}) ]%%`);
+            assert.ok(
+                diags.some((d) => d.data?.sfmc?.variant === 'ampscript/enum-value'),
+                `expected ${literal} to be rejected, got: ${JSON.stringify(diags)}`,
+            );
+        }
+    });
+
+    it('offers eight distinct RaiseError preserveDataExt literal completions', () => {
+        const text = "%%=RaiseError('stop', 1, '', 0,";
+        const doc = { text, languageId: 'ampscript' };
+        const items = service.getCompletions(doc, { line: 0, character: text.length });
+        assert.deepEqual(
+            items.map((item) => ({ label: item.label, insertText: item.insertText })),
+            [
+                { label: 'true', insertText: 'true' },
+                { label: 'false', insertText: 'false' },
+                { label: '1', insertText: '1' },
+                { label: '0', insertText: '0' },
+                { label: '"true"', insertText: '"true"' },
+                { label: '"false"', insertText: '"false"' },
+                { label: '"1"', insertText: '"1"' },
+                { label: '"0"', insertText: '"0"' },
+            ],
+        );
+        assert.equal(new Set(items.map((item) => item.insertText)).size, 8);
+    });
+
+    it('renders typed RaiseError enum literals in signature help and hover', () => {
+        const sig = ampSig("%%=RaiseError('stop', 1, '', 0,");
+        const raw = sig.signatures[0].parameters[4].documentation;
+        const documentation = typeof raw === 'string' ? raw : (raw?.value ?? '');
+        assert.match(documentation, /Allowed values: true, false, 1, 0, "true", "false", "1", "0"/);
+
+        const line = "%%=RaiseError('stop', 1, '', 0, 1)=%%";
+        const hover = service.getHover({ text: line, languageId: 'ampscript' }, line, {
+            line: 0,
+            character: 8,
+        });
+        const hoverText = hover?.contents?.value ?? '';
+        assert.match(
+            hoverText,
+            /allowed: `true`, `false`, `1`, `0`, `"true"`, `"false"`, `"1"`, `"0"`/,
         );
     });
 });

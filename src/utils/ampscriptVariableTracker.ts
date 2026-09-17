@@ -25,7 +25,13 @@ import { functionLookup } from '../data/ampscript.js';
  * The resolved AMPscript type of a variable.
  */
 export type AmpscriptVarType =
-    'string' | 'number' | 'boolean' | 'rowset' | 'row' | 'object' | 'string|number';
+    | 'string'
+    | 'number'
+    | 'boolean'
+    | 'rowset'
+    | 'row'
+    | 'object'
+    | 'string|number';
 
 /**
  * Returns a map from lowercase variable name (without the `@`) to its

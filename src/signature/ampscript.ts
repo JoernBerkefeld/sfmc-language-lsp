@@ -3,6 +3,10 @@ import type { SignatureHelp, ParameterInformation } from '../types.js';
 import type { AmpscriptFunction } from '../data/ampscript.js';
 import { functionLookup } from '../data/ampscript.js';
 
+function formatAmpscriptEnumLiteral(value: string | number | boolean): string {
+    return typeof value === 'string' ? `"${value}"` : String(value);
+}
+
 /**
  * Return AMPscript signature help for the given function context.
  * @param context - Parsed function call context.
@@ -36,7 +40,9 @@ export function getAmpscriptSignatureHelp(context: {
                 ? `\n\n**Default:** \`${String(p.default)}\``
                 : '';
         const allowed =
-            p.enum && p.enum.length > 0 ? `\n\nAllowed values: ${p.enum.join(', ')}` : '';
+            p.enum && p.enum.length > 0
+                ? `\n\nAllowed values: ${p.enum.map((value) => formatAmpscriptEnumLiteral(value)).join(', ')}`
+                : '';
         return {
             // Highlight the full `name?: type` token in the label.
             label: labelRange(signatureLabel, paramTokens[i]) ?? paramTokens[i],

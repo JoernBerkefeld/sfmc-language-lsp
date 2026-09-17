@@ -97,19 +97,24 @@ function getEnumValueCompletions(textUpToCursor: string): CompletionItem[] | nul
     const param = fn.params[context.paramIndex];
     if (!param?.enum || param.enum.length === 0) return null;
 
-    return param.enum.map((rawValue) => {
-        const value = String(rawValue);
-        return {
-            label: value,
+    const seen = new Set<string>();
+    const items: CompletionItem[] = [];
+    for (const rawValue of param.enum) {
+        const insertText = typeof rawValue === 'string' ? `"${rawValue}"` : String(rawValue);
+        if (seen.has(insertText)) continue;
+        seen.add(insertText);
+        items.push({
+            label: insertText,
             kind: CompletionItemKind.EnumMember,
             detail: `${fn.name} — allowed value for ${param.name}`,
-            insertText: `"${value}"`,
+            insertText,
             insertTextFormat: InsertTextFormat.PlainText,
-            // Sort enum values to the top of the list.
-            sortText: `0_${value}`,
+            // Sort enum values to the top of the list while preserving catalog order.
+            sortText: `0_${String(items.length).padStart(4, '0')}`,
             data: { type: 'enum' },
-        };
-    });
+        });
+    }
+    return items;
 }
 
 /**

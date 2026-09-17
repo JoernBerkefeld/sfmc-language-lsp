@@ -7,6 +7,10 @@ import type { AmpscriptFunction } from '../data/ampscript.js';
 import type { SsjsFunction, EcmascriptBuiltin } from '../data/ssjs.js';
 import type { HandlebarsHelper, HandlebarsBinding } from '../data/handlebars.js';
 
+function formatAmpscriptEnumLiteral(value: string | number | boolean): string {
+    return typeof value === 'string' ? `"${value}"` : String(value);
+}
+
 export interface LocalSsjsFunction {
     name: string;
     params: string[];
@@ -78,7 +82,7 @@ export function buildFunctionMarkdown(
             const opt = p.optional ? ' *(optional)*' : '';
             const allowed =
                 p.enum && p.enum.length > 0
-                    ? ` _(allowed: ${p.enum.map((v) => `\`${v}\``).join(', ')})_`
+                    ? ` _(allowed: ${p.enum.map((v) => `\`${formatAmpscriptEnumLiteral(v)}\``).join(', ')})_`
                     : '';
             lines.push(`*@param* \`${p.name}\`${opt} — ${p.description}${allowed}\n`);
         }
@@ -87,7 +91,7 @@ export function buildFunctionMarkdown(
     if (fn.returnType && fn.returnType !== 'void') {
         const returnEnum =
             fn.returnEnum && fn.returnEnum.length > 0
-                ? ` _(one of: ${fn.returnEnum.map((v) => `\`${v}\``).join(', ')})_`
+                ? ` _(one of: ${fn.returnEnum.map((v) => `\`${formatAmpscriptEnumLiteral(v)}\``).join(', ')})_`
                 : '';
         lines.push(`*@return* \`${fn.returnType}\`${returnEnum}`);
     }
