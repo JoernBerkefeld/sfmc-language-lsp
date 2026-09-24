@@ -74,6 +74,10 @@ declare module 'ampscript-data' {
          */
         guideUrl?: string;
         /**
+         * URL to the sfmc.guide reference page, when a dedicated page exists.
+         */
+        sfmcGuideUrl?: string;
+        /**
          * API version in which MCN support was introduced (e.g. 67), or null if not supported in MCN.
          */
         mcnSince: number | null;

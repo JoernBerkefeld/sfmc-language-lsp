@@ -20,6 +20,7 @@ const ampscriptDocLinks = new Map(
         {
             docUrl: (f as { docUrl?: string }).docUrl,
             guideUrl: (f as { guideUrl?: string }).guideUrl,
+            sfmcGuideUrl: (f as { sfmcGuideUrl?: string }).sfmcGuideUrl,
             mcnSince: (f as { mcnSince?: number | null }).mcnSince ?? null,
             mcnNotes: (f as { mcnNotes?: string | null }).mcnNotes ?? null,
         },

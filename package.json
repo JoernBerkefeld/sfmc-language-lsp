@@ -56,10 +56,10 @@
         "format:check": "prettier --check ."
     },
     "dependencies": {
-        "ampscript-data": "^4.0.0",
+        "ampscript-data": "^4.1.0",
         "handlebars-data": "^0.4.0",
         "sfmc-handlebars-parser": "^0.1.1",
-        "ssjs-data": "^2.1.0",
+        "ssjs-data": "^2.1.1",
         "vscode-languageserver-types": "^3.18.0"
     },
     "engines": {

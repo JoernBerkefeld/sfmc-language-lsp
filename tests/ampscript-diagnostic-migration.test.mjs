@@ -28,6 +28,7 @@ const fixtures = [
     ['arg-type', '%%[ Uppercase(true) ]%%'],
     ['arg-type', '%%[ set @r = Row(LookupRows("DE", "x", "y"), 1) set @n = RowCount(@r) ]%%'],
     ['enum-value', '%%[ DatePart("2026-01-15", "decade") ]%%'],
+    ['prefer-boolean-literal', '%%[ RaiseError("stop", true, "", 0, "1") ]%%', 'engagement'],
     ['nonfunctional-function', '%%=GetPortfolioItem("key")=%%'],
     ['set-no-target', '%%[ set = 1 ]%%'],
     ['smart-quotes', '%%[ set @x = “value” ]%%'],
@@ -106,7 +107,7 @@ describe('AMPscript canonical emission migration', () => {
         );
     });
 
-    it('wraps all 27 AMP emission sites, including the unreachable conditional variant', () => {
+    it('wraps all 28 AMP emission sites, including the unreachable conditional variant', () => {
         const source = ts.createSourceFile(
             'ampscript.ts',
             readFileSync(new URL('../src/validators/ampscript.ts', import.meta.url), 'utf8'),
@@ -133,7 +134,7 @@ describe('AMPscript canonical emission migration', () => {
             ts.forEachChild(node, visit);
         }
         visit(source);
-        assert.equal(emissions.length, 27);
+        assert.equal(emissions.length, 28);
         assert.ok(
             emissions.some((emission) =>
                 emission.arguments[0].getText(source).includes('DIAG_CODE_HTML_WRAPPED_COMMENT'),

@@ -58,9 +58,11 @@ Some Core library members only exist up to a maximum `Platform.Load("Core", <ver
 
 ## Diagnostic identities and documentation
 
-The [diagnostic rule reference](docs/rules/README.md) covers all 36 public rules and their 47 internal variants. First-party diagnostics carry a canonical `Diagnostic.code` such as `sfmc/amp-arg-types` and a `codeDescription.href` pointing to this repository at `blob/v<LSP package version>/docs/rules/...`. The LSP owns these URLs, even when bundled in an extension with a different version. Versions are embedded at build time; diagnostic creation needs neither the filesystem nor Git.
+The [diagnostic rule reference](docs/rules/README.md) covers all 37 public rules and their 48 internal variants. First-party diagnostics carry a canonical `Diagnostic.code` such as `sfmc/amp-arg-types` and a `codeDescription.href` pointing to this repository at `blob/v<LSP package version>/docs/rules/...`. The LSP owns these URLs, even when bundled in an extension with a different version. Versions are embedded at build time; diagnostic creation needs neither the filesystem nor Git.
 
 **Migration / semver:** canonical `sfmc/...` codes replace legacy `ampscript/...`, `ssjs/...`, and `handlebars/...` codes and name previously uncoded checks. Consumers comparing codes or reading diagnostic data must migrate. This is a breaking public diagnostic-contract change. Version `4.0.0` introduces this contract as one major step from `3.17.1`. Consumers upgrading from `3.x` must migrate; the new contract and its documentation are not part of `3.17.1`.
+
+Boolean-like AMPscript enum parameters accept all eight catalog forms. Bare `true` and `false` are preferred; numeric and quoted alternatives remain valid but receive the `sfmc/amp-prefer-boolean-literal` warning. AMPscript hover links prefer a dedicated `sfmc.guide` page and fall back to `ampscript.guide`, while keeping Salesforce Developers links independent.
 
 Quick-fix data now uses `{ sfmc: { variant, payload } }`. Treat `payload` as opaque: it preserves the original primitive string or object rather than flattening it. Use `decodeDiagnosticData(code, data)` to normalize old code + old payload and new code + envelope into the same variant/payload input. Existing code-action handlers accept both formats. Canonical IDs shared by multiple checks require the explicit variant; do not infer a polyfill, replacement, or delimiter fix from the public ID alone. Forward the complete diagnostic, including its data, through editor adapters.
 

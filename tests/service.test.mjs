@@ -2808,24 +2808,53 @@ describe('AMPscript enum-typed arguments', () => {
         );
     });
 
-    it('validates RaiseError preserveDataExt with type-sensitive enum semantics', () => {
-        const accepted = ['true', 'false', '1', '0', "'true'", '"false"', "'1'", '"0"'];
-        for (const literal of accepted) {
+    it('accepts all eight boolean-like values and warns on non-bare alternatives', () => {
+        const cases = [
+            { literal: 'true', preferred: null },
+            { literal: 'false', preferred: null },
+            { literal: '1', preferred: 'true' },
+            { literal: '0', preferred: 'false' },
+            { literal: "'true'", preferred: 'true' },
+            { literal: '"false"', preferred: 'false' },
+            { literal: "'1'", preferred: 'true' },
+            { literal: '"0"', preferred: 'false' },
+        ];
+        for (const { literal, preferred } of cases) {
             const diags = ampValidate(`%%[ RaiseError('stop', 1, '', 0, ${literal}) ]%%`);
-            assert.deepEqual(
-                diags,
-                [],
-                `expected ${literal} to be accepted, got: ${JSON.stringify(diags)}`,
+            const enumErrors = diags.filter(
+                (d) => d.data?.sfmc?.variant === 'ampscript/enum-value',
             );
+            const preferenceWarnings = diags.filter(
+                (d) =>
+                    d.data?.sfmc?.variant === 'ampscript/prefer-boolean-literal' &&
+                    d.message.includes("argument 'preserveDataExt'"),
+            );
+            assert.equal(enumErrors.length, 0, `${literal} must not produce an enum error`);
+            assert.equal(
+                preferenceWarnings.length,
+                preferred ? 1 : 0,
+                `unexpected preference diagnostics for ${literal}: ${JSON.stringify(diags)}`,
+            );
+            if (preferred) {
+                const warning = preferenceWarnings[0];
+                assert.equal(warning.severity, 2);
+                assert.equal(warning.code, 'sfmc/amp-prefer-boolean-literal');
+                assert.equal(
+                    warning.message,
+                    `Use the bare boolean ${preferred} instead of ${literal} for argument 'preserveDataExt' of 'RaiseError'.`,
+                );
+            }
         }
+    });
 
-        const rejected = ['2', '"yes"'];
-        for (const literal of rejected) {
+    it('preserves enum errors for values outside the boolean-like catalog enum', () => {
+        for (const literal of ['2', '"yes"']) {
             const diags = ampValidate(`%%[ RaiseError('stop', 1, '', 0, ${literal}) ]%%`);
-            assert.ok(
-                diags.some((d) => d.data?.sfmc?.variant === 'ampscript/enum-value'),
-                `expected ${literal} to be rejected, got: ${JSON.stringify(diags)}`,
-            );
+            const error = diags.find((d) => d.data?.sfmc?.variant === 'ampscript/enum-value');
+            assert.ok(error, `expected ${literal} to be rejected: ${JSON.stringify(diags)}`);
+            assert.equal(error.severity, 1);
+            assert.equal(error.code, 'sfmc/amp-arg-types');
+            assert.match(error.message, /must be one of: true, false, 1, 0/);
         }
     });
 
@@ -2865,6 +2894,30 @@ describe('AMPscript enum-typed arguments', () => {
             hoverText,
             /allowed: `true`, `false`, `1`, `0`, `"true"`, `"false"`, `"1"`, `"0"`/,
         );
+    });
+
+    it('prefers sfmc.guide in RaiseError hover while preserving Salesforce Developers', () => {
+        const line = "%%=RaiseError('stop')=%%";
+        const hover = service.getHover({ text: line, languageId: 'ampscript' }, line, {
+            line: 0,
+            character: 5,
+        });
+        const hoverText = hover?.contents?.value ?? '';
+        assert.match(hoverText, /\[Salesforce Developers\]\(/);
+        assert.match(hoverText, /\[sfmc\.guide\]\(https:\/\/sfmc\.guide\//);
+        assert.doesNotMatch(hoverText, /\[ampscript\.guide\]/);
+    });
+
+    it('falls back to ampscript.guide in AttachFile hover', () => {
+        const line = "%%=AttachFile('http', 'https://example.com/a.pdf')=%%";
+        const hover = service.getHover({ text: line, languageId: 'ampscript' }, line, {
+            line: 0,
+            character: 5,
+        });
+        const hoverText = hover?.contents?.value ?? '';
+        assert.match(hoverText, /\[Salesforce Developers\]\(/);
+        assert.match(hoverText, /\[ampscript\.guide\]\(https:\/\/ampscript\.guide\/attachfile\/\)/);
+        assert.doesNotMatch(hoverText, /\[sfmc\.guide\]/);
     });
 });
 

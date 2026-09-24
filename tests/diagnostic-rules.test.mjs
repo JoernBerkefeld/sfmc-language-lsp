@@ -253,13 +253,13 @@ for (const [format, api] of formats) {
                     .map(([, code]) => code),
             );
             const legacy = api.DIAGNOSTIC_RULES.filter((rule) => rule.legacyCode !== null);
-            assert.equal(codes.length, 36);
+            assert.equal(codes.length, 37);
             assert.deepEqual(
                 legacy.map((rule) => rule.legacyCode).toSorted((a, b) => a.localeCompare(b)),
                 codes.toSorted((a, b) => a.localeCompare(b)),
             );
-            assert.equal(api.DIAGNOSTIC_RULES.length, 47);
-            assert.equal(new Set(api.DIAGNOSTIC_RULES.map((rule) => rule.variant)).size, 47);
+            assert.equal(api.DIAGNOSTIC_RULES.length, 48);
+            assert.equal(new Set(api.DIAGNOSTIC_RULES.map((rule) => rule.variant)).size, 48);
             assert.equal(api.getDiagnosticRule('toString'), undefined);
         });
 

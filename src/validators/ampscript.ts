@@ -45,6 +45,7 @@ export const DIAG_CODE_UNKNOWN_FUNCTION = 'ampscript/unknown-function';
 export const DIAG_CODE_FUNCTION_ARITY = 'ampscript/function-arity';
 export const DIAG_CODE_ARG_TYPE = 'ampscript/arg-type';
 export const DIAG_CODE_ENUM_VALUE = 'ampscript/enum-value';
+export const DIAG_CODE_PREFER_BOOLEAN_LITERAL = 'ampscript/prefer-boolean-literal';
 export const DIAG_CODE_SMART_QUOTES = 'ampscript/smart-quotes';
 export const DIAG_CODE_SET_NO_TARGET = 'ampscript/set-no-target';
 // Emitted only for Marketing Cloud Next targets; mirrors the eslint-plugin-sfmc
@@ -197,6 +198,22 @@ function enumValueMatches(
 }
 
 /**
+ * Return the preferred bare boolean for an accepted boolean-like alternative.
+ * Bare boolean values themselves need no recommendation.
+ * @param raw - Argument text as written in the source.
+ * @returns The corresponding bare boolean text, or null.
+ */
+function preferredBareBoolean(raw: string): 'true' | 'false' | null {
+    const trimmed = raw.trim();
+    if (/^[01]$/.test(trimmed)) {
+        return trimmed === '1' ? 'true' : 'false';
+    }
+    const quoted = trimmed.match(/^(['"])(true|false|1|0)\1$/i);
+    if (!quoted) return null;
+    return quoted[2].toLowerCase() === 'true' || quoted[2] === '1' ? 'true' : 'false';
+}
+
+/**
  * Returns true when a variadic call's trailing arguments do not form complete
  * repeating groups, given the function's canonical `repeat[]` model.
  * @param groups - Repeat-group descriptors from ampscript-data.
@@ -293,10 +310,9 @@ function collectArgumentDiagnostics(
         if (param.enum && param.enum.length > 0) {
             const rawLiteral = text.slice(argSpans[ai].start, argSpans[ai].end).trim();
             const literal = resolveStaticLiteral(rawLiteral);
-            if (
-                literal !== null &&
-                param.enum.every((value) => !enumValueMatches(value, literal))
-            ) {
+            const matchesEnum =
+                literal !== null && param.enum.some((value) => enumValueMatches(value, literal));
+            if (literal !== null && !matchesEnum) {
                 diagnostics.push(
                     createDiagnostic(DIAG_CODE_ENUM_VALUE, {
                         severity: DiagnosticSeverity.Error,
@@ -308,6 +324,21 @@ function collectArgumentDiagnostics(
                         source: 'ampscript',
                     }),
                 );
+            } else if (matchesEnum) {
+                const preferred = preferredBareBoolean(rawLiteral);
+                if (preferred) {
+                    diagnostics.push(
+                        createDiagnostic(DIAG_CODE_PREFER_BOOLEAN_LITERAL, {
+                            severity: DiagnosticSeverity.Warning,
+                            range: {
+                                start: offsetToPosition(text, argSpans[ai].start),
+                                end: offsetToPosition(text, argSpans[ai].end),
+                            },
+                            message: `Use the bare boolean ${preferred} instead of ${rawLiteral} for argument '${param.name}' of '${functionName}'.`,
+                            source: 'ampscript',
+                        }),
+                    );
+                }
             }
             continue;
         }
@@ -564,8 +595,7 @@ export function validateAmpscript(
         if (fnEntry?.deprecated && problems < max) {
             problems++;
             const deprecatedData = fnEntry.deprecated as
-                | true
-                | { reason?: string; replacement?: string };
+                true | { reason?: string; replacement?: string };
             const reason = typeof deprecatedData === 'object' ? (deprecatedData.reason ?? '') : '';
             const replacement =
                 typeof deprecatedData === 'object' ? (deprecatedData.replacement ?? '') : '';

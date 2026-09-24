@@ -26,6 +26,7 @@ export interface LocalSsjsFunction {
  * @param links - Optional documentation URLs, MCN status, and notes to render below the description.
  * @param links.docUrl - URL to the official Salesforce developer documentation page.
  * @param links.guideUrl - URL to the ampscript.guide reference page.
+ * @param links.sfmcGuideUrl - URL to the sfmc.guide reference page, when available.
  * @param links.mcnSince - API version from which MCN supports this function, or null if unsupported.
  * @param links.mcnNotes - Behavioral difference notes for MCN, or null if no differences.
  * @returns Markdown string with signature, description, params, MCN status, and example.
@@ -35,6 +36,7 @@ export function buildFunctionMarkdown(
     links?: {
         docUrl?: string;
         guideUrl?: string;
+        sfmcGuideUrl?: string;
         mcnSince?: number | null;
         mcnNotes?: string | null;
     },
@@ -58,10 +60,14 @@ export function buildFunctionMarkdown(
         lines.push('', `> ${parts.join(' ')}`);
     }
 
-    if (links?.docUrl || links?.guideUrl) {
+    if (links?.docUrl || links?.sfmcGuideUrl || links?.guideUrl) {
         const parts: string[] = [];
         if (links.docUrl) parts.push(`[Salesforce Developers](${links.docUrl})`);
-        if (links.guideUrl) parts.push(`[ampscript.guide reference](${links.guideUrl})`);
+        if (links.sfmcGuideUrl) {
+            parts.push(`[sfmc.guide](${links.sfmcGuideUrl})`);
+        } else if (links.guideUrl) {
+            parts.push(`[ampscript.guide](${links.guideUrl})`);
+        }
         lines.push('', parts.join(' / '));
     }
 

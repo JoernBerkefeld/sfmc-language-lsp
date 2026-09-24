@@ -43,6 +43,8 @@ Both checks apply on Engagement and Next, independently of whether Next supports
 
 Neither variant has an LSP quick fix. The service does not guess a replacement literal, conversion, or enum member.
 
+Boolean-like enum parameters accept the catalog's bare booleans, numeric forms, and quoted forms. Bare `true` and `false` are preferred. Accepted alternatives such as `1`, `0`, `"true"`, and `"false"` produce the separate `sfmc/amp-prefer-boolean-literal` warning instead of an enum error.
+
 ## Suppression and ESLint
 
 Both variants overlap ESLint's `sfmc/amp-arg-types` and are suppressed by the language-service setting `disableLspDiagnosticsForEslintRules: true`. This is one public rule with two checks, not a separate enum rule to disable. Confirm the corresponding ESLint rule is enabled when delegating reports. The LSP does not implement per-rule AMPscript inline disable comments.

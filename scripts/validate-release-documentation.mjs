@@ -12,7 +12,7 @@ export function validateReleaseTag(tag, version, head, taggedCommit) {
 export function validateDocumentation(api, metadata, readDocument) {
     assert.equal(metadata.name, 'sfmc-language-lsp');
     assert.equal(api.LSP_PACKAGE_VERSION, metadata.version);
-    assert.equal(api.DIAGNOSTIC_RULES.length, 47, 'Review variant coverage when adding rules');
+    assert.equal(api.DIAGNOSTIC_RULES.length, 48, 'Review variant coverage when adding rules');
     const documents = new Set();
     const index = readDocument('docs/rules/README.md');
     for (const rule of api.DIAGNOSTIC_RULES) {
@@ -25,7 +25,11 @@ export function validateDocumentation(api, metadata, readDocument) {
             'Documentation URLs must target the owning release page without unverified anchors',
         );
         const content = readDocument(expectedPath);
-        assert.ok(content.startsWith(`# ${rule.ruleId}\n`), `Wrong heading: ${expectedPath}`);
+        assert.match(
+            content,
+            new RegExp(String.raw`^# ${rule.ruleId}\r?\n`),
+            `Wrong heading: ${expectedPath}`,
+        );
         assert.ok(content.length > 700, `Non-substantive page: ${expectedPath}`);
         assert.ok((content.match(/^## /gm) ?? []).length >= 3, `Missing guidance: ${expectedPath}`);
         assert.ok(content.includes('```'), `Missing examples: ${expectedPath}`);
@@ -56,7 +60,7 @@ export function validateDocumentation(api, metadata, readDocument) {
         }
         documents.add(expectedPath);
     }
-    assert.equal(documents.size, 36, 'Review public rule coverage when adding rules');
+    assert.equal(documents.size, 37, 'Review public rule coverage when adding rules');
     return [...documents];
 }
 

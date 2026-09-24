@@ -1,6 +1,6 @@
 # Diagnostic rule reference
 
-These pages document the diagnostics owned by `sfmc-language-lsp`: 36 public rule IDs covering 47 internal variants. Follow the rule shown in `Diagnostic.code`; variants preserve distinct quick fixes when several checks share a public ID.
+These pages document the diagnostics owned by `sfmc-language-lsp`: 37 public rule IDs covering 48 internal variants. Follow the rule shown in `Diagnostic.code`; variants preserve distinct quick fixes when several checks share a public ID.
 
 Links within this index are relative so opening it at a release tag keeps navigation on that same release. Diagnostic URLs use the **LSP package version**, not the editor extension version, an installed language-data version, or a dependency range. Development URLs are prospective until the corresponding new release tag contains these pages. There is no fallback to `main`, and old tags must not be rewritten.
 
@@ -20,6 +20,7 @@ Links within this index are relative so opening it at a release tag keeps naviga
 - [Smart quotes](amp/no-smart-quotes.md)
 - [Unknown functions](amp/no-unknown-function.md)
 - [AttributeValue recommendation](amp/prefer-attribute-value.md)
+- [Bare boolean literal preference](amp/prefer-boolean-literal.md)
 - [SET target requirement](amp/set-requires-target.md)
 
 ## SSJS
