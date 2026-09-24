@@ -61,6 +61,7 @@ export const ESLINT_DUPLICATE_DIAG_CODES = new Set<string>([
     DIAG_CODE_FUNCTION_ARITY,
     DIAG_CODE_ARG_TYPE,
     DIAG_CODE_ENUM_VALUE,
+    DIAG_CODE_PREFER_BOOLEAN_LITERAL,
     DIAG_CODE_SMART_QUOTES,
     DIAG_CODE_SET_NO_TARGET,
     DIAG_CODE_HTML_COMMENT,
@@ -214,6 +215,17 @@ function preferredBareBoolean(raw: string): 'true' | 'false' | null {
 }
 
 /**
+ * Detect the catalog's complete boolean-like enum shape. Numeric enums that
+ * merely include 0 or 1 must not receive boolean style recommendations.
+ * @param values - Catalog enum members for one parameter.
+ * @returns True when all eight accepted boolean-like forms are present.
+ */
+function isBooleanLikeEnum(values: readonly (string | number | boolean)[]): boolean {
+    const required = [true, false, 1, 0, 'true', 'false', '1', '0'] as const;
+    return required.every((expected) => values.some((value) => enumValueMatches(value, expected)));
+}
+
+/**
  * Returns true when a variadic call's trailing arguments do not form complete
  * repeating groups, given the function's canonical `repeat[]` model.
  * @param groups - Repeat-group descriptors from ampscript-data.
@@ -324,7 +336,7 @@ function collectArgumentDiagnostics(
                         source: 'ampscript',
                     }),
                 );
-            } else if (matchesEnum) {
+            } else if (matchesEnum && isBooleanLikeEnum(param.enum)) {
                 const preferred = preferredBareBoolean(rawLiteral);
                 if (preferred) {
                     diagnostics.push(

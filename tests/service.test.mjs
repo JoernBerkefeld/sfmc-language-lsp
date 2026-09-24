@@ -2847,11 +2847,45 @@ describe('AMPscript enum-typed arguments', () => {
         }
     });
 
-    it('preserves enum errors for values outside the boolean-like catalog enum', () => {
+    it('warns for another catalog boolean-like parameter', () => {
+        const diags = ampValidate(
+            "%%[ set @url = BarcodeURL('123', 'Code128Auto', 300, 100, 0, 1) ]%%",
+        );
+        const warning = diags.find(
+            (d) => d.data?.sfmc?.variant === 'ampscript/prefer-boolean-literal',
+        );
+        assert.ok(warning, `expected showText preference warning: ${JSON.stringify(diags)}`);
+        assert.match(warning.message, /argument 'showText' of 'BarcodeURL'/);
+        assert.match(warning.message, /bare boolean true/);
+    });
+
+    it('does not warn for a non-boolean numeric enum containing 0 and 1', () => {
+        for (const literal of ['0', '1']) {
+            const diags = ampValidate(
+                `%%[ set @r = SetStateMscrmRecord('id', 'contact', 'active', ${literal}) ]%%`,
+            );
+            assert.ok(
+                diags.every((d) => d.data?.sfmc?.variant !== 'ampscript/prefer-boolean-literal'),
+                `unexpected boolean preference warning for ${literal}: ${JSON.stringify(diags)}`,
+            );
+            assert.ok(
+                diags.every((d) => d.data?.sfmc?.variant !== 'ampscript/enum-value'),
+                `unexpected enum error for ${literal}: ${JSON.stringify(diags)}`,
+            );
+        }
+    });
+
+    it('preserves only the enum error for invalid boolean-like values', () => {
         for (const literal of ['2', '"yes"']) {
-            const diags = ampValidate(`%%[ RaiseError('stop', 1, '', 0, ${literal}) ]%%`);
-            const error = diags.find((d) => d.data?.sfmc?.variant === 'ampscript/enum-value');
-            assert.ok(error, `expected ${literal} to be rejected: ${JSON.stringify(diags)}`);
+            const diags = ampValidate(`%%[ RaiseError('stop', true, '', 0, ${literal}) ]%%`);
+            const relevant = diags.filter((d) =>
+                ['ampscript/enum-value', 'ampscript/prefer-boolean-literal'].includes(
+                    d.data?.sfmc?.variant,
+                ),
+            );
+            assert.equal(relevant.length, 1, JSON.stringify(diags));
+            const [error] = relevant;
+            assert.equal(error.data.sfmc.variant, 'ampscript/enum-value');
             assert.equal(error.severity, 1);
             assert.equal(error.code, 'sfmc/amp-arg-types');
             assert.match(error.message, /must be one of: true, false, 1, 0/);
@@ -3065,6 +3099,19 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         assert.ok(
             diags.every((d) => d.code !== 'sfmc/amp-arg-types'),
             `expected enum-value to be suppressed, got: ${JSON.stringify(diags)}`,
+        );
+    });
+
+    it('suppresses boolean-literal preference warning when setting is enabled', () => {
+        const doc = {
+            text: "%%[ RaiseError('stop', true, '', 0, '1') ]%%",
+            languageId: 'ampscript',
+        };
+        const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
+        const diags = service.validate(doc, settings);
+        assert.ok(
+            diags.every((d) => d.code !== 'sfmc/amp-prefer-boolean-literal'),
+            `expected boolean preference to be suppressed, got: ${JSON.stringify(diags)}`,
         );
     });
 

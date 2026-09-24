@@ -17,7 +17,7 @@ const definitions = [
     ['ampscript/function-arity', 'amp-function-arity', true, true],
     ['ampscript/arg-type', 'amp-arg-types', true, true],
     ['ampscript/enum-value', 'amp-arg-types', true, true],
-    ['ampscript/prefer-boolean-literal', 'amp-prefer-boolean-literal', false, true],
+    ['ampscript/prefer-boolean-literal', 'amp-prefer-boolean-literal', true, true],
     ['ampscript/smart-quotes', 'amp-no-smart-quotes', true, true],
     ['ampscript/set-no-target', 'amp-set-requires-target', true, true],
     ['ampscript/mcn-unsupported-function', 'amp-no-mcn-unsupported', true, true],
