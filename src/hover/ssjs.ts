@@ -129,13 +129,11 @@ export function getSsjsHover(
     const twoPartPattern = /Platform\.(\w+)(?!\.\w)/g;
     let tpMatch: RegExpExecArray | null;
     while ((tpMatch = twoPartPattern.exec(line)) !== null) {
-        if (
-            !(
-                position.character >= tpMatch.index &&
-                position.character <= tpMatch.index + tpMatch[0].length &&
-                word === tpMatch![1]
-            )
-        ) {
+        if (!(
+            position.character >= tpMatch.index &&
+            position.character <= tpMatch.index + tpMatch[0].length &&
+            word === tpMatch![1]
+        )) {
             continue;
         }
 
@@ -152,12 +150,10 @@ export function getSsjsHover(
     const qualifiedPattern = /(\w+)\.(\w+)\.(\w+)/g;
     let qMatch: RegExpExecArray | null;
     while ((qMatch = qualifiedPattern.exec(line)) !== null) {
-        if (
-            !(
-                position.character >= qMatch.index &&
-                position.character <= qMatch.index + qMatch[0].length
-            )
-        ) {
+        if (!(
+            position.character >= qMatch.index &&
+            position.character <= qMatch.index + qMatch[0].length
+        )) {
             continue;
         }
 
@@ -272,12 +268,10 @@ export function getSsjsHover(
     const twoPartGenericPattern = /(\w+)\.(\w+)/g;
     let tpgMatch: RegExpExecArray | null;
     while ((tpgMatch = twoPartGenericPattern.exec(line)) !== null) {
-        if (
-            !(
-                position.character >= tpgMatch.index &&
-                position.character <= tpgMatch.index + tpgMatch[0].length
-            )
-        ) {
+        if (!(
+            position.character >= tpgMatch.index &&
+            position.character <= tpgMatch.index + tpgMatch[0].length
+        )) {
             continue;
         }
 
