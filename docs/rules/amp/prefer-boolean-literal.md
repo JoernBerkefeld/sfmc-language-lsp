@@ -24,6 +24,6 @@ The warning message identifies the corresponding bare boolean.
 
 ## Platform, quick fixes, and suppression
 
-This warning applies wherever the catalog exposes the complete eight-value boolean-like enum. It has no quick fix.
+This warning applies wherever the catalog exposes the complete eight-value boolean-like enum. Its quick-fix titles are **Replace with `true`** and **Replace with `false`**. Each action replaces only the flagged static literal.
 
-The diagnostic overlaps ESLint's `sfmc/amp-prefer-boolean-literal` rule. It is suppressed when `disableLspDiagnosticsForEslintRules` is enabled, so ESLint can provide the warning without duplicate editor feedback.
+The diagnostic overlaps ESLint's `sfmc/amp-prefer-boolean-literal` rule. When `disableLspDiagnosticsForEslintRules` is enabled, both the warning and its quick fix are suppressed so ESLint can provide the feedback without duplication.

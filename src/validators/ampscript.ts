@@ -348,6 +348,7 @@ function collectArgumentDiagnostics(
                             },
                             message: `Use the bare boolean ${preferred} instead of ${rawLiteral} for argument '${param.name}' of '${functionName}'.`,
                             source: 'ampscript',
+                            data: { replacement: preferred },
                         }),
                     );
                 }

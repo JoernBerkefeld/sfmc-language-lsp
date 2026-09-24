@@ -28,7 +28,12 @@ const fixtures = [
     ['arg-type', '%%[ Uppercase(true) ]%%'],
     ['arg-type', '%%[ set @r = Row(LookupRows("DE", "x", "y"), 1) set @n = RowCount(@r) ]%%'],
     ['enum-value', '%%[ DatePart("2026-01-15", "decade") ]%%'],
-    ['prefer-boolean-literal', '%%[ RaiseError("stop", true, "", 0, "1") ]%%', 'engagement'],
+    [
+        'prefer-boolean-literal',
+        '%%[ RaiseError("stop", true, "", 0, "1") ]%%',
+        'engagement',
+        { replacement: 'true' },
+    ],
     ['nonfunctional-function', '%%=GetPortfolioItem("key")=%%'],
     ['set-no-target', '%%[ set = 1 ]%%'],
     ['smart-quotes', '%%[ set @x = “value” ]%%'],

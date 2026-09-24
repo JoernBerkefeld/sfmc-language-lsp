@@ -9,6 +9,7 @@ import {
     DIAG_CODE_NESTED_SCRIPT_TAG,
     DIAG_CODE_NESTED_DELIMITER_IN_SCRIPT,
     DIAG_CODE_NESTED_DELIMITER,
+    DIAG_CODE_PREFER_BOOLEAN_LITERAL,
 } from '../validators/ampscript.js';
 
 /**
@@ -107,6 +108,32 @@ function buildActionsForDiagnostic(
                         ],
                     },
                 },
+            });
+            break;
+        }
+        case DIAG_CODE_PREFER_BOOLEAN_LITERAL: {
+            const preference = payload as { replacement?: unknown } | undefined;
+            const currentLiteral = originalText.trim();
+            const quotedMatch = currentLiteral.match(/^(['"])(true|false|1|0)\1$/i);
+            const normalized = quotedMatch?.[2].toLowerCase() ?? currentLiteral;
+            let expected: 'true' | 'false' | undefined;
+            if (normalized === '1' || (quotedMatch && normalized === 'true')) {
+                expected = 'true';
+            } else if (normalized === '0' || (quotedMatch && normalized === 'false')) {
+                expected = 'false';
+            }
+            if (
+                (preference?.replacement !== 'true' && preference?.replacement !== 'false') ||
+                expected !== preference.replacement
+            ) {
+                break;
+            }
+            actions.push({
+                title: `Replace with \`${preference.replacement}\``,
+                kind: CodeActionKind.QuickFix,
+                isPreferred: true,
+                diagnostics: [diagnostic],
+                edit: { changes: { [uri]: [{ range, newText: preference.replacement }] } },
             });
             break;
         }

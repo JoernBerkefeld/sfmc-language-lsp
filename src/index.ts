@@ -290,9 +290,17 @@ export class SfmcLanguageService {
         // MCN Handlebars quick fixes (exclusive to Marketing Cloud Next) act on
         // `handlebars`-source diagnostics; AMPscript quick fixes act on
         // `ampscript`-source ones. Both can be offered for a mixed document.
-        const actions = getAmpscriptCodeActions(doc.text, doc.uri ?? '', diagnostics);
+        const actionableDiagnostics = settings.disableLspDiagnosticsForEslintRules
+            ? diagnostics.filter((diagnostic) => {
+                  const decoded = decodeDiagnosticData(diagnostic.code, diagnostic.data);
+                  return !decoded || !getDiagnosticRule(decoded.variant)?.suppressWithEslint;
+              })
+            : diagnostics;
+        const actions = getAmpscriptCodeActions(doc.text, doc.uri ?? '', actionableDiagnostics);
         if (settings.targetPlatform === 'next') {
-            actions.push(...getHandlebarsCodeActions(doc.text, doc.uri ?? '', diagnostics));
+            actions.push(
+                ...getHandlebarsCodeActions(doc.text, doc.uri ?? '', actionableDiagnostics),
+            );
         }
         return actions;
     }

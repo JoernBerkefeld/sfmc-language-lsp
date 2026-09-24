@@ -2847,6 +2847,74 @@ describe('AMPscript enum-typed arguments', () => {
         }
     });
 
+    it('offers exact boolean-literal quick fixes with stable titles', () => {
+        const cases = [
+            { literal: '1', replacement: 'true' },
+            { literal: '0', replacement: 'false' },
+            { literal: "'TRUE'", replacement: 'true' },
+            { literal: '"false"', replacement: 'false' },
+            { literal: "'1'", replacement: 'true' },
+            { literal: '"0"', replacement: 'false' },
+        ];
+        for (const { literal, replacement } of cases) {
+            const text = `%%[ RaiseError('stop', true, '', 0, ${literal}) ]%%`;
+            const doc = { text, languageId: 'ampscript', uri: 'file:///boolean.amp' };
+            const diagnostic = service
+                .validate(doc)
+                .find((d) => d.code === 'sfmc/amp-prefer-boolean-literal');
+            assert.ok(diagnostic, `expected preference diagnostic for ${literal}`);
+            const actions = service.getCodeActions(doc, [diagnostic]);
+            assert.equal(actions.length, 1);
+            assert.equal(actions[0].title, `Replace with \`${replacement}\``);
+            assert.equal(actions[0].kind, 'quickfix');
+            assert.equal(actions[0].isPreferred, true);
+            assert.deepEqual(actions[0].edit.changes[doc.uri], [
+                { range: diagnostic.range, newText: replacement },
+            ]);
+        }
+    });
+
+    it('does not apply stale boolean diagnostics to changed arguments', () => {
+        const original = {
+            text: "%%[ RaiseError('stop', true, '', 0, '1') ]%%",
+            languageId: 'ampscript',
+            uri: 'file:///boolean.amp',
+        };
+        const diagnostic = service
+            .validate(original)
+            .find((d) => d.code === 'sfmc/amp-prefer-boolean-literal');
+        assert.ok(diagnostic);
+        for (const literal of ['@preserveData', '2', '"yes"', 'false', "'0'"]) {
+            const changed = {
+                ...original,
+                text: `%%[ RaiseError('stop', true, '', 0, ${literal}) ]%%`,
+            };
+            assert.deepEqual(
+                service.getCodeActions(changed, [diagnostic]),
+                [],
+                `unexpected stale quick fix for ${literal}`,
+            );
+        }
+    });
+
+    it('does not offer boolean quick fixes for invalid or dynamic arguments', () => {
+        for (const literal of ['2', '"yes"', '@preserveData']) {
+            const text = `%%[ RaiseError('stop', true, '', 0, ${literal}) ]%%`;
+            const doc = { text, languageId: 'ampscript', uri: 'file:///boolean.amp' };
+            const diagnostics = service.validate(doc);
+            assert.ok(
+                diagnostics.every((d) => d.code !== 'sfmc/amp-prefer-boolean-literal'),
+                `unexpected preference diagnostic for ${literal}`,
+            );
+            assert.ok(
+                service
+                    .getCodeActions(doc, diagnostics)
+                    .every((action) => !action.title.startsWith('Replace with `')),
+                `unexpected boolean quick fix for ${literal}`,
+            );
+        }
+    });
+
     it('warns for another catalog boolean-like parameter', () => {
         const diags = ampValidate(
             "%%[ set @url = BarcodeURL('123', 'Code128Auto', 300, 100, 0, 1) ]%%",
@@ -3102,16 +3170,24 @@ describe('disableLspDiagnosticsForEslintRules setting', () => {
         );
     });
 
-    it('suppresses boolean-literal preference warning when setting is enabled', () => {
+    it('suppresses boolean-literal preference warning and quick fix when setting is enabled', () => {
         const doc = {
             text: "%%[ RaiseError('stop', true, '', 0, '1') ]%%",
             languageId: 'ampscript',
+            uri: 'file:///boolean.amp',
         };
         const settings = { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true };
+        const unsuppressed = service.validate(doc);
         const diags = service.validate(doc, settings);
         assert.ok(
             diags.every((d) => d.code !== 'sfmc/amp-prefer-boolean-literal'),
             `expected boolean preference to be suppressed, got: ${JSON.stringify(diags)}`,
+        );
+        assert.ok(
+            service
+                .getCodeActions(doc, unsuppressed, settings)
+                .every((action) => !action.title.startsWith('Replace with `')),
+            'expected boolean quick fix to be suppressed',
         );
     });
 
