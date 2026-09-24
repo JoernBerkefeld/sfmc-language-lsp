@@ -167,13 +167,12 @@ export function walkHandlebars(
         }
     }
     // Hash pairs
-    if (n.hash && typeof n.hash === 'object') {
-        const hash = n.hash as AnyNode;
-        if (Array.isArray(hash.pairs)) {
-            for (const pair of hash.pairs as AnyNode[]) {
-                if (pair.value) {
-                    walkHandlebars(pair.value as AST.Node, visit);
-                }
+    if (!n.hash || typeof n.hash !== 'object') return;
+    const hash = n.hash as AnyNode;
+    if (Array.isArray(hash.pairs)) {
+        for (const pair of hash.pairs as AnyNode[]) {
+            if (pair.value) {
+                walkHandlebars(pair.value as AST.Node, visit);
             }
         }
     }

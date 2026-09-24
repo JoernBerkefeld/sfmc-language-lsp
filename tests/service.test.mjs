@@ -2835,15 +2835,14 @@ describe('AMPscript enum-typed arguments', () => {
                 preferred ? 1 : 0,
                 `unexpected preference diagnostics for ${literal}: ${JSON.stringify(diags)}`,
             );
-            if (preferred) {
-                const warning = preferenceWarnings[0];
-                assert.equal(warning.severity, 2);
-                assert.equal(warning.code, 'sfmc/amp-prefer-boolean-literal');
-                assert.equal(
-                    warning.message,
-                    `Use the bare boolean ${preferred} instead of ${literal} for argument 'preserveDataExt' of 'RaiseError'.`,
-                );
-            }
+            if (!preferred) continue;
+            const warning = preferenceWarnings[0];
+            assert.equal(warning.severity, 2);
+            assert.equal(warning.code, 'sfmc/amp-prefer-boolean-literal');
+            assert.equal(
+                warning.message,
+                `Use the bare boolean ${preferred} instead of ${literal} for argument 'preserveDataExt' of 'RaiseError'.`,
+            );
         }
     });
 
@@ -3303,15 +3302,14 @@ describe('Signature Help — default values', () => {
             return text.includes('Default:');
         });
         // If no param has a default, the test is vacuously satisfied (no regression)
-        if (paramWithDefault) {
-            // documentation is now a MarkupContent object with kind: 'markdown'
-            const doc = paramWithDefault.documentation;
-            const text = typeof doc === 'string' ? doc : (doc?.value ?? '');
-            assert.ok(
-                text.includes('**Default:**'),
-                `expected **Default:** in param doc, got: ${text}`,
-            );
-        }
+        if (!paramWithDefault) return;
+        // documentation is now a MarkupContent object with kind: 'markdown'
+        const doc = paramWithDefault.documentation;
+        const documentationText = typeof doc === 'string' ? doc : (doc?.value ?? '');
+        assert.ok(
+            documentationText.includes('**Default:**'),
+            `expected **Default:** in param doc, got: ${documentationText}`,
+        );
     });
 });
 

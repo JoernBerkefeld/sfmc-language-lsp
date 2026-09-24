@@ -249,19 +249,16 @@ export function getSsjsHover(
                     range: makeRange(position, qMatch.index, qMatch.index + full.length),
                 };
         }
-        if (ns1 === 'Script' && ns2 === 'Util') {
-            const c = scriptUtilConstructors.find(
-                (c) => c.name.toLowerCase() === name.toLowerCase(),
-            );
-            if (c)
-                return {
-                    contents: {
-                        kind: MarkupKind.Markdown,
-                        value: buildSsjsFunctionMarkdown(c),
-                    },
-                    range: makeRange(position, qMatch.index, qMatch.index + full.length),
-                };
-        }
+        if (ns1 !== 'Script' || ns2 !== 'Util') continue;
+        const c = scriptUtilConstructors.find((c) => c.name.toLowerCase() === name.toLowerCase());
+        if (c)
+            return {
+                contents: {
+                    kind: MarkupKind.Markdown,
+                    value: buildSsjsFunctionMarkdown(c),
+                },
+                range: makeRange(position, qMatch.index, qMatch.index + full.length),
+            };
     }
 
     // Two-part generic patterns

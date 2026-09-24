@@ -192,10 +192,9 @@ function enumValueMatches(
     actual: string | number | boolean,
 ): boolean {
     if (typeof allowed !== typeof actual) return false;
-    if (typeof allowed === 'string' && typeof actual === 'string') {
-        return allowed.toLowerCase() === actual.toLowerCase();
-    }
-    return allowed === actual;
+    return typeof allowed === 'string' && typeof actual === 'string'
+        ? allowed.toLowerCase() === actual.toLowerCase()
+        : allowed === actual;
 }
 
 /**
@@ -278,10 +277,7 @@ function hasIncompleteRepeatGroup(
 
     // Remaining args form the update/upsert block; require ≥1 complete group.
     const updateArgs = argCount - searchBlockEnd;
-    if (updateArgs <= 0) {
-        return true;
-    }
-    return updateArgs % g2.groupSize !== 0;
+    return updateArgs <= 0 || updateArgs % g2.groupSize !== 0;
 }
 
 const NON_PRIMITIVE_TYPES = new Set(['rowset', 'row', 'object']);
@@ -384,22 +380,21 @@ function collectArgumentDiagnostics(
         // (rowset, row, object) — only these are unambiguously typed from
         // function return values.
         const requiresNonPrimitive = allowedTypes.some((t) => NON_PRIMITIVE_TYPES.has(t));
-        if (requiresNonPrimitive && argText.startsWith('@')) {
-            const varName = argText.slice(1).toLowerCase();
-            const varType = variableTypeMap.get(varName);
-            if (varType !== undefined && !allowedTypes.includes(varType.toLowerCase())) {
-                diagnostics.push(
-                    createDiagnostic(DIAG_CODE_ARG_TYPE, {
-                        severity: DiagnosticSeverity.Error,
-                        range: {
-                            start: offsetToPosition(text, argSpans[ai].start),
-                            end: offsetToPosition(text, argSpans[ai].end),
-                        },
-                        message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but '@${varName}' is a ${varType}.`,
-                        source: 'ampscript',
-                    }),
-                );
-            }
+        if (!requiresNonPrimitive || !argText.startsWith('@')) continue;
+        const varName = argText.slice(1).toLowerCase();
+        const varType = variableTypeMap.get(varName);
+        if (varType !== undefined && !allowedTypes.includes(varType.toLowerCase())) {
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_ARG_TYPE, {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, argSpans[ai].start),
+                        end: offsetToPosition(text, argSpans[ai].end),
+                    },
+                    message: `Argument '${param.name}' of '${functionName}' expects a ${param.type} but '@${varName}' is a ${varType}.`,
+                    source: 'ampscript',
+                }),
+            );
         }
     }
 
@@ -651,81 +646,71 @@ export function validateAmpscript(
         }
 
         const arity = functionArityLookup.get(normalizedName);
-        if (arity) {
-            const openParenPos = functionMatch.index + functionMatch[0].length - 1;
-            const argCount = countFunctionArguments(sanitizedText, openParenPos);
-            if (argCount >= 0) {
-                if (argCount < arity.minArgs) {
-                    problems++;
-                    diagnostics.push(
-                        createDiagnostic(DIAG_CODE_FUNCTION_ARITY, {
-                            severity: DiagnosticSeverity.Error,
-                            range: {
-                                start: offsetToPosition(text, functionMatch.index),
-                                end: offsetToPosition(
-                                    text,
-                                    functionMatch.index + functionName.length,
-                                ),
-                            },
-                            message: `'${functionName}' requires at least ${arity.minArgs} argument(s) but was called with ${argCount}.`,
-                            source: 'ampscript',
-                        }),
-                    );
-                } else if (argCount > arity.maxArgs) {
-                    problems++;
-                    diagnostics.push(
-                        createDiagnostic(DIAG_CODE_FUNCTION_ARITY, {
-                            severity: DiagnosticSeverity.Error,
-                            range: {
-                                start: offsetToPosition(text, functionMatch.index),
-                                end: offsetToPosition(
-                                    text,
-                                    functionMatch.index + functionName.length,
-                                ),
-                            },
-                            message: `'${functionName}' accepts at most ${arity.maxArgs} argument(s) but was called with ${argCount}.`,
-                            source: 'ampscript',
-                        }),
-                    );
-                } else if (
-                    repeatLookup.has(normalizedName) &&
-                    hasIncompleteRepeatGroup(
-                        repeatLookup.get(normalizedName)!,
-                        argCount,
-                        extractFunctionArguments(sanitizedText, openParenPos)?.map((a) => a.value),
-                    )
-                ) {
-                    problems++;
-                    diagnostics.push(
-                        createDiagnostic(DIAG_CODE_FUNCTION_ARITY, {
-                            severity: DiagnosticSeverity.Error,
-                            range: {
-                                start: offsetToPosition(text, functionMatch.index),
-                                end: offsetToPosition(
-                                    text,
-                                    functionMatch.index + functionName.length,
-                                ),
-                            },
-                            message: `'${functionName}' expects its repeating arguments in complete groups.`,
-                            source: 'ampscript',
-                        }),
-                    );
-                } else if (problems < max) {
-                    const fnDef = functionLookup.get(normalizedName);
-                    if (fnDef?.params && fnDef.params.length > 0) {
-                        const argSpans = extractFunctionArguments(sanitizedText, openParenPos);
-                        if (argSpans) {
-                            const argDiagnostics = collectArgumentDiagnostics(
-                                text,
-                                functionName,
-                                fnDef.params,
-                                argSpans,
-                                variableTypeMap,
-                                max - problems,
-                            );
-                            problems += argDiagnostics.length;
-                            diagnostics.push(...argDiagnostics);
-                        }
+        if (!arity) continue;
+        const openParenPos = functionMatch.index + functionMatch[0].length - 1;
+        const argCount = countFunctionArguments(sanitizedText, openParenPos);
+        if (argCount >= 0) {
+            if (argCount < arity.minArgs) {
+                problems++;
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_FUNCTION_ARITY, {
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: offsetToPosition(text, functionMatch.index),
+                            end: offsetToPosition(text, functionMatch.index + functionName.length),
+                        },
+                        message: `'${functionName}' requires at least ${arity.minArgs} argument(s) but was called with ${argCount}.`,
+                        source: 'ampscript',
+                    }),
+                );
+            } else if (argCount > arity.maxArgs) {
+                problems++;
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_FUNCTION_ARITY, {
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: offsetToPosition(text, functionMatch.index),
+                            end: offsetToPosition(text, functionMatch.index + functionName.length),
+                        },
+                        message: `'${functionName}' accepts at most ${arity.maxArgs} argument(s) but was called with ${argCount}.`,
+                        source: 'ampscript',
+                    }),
+                );
+            } else if (
+                repeatLookup.has(normalizedName) &&
+                hasIncompleteRepeatGroup(
+                    repeatLookup.get(normalizedName)!,
+                    argCount,
+                    extractFunctionArguments(sanitizedText, openParenPos)?.map((a) => a.value),
+                )
+            ) {
+                problems++;
+                diagnostics.push(
+                    createDiagnostic(DIAG_CODE_FUNCTION_ARITY, {
+                        severity: DiagnosticSeverity.Error,
+                        range: {
+                            start: offsetToPosition(text, functionMatch.index),
+                            end: offsetToPosition(text, functionMatch.index + functionName.length),
+                        },
+                        message: `'${functionName}' expects its repeating arguments in complete groups.`,
+                        source: 'ampscript',
+                    }),
+                );
+            } else if (problems < max) {
+                const fnDef = functionLookup.get(normalizedName);
+                if (fnDef?.params && fnDef.params.length > 0) {
+                    const argSpans = extractFunctionArguments(sanitizedText, openParenPos);
+                    if (argSpans) {
+                        const argDiagnostics = collectArgumentDiagnostics(
+                            text,
+                            functionName,
+                            fnDef.params,
+                            argSpans,
+                            variableTypeMap,
+                            max - problems,
+                        );
+                        problems += argDiagnostics.length;
+                        diagnostics.push(...argDiagnostics);
                     }
                 }
             }
@@ -787,23 +772,22 @@ export function validateAmpscript(
     ]);
     while ((attributeMatch = directAttributeAccess.exec(sanitizedText)) && problems < max) {
         const attrName = attributeMatch[1].toLowerCase();
-        if (commonAttributes.has(attrName)) {
-            problems++;
-            diagnostics.push(
-                createDiagnostic('ampscript/prefer-attribute-value', {
-                    severity: DiagnosticSeverity.Information,
-                    range: {
-                        start: offsetToPosition(text, attributeMatch.index),
-                        end: offsetToPosition(
-                            text,
-                            attributeMatch.index + attributeMatch[0].length,
-                        ),
-                    },
-                    message: `Consider using AttributeValue("${attributeMatch[1]}") instead of the bare attribute name for null safety.`,
-                    source: 'ampscript',
-                }),
-            );
+        if (!commonAttributes.has(attrName)) {
+            continue;
         }
+
+        problems++;
+        diagnostics.push(
+            createDiagnostic('ampscript/prefer-attribute-value', {
+                severity: DiagnosticSeverity.Information,
+                range: {
+                    start: offsetToPosition(text, attributeMatch.index),
+                    end: offsetToPosition(text, attributeMatch.index + attributeMatch[0].length),
+                },
+                message: `Consider using AttributeValue("${attributeMatch[1]}") instead of the bare attribute name for null safety.`,
+                source: 'ampscript',
+            }),
+        );
     }
 
     // 8. HTML comments inside AMPscript regions
@@ -996,20 +980,22 @@ export function validateAmpscript(
         const callSites = extractAmpscriptFunctionCalls(text);
         for (const site of callSites) {
             if (problems >= max) break;
-            if (!isMcnSupported(site.name)) {
-                problems++;
-                diagnostics.push(
-                    createDiagnostic(DIAG_CODE_MCN_UNSUPPORTED_FUNCTION, {
-                        severity: DiagnosticSeverity.Error,
-                        range: {
-                            start: { line: site.line, character: site.col },
-                            end: { line: site.line, character: site.col + site.name.length },
-                        },
-                        message: `'${site.name}' is not supported in Marketing Cloud Next.`,
-                        source: 'ampscript',
-                    }),
-                );
+            if (isMcnSupported(site.name)) {
+                continue;
             }
+
+            problems++;
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_MCN_UNSUPPORTED_FUNCTION, {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: { line: site.line, character: site.col },
+                        end: { line: site.line, character: site.col + site.name.length },
+                    },
+                    message: `'${site.name}' is not supported in Marketing Cloud Next.`,
+                    source: 'ampscript',
+                }),
+            );
         }
 
         // 12b. Handlebars for Marketing Cloud Next — syntax, unsupported

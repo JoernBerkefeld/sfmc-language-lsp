@@ -91,8 +91,7 @@ function labelRange(signatureLabel: string, paramName: string): [number, number]
     // Token must be preceded by `(` or a space (the space after `, `), and followed by `,`, `)`, or end.
     const pattern = new RegExp(String.raw`(?<=[(,\s])${escaped}(?=[,)]|$)`);
     const match = pattern.exec(signatureLabel);
-    if (!match) return null;
-    return [match.index, match.index + paramName.length];
+    return match ? [match.index, match.index + paramName.length] : null;
 }
 
 /**
@@ -168,10 +167,9 @@ function detectRepeatBlocks(fn: AmpscriptFunction): RepeatBlock[] {
  * @returns The parameter index to mark active.
  */
 function slotInBlock(block: RepeatBlock, offset: number): number {
-    if (offset < block.groupSize) {
-        return block.oneStart + offset;
-    }
-    return block.nStart + (offset % block.groupSize);
+    return offset < block.groupSize
+        ? block.oneStart + offset
+        : block.nStart + (offset % block.groupSize);
 }
 
 /**
@@ -206,10 +204,9 @@ function resolveActiveParameter(
     // UpdateSingleSalesforceObject field pairs).
     if (blocks.length === 1) {
         const block = blocks[0];
-        if (paramIndex < block.oneStart) {
-            return Math.min(paramIndex, lastParam);
-        }
-        return slotInBlock(block, paramIndex - block.oneStart);
+        return paramIndex < block.oneStart
+            ? Math.min(paramIndex, lastParam)
+            : slotInBlock(block, paramIndex - block.oneStart);
     }
 
     // Two repeating blocks gated by a count param (e.g. UpdateData/UpsertData):
@@ -236,8 +233,7 @@ function resolveActiveParameter(
     }
 
     const firstBlockEnd = firstBlock.oneStart + firstBlockLength;
-    if (paramIndex < firstBlockEnd) {
-        return slotInBlock(firstBlock, paramIndex - firstBlock.oneStart);
-    }
-    return slotInBlock(secondBlock, paramIndex - firstBlockEnd);
+    return paramIndex < firstBlockEnd
+        ? slotInBlock(firstBlock, paramIndex - firstBlock.oneStart)
+        : slotInBlock(secondBlock, paramIndex - firstBlockEnd);
 }

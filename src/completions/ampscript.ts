@@ -64,10 +64,12 @@ function buildVariableCompletionItems(text: string): CompletionItem[] {
         if (match.index > 0 && sanitized[match.index - 1] === '@') continue;
         const varName = match[0];
         const normalized = varName.toLowerCase();
-        if (!seen.has(normalized)) {
-            seen.add(normalized);
-            variables.push(varName);
+        if (seen.has(normalized)) {
+            continue;
         }
+
+        seen.add(normalized);
+        variables.push(varName);
     }
 
     return variables.map((v) => ({

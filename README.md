@@ -82,7 +82,7 @@ From the multi-repository development workspace root, run `npm run test:diagnost
 
 The **declared-dependency baseline** first installs the unchanged consumer locks and reports their build/test status. **Local-producer acceptance** then installs the packed prospective release with `--no-save` only inside staging, retaining lock-based resolution of unrelated dependencies. A passing local run is not registry or release-provenance evidence.
 
-For release, publish the LSP and its tagged documentation first. Only after it is available, update the extension root/server and MCP dependency manifests to `^4.1.0`, refresh their locks, and repeat clean-install acceptance without a local override. The extension additionally runs **release-only** `npm run verify:lsp-release --no-workspaces`: it resolves the actually bundled LSP, uses `gh` to resolve that exact tag to an immutable commit, and verifies its manifest and every registry-linked rule page in that commit. Ordinary tests use offline negative fixtures; no diagnostic emission performs network or Git operations.
+For release, publish the LSP and its tagged documentation first. Only after it is available, update the extension root/server and MCP dependency manifests to `^4.1.1`, refresh their locks, and repeat clean-install acceptance without a local override. The extension additionally runs **release-only** `npm run verify:lsp-release --no-workspaces`: it resolves the actually bundled LSP, uses `gh` to resolve that exact tag to an immutable commit, and verifies its manifest and every registry-linked rule page in that commit. Ordinary tests use offline negative fixtures; no diagnostic emission performs network or Git operations.
 
 ## Install
 

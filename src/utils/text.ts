@@ -112,8 +112,7 @@ export function extractFunctionArguments(
 export function inferLiteralType(arg: string): 'string' | 'number' | 'boolean' | null {
     if (arg.startsWith('"') || arg.startsWith("'")) return 'string';
     if (/^-?\d+(\.\d+)?$/.test(arg)) return 'number';
-    if (arg === 'true' || arg === 'false') return 'boolean';
-    return null;
+    return arg === 'true' || arg === 'false' ? 'boolean' : null;
 }
 
 /**

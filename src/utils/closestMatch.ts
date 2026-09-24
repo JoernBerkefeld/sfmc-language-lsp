@@ -49,14 +49,13 @@ export function closestMatch(word: string, candidates: Iterable<string>): string
 
     for (const candidate of candidates) {
         const distance = levenshtein(lowerWord, candidate.toLowerCase());
-        if (distance < bestDistance) {
-            bestDistance = distance;
-            best = candidate;
+        if (!(distance < bestDistance)) {
+            continue;
         }
+
+        bestDistance = distance;
+        best = candidate;
     }
 
-    if (best !== null && bestDistance > 0 && bestDistance <= maxDistance) {
-        return best;
-    }
-    return null;
+    return best !== null && bestDistance > 0 && bestDistance <= maxDistance ? best : null;
 }

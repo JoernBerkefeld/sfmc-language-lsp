@@ -111,14 +111,11 @@ interface CallNode extends HandlebarsAstNode {
  * @returns The simple helper name, or null.
  */
 function simpleHelperName(path: PathLike | undefined): string | null {
-    if (!path || path.type !== 'PathExpression') return null;
-    if (path.data) return null;
-    if ((path.depth ?? 0) > 0) return null;
+    if (!path || path.type !== 'PathExpression' || path.data || (path.depth ?? 0) > 0) return null;
     const parts = path.parts ?? [];
     if (parts.length !== 1) return null;
     const name = parts[0];
-    if (!name || name === 'this') return null;
-    return name;
+    return !name || name === 'this' ? null : name;
 }
 
 /**
@@ -262,30 +259,29 @@ export function validateMcnHandlebars(
     let match: RegExpExecArray | null;
     while ((match = BINDING_PATTERN.exec(sanitized)) !== null && problems < remainingBudget) {
         const bindingName = match[1];
-        if (!isBuiltinBinding(bindingName)) {
-            problems++;
-            const suggestionName = closestMatch(bindingName, BINDING_NAME_LIST);
-            const suggestionToken = suggestionName
-                ? BINDING_TOKEN_BY_NAME.get(suggestionName.toLowerCase())
-                : undefined;
-            const hint = suggestionToken ? ` Did you mean '${suggestionToken}'?` : '';
-            diagnostics.push(
-                createDiagnostic(DIAG_CODE_HBS_UNKNOWN_BINDING, {
-                    severity: DiagnosticSeverity.Warning,
-                    range: {
-                        start: offsetToPosition(text, match.index),
-                        end: offsetToPosition(text, match.index + match[0].length),
-                    },
-                    message: `Unknown built-in binding '${match[0]}'. It is not a recognized Marketing Cloud Next data binding.${hint}`,
-                    source: 'handlebars',
-                    ...(suggestionToken && {
-                        data: {
-                            typed: match[0],
-                            suggestion: suggestionToken,
-                        } satisfies HandlebarsSuggestionData,
-                    }),
+        if (isBuiltinBinding(bindingName)) continue;
+        problems++;
+        const suggestionName = closestMatch(bindingName, BINDING_NAME_LIST);
+        const suggestionToken = suggestionName
+            ? BINDING_TOKEN_BY_NAME.get(suggestionName.toLowerCase())
+            : undefined;
+        const hint = suggestionToken ? ` Did you mean '${suggestionToken}'?` : '';
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_HBS_UNKNOWN_BINDING, {
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, match.index),
+                    end: offsetToPosition(text, match.index + match[0].length),
+                },
+                message: `Unknown built-in binding '${match[0]}'. It is not a recognized Marketing Cloud Next data binding.${hint}`,
+                source: 'handlebars',
+                ...(suggestionToken && {
+                    data: {
+                        typed: match[0],
+                        suggestion: suggestionToken,
+                    } satisfies HandlebarsSuggestionData,
                 }),
-            );
-        }
+            }),
+        );
     }
 }

@@ -60,24 +60,24 @@
         "handlebars-data": "^0.4.0",
         "sfmc-handlebars-parser": "^0.1.1",
         "ssjs-data": "^2.1.1",
-        "vscode-languageserver-types": "^3.18.0"
+        "vscode-languageserver-types": "^3.18.3"
     },
     "engines": {
         "node": ">=22.0.0"
     },
     "devDependencies": {
         "@eslint/js": "^10.0.1",
-        "eslint": "^10.8.0",
+        "eslint": "^10.11.0",
         "eslint-config-prettier": "^10.1.8",
-        "eslint-plugin-jsdoc": "^63.3.3",
+        "eslint-plugin-jsdoc": "^64.5.4",
         "eslint-plugin-prettier": "^5.5.6",
-        "eslint-plugin-unicorn": "^73.0.0",
-        "globals": "^17.9.0",
+        "eslint-plugin-unicorn": "^76.0.0",
+        "globals": "^17.12.0",
         "husky": "^9.1.7",
-        "lint-staged": "^17.3.0",
-        "prettier": "^3.9.6",
+        "lint-staged": "^17.5.1",
+        "prettier": "^3.9.9",
         "typescript": "^6.0.3",
-        "typescript-eslint": "^8.66.0"
+        "typescript-eslint": "^8.70.1"
     },
     "lint-staged": {
         "*.{js,mjs,cjs,ts}": [

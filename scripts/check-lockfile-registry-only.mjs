@@ -139,16 +139,18 @@ function main() {
         scanV1(lock.dependencies, '', findings);
     }
 
-    if (findings.length > 0) {
-        console.error(`[check-lockfile] ${path.basename(lockPath)} is not registry-only:`);
-        for (const finding of findings) {
-            console.error(`  - ${finding}`);
-        }
-        console.error(
-            "Fix package.json (use registry semver ranges), delete node_modules, then run 'npm install --no-workspaces'.",
-        );
-        process.exitCode = 1;
+    if (findings.length === 0) {
+        return;
     }
+
+    console.error(`[check-lockfile] ${path.basename(lockPath)} is not registry-only:`);
+    for (const finding of findings) {
+        console.error(`  - ${finding}`);
+    }
+    console.error(
+        "Fix package.json (use registry semver ranges), delete node_modules, then run 'npm install --no-workspaces'.",
+    );
+    process.exitCode = 1;
 }
 
 main();

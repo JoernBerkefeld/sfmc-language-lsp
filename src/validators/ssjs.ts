@@ -374,8 +374,7 @@ function collectClrHeaderAccessDiagnostics(
     const indexPattern = /\b([A-Za-z_$][\w$]*)\s*\.\s*headers\s*\[\s*([^\]]*?)\s*\]/g;
     let im: RegExpExecArray | null;
     while ((im = indexPattern.exec(text)) !== null && diagnostics.length < budget) {
-        if (isInCommentRange(im.index, commentRanges)) continue;
-        if (!responseVars.has(im[1])) continue;
+        if (isInCommentRange(im.index, commentRanges) || !responseVars.has(im[1])) continue;
         const data: ClrHeaderAccessDiagnosticData = { respName: im[1], keyText: im[2].trim() };
         diagnostics.push(
             createDiagnostic(DIAG_CODE_SSJS_CLR_HEADER_ACCESS, {
@@ -398,8 +397,7 @@ function collectClrHeaderAccessDiagnostics(
         /\b([A-Za-z_$][\w$]*)\s*\.\s*headers\s*\.\s*(?:Get|Item)\s*\(\s*([^)]*?)\s*\)/g;
     let cm: RegExpExecArray | null;
     while ((cm = callPattern.exec(text)) !== null && diagnostics.length < budget) {
-        if (isInCommentRange(cm.index, commentRanges)) continue;
-        if (!responseVars.has(cm[1])) continue;
+        if (isInCommentRange(cm.index, commentRanges) || !responseVars.has(cm[1])) continue;
         const data: ClrHeaderAccessDiagnosticData = { respName: cm[1], keyText: cm[2].trim() };
         diagnostics.push(
             createDiagnostic(DIAG_CODE_SSJS_CLR_HEADER_ACCESS, {
@@ -471,8 +469,7 @@ function collectClrContentAccessDiagnostics(
     const contentPattern = /\b([A-Za-z_$][\w$]*)\s*\.\s*content\b/g;
     let em: RegExpExecArray | null;
     while ((em = contentPattern.exec(text)) !== null && diagnostics.length < budget) {
-        if (isInCommentRange(em.index, commentRanges)) continue;
-        if (!responseVars.has(em[1])) continue;
+        if (isInCommentRange(em.index, commentRanges) || !responseVars.has(em[1])) continue;
         // Skip `String(<resp>.content)` — check the text right before the match.
         const before = text.slice(Math.max(0, em.index - 8), em.index);
         if (/String\s*\(\s*$/.test(before)) continue;
@@ -655,13 +652,10 @@ function propertyAccessMessage(owner: string, name: string, access: PropertyAcce
             `value in your own variable instead.`
         );
     }
-    if (access === 'write-only-opaque') {
-        return (
-            `'${owner}.${name}' does not read back the value you assigned — the runtime returns ` +
-            `an opaque CLR value. Keep the value in your own variable instead.`
-        );
-    }
-    return `'${owner}.${name}' is read-only. Assigning to it has no effect.`;
+    return access === 'write-only-opaque'
+        ? `'${owner}.${name}' does not read back the value you assigned — the runtime returns ` +
+              `an opaque CLR value. Keep the value in your own variable instead.`
+        : `'${owner}.${name}' is read-only. Assigning to it has no effect.`;
 }
 
 /**
@@ -756,8 +750,9 @@ function collectInvalidPropertyAccessDiagnostics(
  */
 function formatArities(arities: number[]): string {
     if (arities.length === 0) return '';
-    if (arities.length === 1) return String(arities[0]);
-    return `${arities.slice(0, -1).join(', ')} or ${arities.at(-1)}`;
+    return arities.length === 1
+        ? String(arities[0])
+        : `${arities.slice(0, -1).join(', ')} or ${arities.at(-1)}`;
 }
 
 /**
@@ -898,22 +893,21 @@ function collectPlatformFunctionArityDiagnostics(
                 actual >= entry.minArgs &&
                 actual <= entry.maxArgs &&
                 !validArities.includes(actual);
-            if (isDiscontinuousViolation) {
-                // Highlight just the function name for a focused squiggle.
-                const nameStart =
-                    match.index + match[0].toLowerCase().lastIndexOf(entry.name.toLowerCase());
-                diagnostics.push(
-                    createDiagnostic(DIAG_CODE_SSJS_INVALID_ARITY, {
-                        severity: DiagnosticSeverity.Error,
-                        range: {
-                            start: offsetToPosition(text, nameStart),
-                            end: offsetToPosition(text, nameStart + entry.name.length),
-                        },
-                        message: `'${entry.name}' must be called with exactly ${formatArities(validArities)} arguments (got ${actual}); intermediate argument counts throw at runtime.`,
-                        source: 'ssjs',
-                    }),
-                );
-            }
+            if (!isDiscontinuousViolation) continue;
+            // Highlight just the function name for a focused squiggle.
+            const nameStart =
+                match.index + match[0].toLowerCase().lastIndexOf(entry.name.toLowerCase());
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_SSJS_INVALID_ARITY, {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, nameStart),
+                        end: offsetToPosition(text, nameStart + entry.name.length),
+                    },
+                    message: `'${entry.name}' must be called with exactly ${formatArities(validArities)} arguments (got ${actual}); intermediate argument counts throw at runtime.`,
+                    source: 'ssjs',
+                }),
+            );
         }
     }
 
@@ -1529,8 +1523,7 @@ function collectNewObjectReturnDiagnostics(
     while ((match = newPattern.exec(text)) !== null && diagnostics.length < budget) {
         if (isInCommentRange(match.index, commentRanges)) continue;
         const calleeName = match[1];
-        if (NEW_SAFE_BUILTINS.has(calleeName)) continue;
-        if (!objectReturningNames.has(calleeName)) continue;
+        if (NEW_SAFE_BUILTINS.has(calleeName) || !objectReturningNames.has(calleeName)) continue;
         // Highlight the callee name for a focused squiggle.
         const nameStart = match.index + match[0].indexOf(calleeName);
         diagnostics.push(
@@ -1773,21 +1766,25 @@ export function validateSsjs(
         /\b(DataExtension|Subscriber|Email|TriggeredSend|List|ContentArea|Folder|QueryDefinition|Send|Template|DeliveryProfile|SenderProfile|SendClassification|FilterDefinition|Account|AccountUser|Portfolio|BounceEvent|ClickEvent|ForwardedEmailEvent|ForwardedEmailOptInEvent|NotSentEvent|OpenEvent|SentEvent|SurveyEvent|UnsubEvent)\s*\.\s*(Init|Retrieve)\s*\(/g;
     let coreMatch: RegExpExecArray | null;
     while ((coreMatch = coreObjectPattern.exec(text)) !== null && problems < max) {
-        if (isInCommentRange(coreMatch.index, commentRanges)) continue;
-        if (coreMatch.index < platformLoadOffset) {
-            problems++;
-            diagnostics.push(
-                createDiagnostic(DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD, {
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: offsetToPosition(text, coreMatch.index),
-                        end: offsetToPosition(text, coreMatch.index + coreMatch[0].length - 1),
-                    },
-                    message: `Platform.Load("core", "1.1.5") must be called before using ${coreMatch[1]}.Init(). Without it, this call will fail at runtime.`,
-                    source: 'ssjs',
-                }),
-            );
+        if (
+            isInCommentRange(coreMatch.index, commentRanges) ||
+            !(coreMatch.index < platformLoadOffset)
+        ) {
+            continue;
         }
+
+        problems++;
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD, {
+                severity: DiagnosticSeverity.Error,
+                range: {
+                    start: offsetToPosition(text, coreMatch.index),
+                    end: offsetToPosition(text, coreMatch.index + coreMatch[0].length - 1),
+                },
+                message: `Platform.Load("core", "1.1.5") must be called before using ${coreMatch[1]}.Init(). Without it, this call will fail at runtime.`,
+                source: 'ssjs',
+            }),
+        );
     }
 
     // 1b. requiresCoreLoad methods used without a preceding Platform.Load
@@ -1822,22 +1819,24 @@ export function validateSsjs(
         const barePattern = new RegExp(String.raw`(?<!\.)(\b(?:${bareNames}))\s*\(`, 'g');
         let bareMatch: RegExpExecArray | null;
         while ((bareMatch = barePattern.exec(text)) !== null && problems < max) {
-            if (isInCommentRange(bareMatch.index, commentRanges)) continue;
-            if (bareMatch.index < platformLoadOffset) {
-                problems++;
-                const name = bareMatch[1];
-                diagnostics.push(
-                    createDiagnostic(DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD, {
-                        severity: DiagnosticSeverity.Error,
-                        range: {
-                            start: offsetToPosition(text, bareMatch.index),
-                            end: offsetToPosition(text, bareMatch.index + name.length),
-                        },
-                        message: `Platform.Load("core", "1.1.5") must be called before using ${name}(). Without it, this call will fail at runtime.`,
-                        source: 'ssjs',
-                    }),
-                );
-            }
+            if (
+                isInCommentRange(bareMatch.index, commentRanges) ||
+                bareMatch.index >= platformLoadOffset
+            )
+                continue;
+            problems++;
+            const name = bareMatch[1];
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_SSJS_REQUIRE_PLATFORM_LOAD, {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, bareMatch.index),
+                        end: offsetToPosition(text, bareMatch.index + name.length),
+                    },
+                    message: `Platform.Load("core", "1.1.5") must be called before using ${name}(). Without it, this call will fail at runtime.`,
+                    source: 'ssjs',
+                }),
+            );
         }
     }
 
@@ -2000,21 +1999,20 @@ export function validateSsjs(
     while ((versionMatch = platformLoadVersionPattern.exec(text)) !== null && problems < max) {
         if (isInCommentRange(versionMatch.index, commentRanges)) continue;
         const actualVersion = versionMatch[1];
-        if (actualVersion !== '1.1.5') {
-            problems++;
-            const versionStart = versionMatch.index + versionMatch[0].lastIndexOf(actualVersion);
-            diagnostics.push(
-                createDiagnostic(DIAG_CODE_SSJS_PLATFORM_LOAD_VERSION, {
-                    severity: DiagnosticSeverity.Warning,
-                    range: {
-                        start: offsetToPosition(text, versionStart - 1),
-                        end: offsetToPosition(text, versionStart + actualVersion.length + 1),
-                    },
-                    message: `Platform.Load("Core", "${actualVersion}") should use version "1.1.5" to get the latest bug-fixes.`,
-                    source: 'ssjs',
-                }),
-            );
-        }
+        if (actualVersion === '1.1.5') continue;
+        problems++;
+        const versionStart = versionMatch.index + versionMatch[0].lastIndexOf(actualVersion);
+        diagnostics.push(
+            createDiagnostic(DIAG_CODE_SSJS_PLATFORM_LOAD_VERSION, {
+                severity: DiagnosticSeverity.Warning,
+                range: {
+                    start: offsetToPosition(text, versionStart - 1),
+                    end: offsetToPosition(text, versionStart + actualVersion.length + 1),
+                },
+                message: `Platform.Load("Core", "${actualVersion}") should use version "1.1.5" to get the latest bug-fixes.`,
+                source: 'ssjs',
+            }),
+        );
     }
 
     // 3. ES6+ patterns not supported in SFMC SSJS
@@ -2100,8 +2098,7 @@ export function validateSsjs(
         while ((m = staticPolyPattern.exec(text)) !== null && problems < max) {
             if (isInCommentRange(m.index, commentRanges)) continue;
             const entry = polyfillableStaticLookup.get(`${m[1]}.${m[2]}`.toLowerCase());
-            if (!entry) continue;
-            if (isPolyfillPresent(text, entry.polyfill)) continue;
+            if (!entry || isPolyfillPresent(text, entry.polyfill)) continue;
             problems++;
             const data: PolyfillDiagnosticData = {
                 owner: entry.owner,
@@ -2170,8 +2167,7 @@ export function validateSsjs(
         while ((m = protoPolyPattern.exec(text)) !== null && problems < max) {
             if (isInCommentRange(m.index, commentRanges)) continue;
             const entry = polyfillablePrototypeLookup.get(m[1].toLowerCase());
-            if (!entry) continue;
-            if (isPolyfillPresent(text, entry.polyfill)) continue;
+            if (!entry || isPolyfillPresent(text, entry.polyfill)) continue;
             problems++;
             const memberStart = m.index + m[0].indexOf(m[1]);
             const owner = entry.owner.replace('.prototype', '');

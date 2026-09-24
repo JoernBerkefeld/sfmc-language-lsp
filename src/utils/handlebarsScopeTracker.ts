@@ -78,8 +78,7 @@ const LOOP_HELPERS = new Set(['each', 'repeat']);
  */
 function blockHelperName(node: AST.BlockStatement): string | null {
     const path = node.path;
-    if (!path || path.type !== 'PathExpression') return null;
-    if (path.data || (path.depth ?? 0) > 0) return null;
+    if (!path || path.type !== 'PathExpression' || path.data || (path.depth ?? 0) > 0) return null;
     const parts = path.parts ?? [];
     if (parts.length !== 1) return null;
     // sfmc-handlebars-parser types `parts` as (string | SubExpression)[]; a simple

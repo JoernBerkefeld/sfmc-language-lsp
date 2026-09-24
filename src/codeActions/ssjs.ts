@@ -258,8 +258,7 @@ export function getSsjsCodeActions(
             continue;
         }
 
-        if (variant !== DIAG_CODE_SSJS_POLYFILL_REQUIRED) continue;
-        if (!isPolyfillData(payload)) continue;
+        if (variant !== DIAG_CODE_SSJS_POLYFILL_REQUIRED || !isPolyfillData(payload)) continue;
 
         const { owner, method, polyfill } = payload;
 

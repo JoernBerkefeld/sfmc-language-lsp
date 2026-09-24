@@ -43,20 +43,19 @@ export function validateDocumentation(api, metadata, readDocument) {
                 !target.startsWith('https://github.com/JoernBerkefeld/sfmc-language-lsp/'),
                 `Use tag-relative cross-links: ${target}`,
             );
-            if (!/^[a-z]+:/i.test(target)) {
-                assert.ok(
-                    !target.includes('#'),
-                    `Rule cross-link anchors need explicit validation: ${target}`,
-                );
-                const resolved = path.posix.normalize(
-                    path.posix.join(path.posix.dirname(expectedPath), target),
-                );
-                assert.ok(
-                    !resolved.startsWith('../') && !path.posix.isAbsolute(resolved),
-                    `Cross-link escapes repository: ${target}`,
-                );
-                assert.ok(readDocument(resolved).trim(), `Missing linked document: ${resolved}`);
-            }
+            if (/^[a-z]+:/i.test(target)) continue;
+            assert.ok(
+                !target.includes('#'),
+                `Rule cross-link anchors need explicit validation: ${target}`,
+            );
+            const resolved = path.posix.normalize(
+                path.posix.join(path.posix.dirname(expectedPath), target),
+            );
+            assert.ok(
+                !resolved.startsWith('../') && !path.posix.isAbsolute(resolved),
+                `Cross-link escapes repository: ${target}`,
+            );
+            assert.ok(readDocument(resolved).trim(), `Missing linked document: ${resolved}`);
         }
         documents.add(expectedPath);
     }

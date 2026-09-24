@@ -185,10 +185,9 @@ export class SfmcLanguageService {
      */
     resolveCompletion(item: CompletionItem): CompletionItem {
         const data = item.data as { type?: string } | undefined;
-        if (data?.type === 'hbs-helper' || data?.type === 'hbs-binding') {
-            return resolveHandlebarsCompletion(item);
-        }
-        return resolveAmpscriptCompletion(item);
+        return data?.type === 'hbs-helper' || data?.type === 'hbs-binding'
+            ? resolveHandlebarsCompletion(item)
+            : resolveAmpscriptCompletion(item);
     }
 
     // ── Hover ─────────────────────────────────────────────────────────────────
@@ -266,8 +265,7 @@ export class SfmcLanguageService {
      * @returns LSP Location of the definition, or null.
      */
     getDefinition(doc: DocumentContext, word: string): Location | null {
-        if (doc.languageId !== 'ssjs') return null;
-        return getSsjsDefinition(doc.text, doc.uri ?? '', word);
+        return doc.languageId === 'ssjs' ? getSsjsDefinition(doc.text, doc.uri ?? '', word) : null;
     }
 
     // ── Code Actions ──────────────────────────────────────────────────────────
