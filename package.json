@@ -56,7 +56,7 @@
         "format:check": "prettier --check ."
     },
     "dependencies": {
-        "ampscript-data": "^4.1.0",
+        "ampscript-data": "^4.2.0",
         "handlebars-data": "^0.4.0",
         "sfmc-handlebars-parser": "^0.1.1",
         "ssjs-data": "^2.1.1",
