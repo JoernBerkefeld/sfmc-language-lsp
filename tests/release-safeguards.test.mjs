@@ -16,6 +16,14 @@ const root = fileURLToPath(new URL('../', import.meta.url));
 const metadata = JSON.parse(readFileSync(path.join(root, 'package.json'), 'utf8'));
 const readDocument = (document) => readFileSync(path.join(root, document), 'utf8');
 
+test('package metadata preserves intended UTF-8 text', () => {
+    assert.equal(metadata.author, 'Jörn Berkefeld');
+    assert.equal(
+        metadata.description,
+        'Protocol-agnostic, browser-compatible language service for Salesforce Marketing Cloud — AMPscript, SSJS, and GTL. Provides validation, completions, hover, signature help, and code actions.',
+    );
+});
+
 test('release identity rejects missing/wrong tags and another checkout', () => {
     validateReleaseTag(`v${metadata.version}`, metadata.version, 'commit-a', 'commit-a');
     for (const tag of [undefined, metadata.version, 'v0.0.0', 'main']) {
