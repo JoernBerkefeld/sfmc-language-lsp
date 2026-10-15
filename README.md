@@ -10,7 +10,7 @@ When `targetPlatform` is set to `'next'` in `SfmcSettings`, the language service
 
 - Flags AMPscript functions not supported on MCN as **errors**
 - Flags all SSJS as **unsupported** (SSJS is not available on MCN)
-- Surfaces MCN API version and behavioral-difference notes in hover documentation
+- Surfaces MCN API version and behavioral-difference notes in hover documentation. AMPscript support badges also show known Salesforce release names, for example `since Summer '26 / API v67.0+`; unknown versions retain the API-only badge.
 
 MCN helper functions re-exported from `ampscript-data`:
 

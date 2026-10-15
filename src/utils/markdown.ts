@@ -7,6 +7,24 @@ import type { AmpscriptFunction } from '../data/ampscript.js';
 import type { SsjsFunction, EcmascriptBuiltin } from '../data/ssjs.js';
 import type { HandlebarsHelper, HandlebarsBinding } from '../data/handlebars.js';
 
+const MCN_RELEASE_LABELS: Record<string, string> = {
+    '65.0': "Winter '26",
+    '66.0': "Spring '26",
+    '67.0': "Summer '26",
+    '68.0': "Winter '27",
+    '69.0': "Spring '27",
+    '70.0': "Summer '27",
+    '71.0': "Winter '28",
+    '72.0': "Spring '28",
+    '73.0': "Summer '28",
+    '74.0': "Winter '29",
+    '75.0': "Spring '29",
+    '76.0': "Summer '29",
+    '77.0': "Winter '30",
+    '78.0': "Spring '30",
+    '79.0': "Summer '30",
+};
+
 function formatAmpscriptEnumLiteral(value: string | number | boolean): string {
     return typeof value === 'string' ? `"${value}"` : String(value);
 }
@@ -73,7 +91,10 @@ export function buildFunctionMarkdown(
 
     if (links && 'mcnSince' in links) {
         if (links.mcnSince !== null && links.mcnSince !== undefined) {
-            lines.push('', `✅ Supported in Marketing Cloud Next (API v${links.mcnSince}.0+)`);
+            const apiVersion = `${links.mcnSince}.0`;
+            const releaseLabel = MCN_RELEASE_LABELS[apiVersion];
+            const since = releaseLabel ? `since ${releaseLabel} / ` : '';
+            lines.push('', `✅ Supported in Marketing Cloud Next (${since}API v${apiVersion}+)`);
             if (links.mcnNotes) {
                 lines.push('', `> **MCN Note:** ${links.mcnNotes}`);
             }

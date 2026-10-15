@@ -13,6 +13,8 @@ import {
     extractAmpscriptFunctionCalls,
 } from '../dist/esm/index.js';
 
+import { buildFunctionMarkdown } from '../dist/esm/utils/markdown.js';
+
 const service = new SfmcLanguageService();
 
 /**
@@ -2434,12 +2436,50 @@ describe('Definitions', () => {
 // ── MCN Hover ──────────────────────────────────────────────────────────────
 
 describe('MCN hover badges', () => {
+    const releases = [
+        [65, "Winter '26"],
+        [66, "Spring '26"],
+        [67, "Summer '26"],
+        [68, "Winter '27"],
+        [69, "Spring '27"],
+        [70, "Summer '27"],
+        [71, "Winter '28"],
+        [72, "Spring '28"],
+        [73, "Summer '28"],
+        [74, "Winter '29"],
+        [75, "Spring '29"],
+        [76, "Summer '29"],
+        [77, "Winter '30"],
+        [78, "Spring '30"],
+        [79, "Summer '30"],
+        [80, null],
+    ];
+
+    for (const [version, release] of releases) {
+        it(`formats API v${version}.0 with ${release ?? 'API-only fallback'}`, () => {
+            const markdown = buildFunctionMarkdown(
+                { name: 'TestFunction', description: 'Test function.', params: [] },
+                { mcnSince: version },
+            );
+            const since = release ? `since ${release} / ` : '';
+            assert.ok(
+                markdown.includes(
+                    `✅ Supported in Marketing Cloud Next (${since}API v${version}.0+)`,
+                ),
+                markdown,
+            );
+            if (!release) assert.ok(!markdown.includes('since '), markdown);
+        });
+    }
+
     it('hover for MCN-supported function (no notes) includes MCN badge', () => {
         const doc = { text: '%%[ Add(1,2) ]%%', languageId: 'ampscript' };
         const hover = service.getHover(doc, '%%[ Add(1,2) ]%%', { line: 0, character: 4 });
         assert.ok(hover !== null, 'expected hover for Add');
         assert.ok(
-            hover.contents.value.includes('Supported in Marketing Cloud Next'),
+            hover.contents.value.includes(
+                "Supported in Marketing Cloud Next (since Summer '26 / API v67.0+)",
+            ),
             `expected MCN badge, got: ${hover.contents.value}`,
         );
     });
@@ -2450,7 +2490,9 @@ describe('MCN hover badges', () => {
         const hover = service.getHover(doc, line, { line: 0, character: 5 });
         assert.ok(hover !== null, 'expected hover for FormatDate');
         assert.ok(
-            hover.contents.value.includes('Supported in Marketing Cloud Next'),
+            hover.contents.value.includes(
+                "Supported in Marketing Cloud Next (since Summer '26 / API v67.0+)",
+            ),
             'expected MCN badge for FormatDate',
         );
         assert.ok(
