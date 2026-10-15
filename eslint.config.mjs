@@ -32,6 +32,7 @@ export default tseslint.config(
             },
         },
         rules: {
+            'unicorn/no-asterisk-prefix-in-documentation-comments': 'off',
             'no-console': 'warn',
             // Kept off: `null` is part of exported return types (e.g.
             // inferLiteralType(): … | null) and mirrors the LSP wire protocol,

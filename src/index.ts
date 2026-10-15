@@ -496,7 +496,9 @@ export const sfmcLanguageService = new SfmcLanguageService();
 
 // Re-export validators for direct use
 export { validateAmpscript, extractAmpscriptFunctionCalls } from './validators/ampscript.js';
-export { validateSsjs } from './validators/ssjs.js';
+export { validateSsjs, validateMixedDocumentSsjs } from './validators/ssjs.js';
+export { getScriptRegions, extractScriptBodies } from './utils/regions.js';
+export type { ScriptKind, ScriptRegion, ScriptExtraction } from './utils/regions.js';
 export { validateGtlBlocks } from './validators/gtl.js';
 export { extractLocalSsjsFunctions } from './definitions/ssjs.js';
 

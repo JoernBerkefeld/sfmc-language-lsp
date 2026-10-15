@@ -47,6 +47,18 @@ import type {
 } from 'sfmc-language-lsp';
 ```
 
+## Mixed-document script regions
+
+`getScriptRegions(text)` returns script bodies in document order, classified as `ampscript`, `ssjs`, `browser-classic`, `browser-module`, or `non-js`. Each region retains opening/closing tag ranges, body ranges, and attributes. Offsets are zero-based, end-exclusive UTF-16 offsets; unfinished bodies extend to EOF and have null closing-tag offsets.
+
+`extractScriptBodies(text, kinds)` returns `{ text, regions }`: selected bodies remain verbatim, while surrounding content is replaced with spaces without changing UTF-16 offsets or CR/LF line endings. HTML comments and raw script boundaries are respected. These helpers only classify and extract; they do not validate browser JavaScript or sanitize template interpolation.
+
+`validateMixedDocumentSsjs(text, settings?)` validates only bodies classified as `ssjs` in a mixed document. It returns no diagnostics when there is no server JavaScript. Diagnostic ranges use the original document's zero-based lines and UTF-16 character positions, preserving surrounding markup and newline offsets. Server-block metadata is retained for cross-block checks; browser scripts cannot supply a Core load, polyfill, or declaration to suppress a server warning. AMPscript script bodies and non-JavaScript script data are excluded.
+
+Use the unchanged `validateSsjs(text, settings?)` entry point for raw SSJS. The mixed-document entry point is not a browser JavaScript validator.
+
+**Available since 4.3.0:** the script-region helpers and mixed-document SSJS validator are public APIs in `sfmc-language-lsp@4.3.0` and later. Consumers using these APIs must require at least version `4.3.0` and refresh their lockfiles from the npm registry.
+
 ## Core-version-aware SSJS diagnostics
 
 Some Core library members only exist up to a maximum `Platform.Load("Core", <version>)` and are `undefined` beyond it. The SSJS validator reads the `maxCoreVersion` metadata from `ssjs-data`, compares it against the Core version the document actually loads, and escalates the diagnostic accordingly:
@@ -82,7 +94,7 @@ From the multi-repository development workspace root, run `npm run test:diagnost
 
 The **declared-dependency baseline** first installs the unchanged consumer locks and reports their build/test status. **Local-producer acceptance** then installs the packed prospective release with `--no-save` only inside staging, retaining lock-based resolution of unrelated dependencies. A passing local run is not registry or release-provenance evidence.
 
-For release, publish the LSP and its tagged documentation first. Only after it is available, update the extension root/server and MCP dependency manifests to `^4.1.1`, refresh their locks, and repeat clean-install acceptance without a local override. The extension additionally runs **release-only** `npm run verify:lsp-release --no-workspaces`: it resolves the actually bundled LSP, uses `gh` to resolve that exact tag to an immutable commit, and verifies its manifest and every registry-linked rule page in that commit. Ordinary tests use offline negative fixtures; no diagnostic emission performs network or Git operations.
+For release, publish the LSP and its tagged documentation first. Only after it is available, update the extension root/server and MCP dependency manifests to `^4.3.0`, refresh their locks, and repeat clean-install acceptance without a local override. The extension additionally runs **release-only** `npm run verify:lsp-release --no-workspaces`: it resolves the actually bundled LSP, uses `gh` to resolve that exact tag to an immutable commit, and verifies its manifest and every registry-linked rule page in that commit. Ordinary tests use offline negative fixtures; no diagnostic emission performs network or Git operations.
 
 ## Install
 

@@ -6,6 +6,7 @@ import { DEFAULT_SETTINGS } from '../types.js';
 import { buildCommentRanges, isInCommentRange } from '../utils/comments.js';
 import { offsetToPosition } from '../utils/positions.js';
 import { isPolyfillPresent } from '../utils/polyfill.js';
+import { extractScriptBodies } from '../utils/regions.js';
 import {
     httpHeaderMethods,
     dateTimeTimezoneMethods,
@@ -764,7 +765,7 @@ function formatArities(arities: number[]): string {
  * @returns A copy of `text` with string/comment contents replaced by spaces.
  */
 function blankStringsAndComments(text: string): string {
-    const chars = [...text];
+    const chars = text.split('');
     let index = 0;
     while (index < chars.length) {
         const ch = chars[index];
@@ -1621,6 +1622,7 @@ function collectBlockFunctionNames(sanitized: string, block: ServerScriptBlock):
  * @param sanitized - String/comment-blanked copy of the document.
  * @param commentRanges - Comment ranges to skip.
  * @param budget - Maximum number of diagnostics still allowed.
+ * @param blocks - Original server body ranges, retained when HTML is masked.
  * @returns Diagnostics for forward cross-block references (length ≤ budget).
  */
 function collectCrossBlockForwardRefDiagnostics(
@@ -1628,11 +1630,10 @@ function collectCrossBlockForwardRefDiagnostics(
     sanitized: string,
     commentRanges: Array<[number, number]>,
     budget: number,
+    blocks: readonly ServerScriptBlock[],
 ): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     if (budget <= 0) return diagnostics;
-
-    const blocks = findServerScriptBlocks(text);
     // A cross-block forward reference requires at least two blocks.
     if (blocks.length < 2) return diagnostics;
 
@@ -1741,6 +1742,39 @@ function collectBlockForwardRefDiagnostics(
 export function validateSsjs(
     text: string,
     settings: SfmcSettings = DEFAULT_SETTINGS,
+): Diagnostic[] {
+    return validateSsjsText(text, settings, findServerScriptBlocks(text));
+}
+
+/**
+ * Validate only server JavaScript bodies in a mixed HTML document. Browser,
+ * AMPscript and data scripts cannot contribute declarations, loads or polyfills.
+ * Diagnostic positions refer to the original document, not concatenated bodies.
+ * @param text - Full mixed document text.
+ * @param settings - Validation settings.
+ * @returns SSJS diagnostics, or none when the document has no server JavaScript.
+ */
+export function validateMixedDocumentSsjs(
+    text: string,
+    settings: SfmcSettings = DEFAULT_SETTINGS,
+): Diagnostic[] {
+    const extraction = extractScriptBodies(text, ['ssjs']);
+    return extraction.regions.length === 0
+        ? []
+        : validateSsjsText(extraction.text, settings, extraction.regions);
+}
+
+/**
+ * Run SSJS checks over raw code or an offset-preserving server-only projection.
+ * @param text - Code to validate.
+ * @param settings - Validation settings.
+ * @param blocks - Server body ranges in this text.
+ * @returns LSP diagnostics.
+ */
+function validateSsjsText(
+    text: string,
+    settings: SfmcSettings,
+    blocks: readonly ServerScriptBlock[],
 ): Diagnostic[] {
     const diagnostics: Diagnostic[] = [];
     let problems = 0;
@@ -2307,6 +2341,7 @@ export function validateSsjs(
                 sanitizedForScope,
                 commentRanges,
                 max - problems,
+                blocks,
             );
             problems += forwardRefDiagnostics.length;
             diagnostics.push(...forwardRefDiagnostics);

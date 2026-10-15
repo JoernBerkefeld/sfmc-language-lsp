@@ -3,6 +3,192 @@
  */
 
 /**
+Classification of a script body, separate from its surrounding HTML.
+ */
+export type ScriptKind = 'ampscript' | 'ssjs' | 'browser-classic' | 'browser-module' | 'non-js';
+
+/**
+All offsets are UTF-16, zero-based, and end-exclusive.
+ */
+export interface ScriptRegion {
+    kind: ScriptKind;
+    tagStart: number;
+    tagEnd: number;
+    bodyStart: number;
+    bodyEnd: number;
+    /**
+    Null for an unfinished body; otherwise the complete closing tag range.
+     */
+    closeTagStart: number | null;
+    closeTagEnd: number | null;
+    /**
+    Lowercase attribute names, original values; the first duplicate wins.
+     */
+    attributes: Readonly<Record<string, string>>;
+}
+
+/**
+A full-length projection plus the selected blocks in document order.
+ */
+export interface ScriptExtraction {
+    text: string;
+    regions: ScriptRegion[];
+}
+
+const javascriptMimeTypes = new Set([
+    'application/ecmascript',
+    'application/javascript',
+    'application/x-ecmascript',
+    'application/x-javascript',
+    'text/ecmascript',
+    'text/javascript',
+    'text/javascript1.0',
+    'text/javascript1.1',
+    'text/javascript1.2',
+    'text/javascript1.3',
+    'text/javascript1.4',
+    'text/javascript1.5',
+    'text/jscript',
+    'text/livescript',
+    'text/x-ecmascript',
+    'text/x-javascript',
+]);
+
+function classifyScript(attributes: Readonly<Record<string, string>>): ScriptKind {
+    const language = (attributes.language ?? '').trim().toLowerCase();
+    if (language === 'ampscript') return 'ampscript';
+    const type = (attributes.type ?? '').trim().toLowerCase();
+    const server = (attributes.runat ?? '').trim().toLowerCase() === 'server';
+    if (type === 'module') return server ? 'non-js' : 'browser-module';
+    // Explicit types take precedence over the obsolete language attribute.
+    const isJavascript = Object.hasOwn(attributes, 'type')
+        ? !type || javascriptMimeTypes.has(type)
+        : !language || javascriptMimeTypes.has(`text/${language}`);
+    if (!isJavascript) return 'non-js';
+    return server ? 'ssjs' : 'browser-classic';
+}
+
+function findTagEnd(text: string, start: number): number {
+    let quote = '';
+    for (let index = start; index < text.length; index++) {
+        const char = text[index];
+        if (quote) {
+            if (char === quote) quote = '';
+        } else if (char === '"' || char === "'") {
+            quote = char;
+        } else if (char === '>') {
+            return index + 1;
+        }
+    }
+    return -1;
+}
+
+function parseScriptAttributes(text: string): Record<string, string> {
+    const attributes: Record<string, string> = Object.create(null);
+    const pattern = /([^\s/=>]+)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+)))?/g;
+    let match: RegExpExecArray | null;
+    while ((match = pattern.exec(text)) !== null) {
+        const name = match[1].toLowerCase();
+        if (!Object.hasOwn(attributes, name)) {
+            attributes[name] = match[2] ?? match[3] ?? match[4] ?? '';
+        }
+    }
+    return attributes;
+}
+
+/**
+ * Classify script bodies without scanning nested script-looking text in raw bodies.
+ * HTML comments and quoted attributes are skipped. Unfinished opening tags produce
+ * no region; unfinished bodies extend to EOF. HTML raw-text closing tags terminate
+ * bodies even when they occur inside a JavaScript string or comment.
+ * @param text - Full mixed document.
+ * @returns Script metadata in document order.
+ */
+export function getScriptRegions(text: string): ScriptRegion[] {
+    const regions: ScriptRegion[] = [];
+    const tagPattern = /^<\/?([a-z][\w:-]*)(?=[\t\n\f\r />])/i;
+    let offset = 0;
+    while (offset < text.length) {
+        const tagStart = text.indexOf('<', offset);
+        if (tagStart === -1) break;
+        if (text.startsWith('<!--', tagStart)) {
+            const commentEnd = text.indexOf('-->', tagStart + 4);
+            offset = commentEnd === -1 ? text.length : commentEnd + 3;
+            continue;
+        }
+        const match = tagPattern.exec(text.slice(tagStart));
+        if (!match) {
+            offset = tagStart + 1;
+            continue;
+        }
+        const tagEnd = findTagEnd(text, tagStart + match[0].length);
+        if (tagEnd === -1) break;
+        offset = tagEnd;
+        if (text[tagStart + 1] === '/') continue;
+        const name = match[1].toLowerCase();
+        if (name === 'plaintext') break;
+        if (
+            ![
+                'script',
+                'style',
+                'textarea',
+                'title',
+                'xmp',
+                'iframe',
+                'noembed',
+                'noframes',
+            ].includes(name)
+        ) {
+            continue;
+        }
+        const closePattern = new RegExp(String.raw`</${name}(?=[\t\n\f\r />])[^>]*>`, 'gi');
+        closePattern.lastIndex = tagEnd;
+        const close = closePattern.exec(text);
+        const bodyEnd = close?.index ?? text.length;
+        offset = close ? close.index + close[0].length : text.length;
+        if (name !== 'script') continue;
+        const attributes = parseScriptAttributes(
+            text.slice(tagStart + match[0].length, tagEnd - 1),
+        );
+        regions.push({
+            kind: classifyScript(attributes),
+            tagStart,
+            tagEnd,
+            bodyStart: tagEnd,
+            bodyEnd,
+            closeTagStart: close?.index ?? null,
+            closeTagEnd: close ? offset : null,
+            attributes,
+        });
+    }
+    return regions;
+}
+
+/**
+ * Keep only selected script bodies, masking everything else with spaces. Each
+ * UTF-16 code unit keeps its original offset, including astral characters, and
+ * CR/LF line endings are preserved throughout the document. Bodies are not
+ * sanitized: consumers remain responsible for template interpolation handling.
+ * @param text - Full mixed document.
+ * @param kinds - Script classifications to retain.
+ * @returns Offset-preserving text and retained block metadata.
+ */
+export function extractScriptBodies(text: string, kinds: readonly ScriptKind[]): ScriptExtraction {
+    const regions = getScriptRegions(text).filter((region) => kinds.includes(region.kind));
+    let offset = 0;
+    const chunks: string[] = [];
+    for (const region of regions) {
+        chunks.push(
+            text.slice(offset, region.bodyStart).replaceAll(/[^\r\n]/g, ' '),
+            text.slice(region.bodyStart, region.bodyEnd),
+        );
+        offset = region.bodyEnd;
+    }
+    chunks.push(text.slice(offset).replaceAll(/[^\r\n]/g, ' '));
+    return { text: chunks.join(''), regions };
+}
+
+/**
  * Returns true when the given character offset falls inside an AMPscript
  * region: a %%[...]%% block, a %%=...=%% inline expression, or a
  * <script language="ampscript"> ... </script> tag body.
