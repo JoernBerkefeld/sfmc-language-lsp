@@ -189,6 +189,90 @@ export function extractScriptBodies(text: string, kinds: readonly ScriptKind[]):
 }
 
 /**
+One delimiter-level item found by {@link scanAmpscriptDelimiters}. Offsets are
+UTF-16, zero-based, and end-exclusive.
+- `block` / `inline`: `closed` regions span opener through closing delimiter; an
+  unclosed one covers only its three-character opener.
+- `personalization`: a complete `%%name%%` string (plain text, never a delimiter).
+- `block-close` / `inline-close`: a stray `]%%` / `=%%` outside any region.
+ */
+export interface AmpscriptDelimiterRegion {
+    kind: 'block' | 'inline' | 'personalization' | 'block-close' | 'inline-close';
+    start: number;
+    end: number;
+    closed: boolean;
+}
+
+const personalizationPattern = /%%\w(?:[\w .:;~()[\]/-]*[\w)\]])?%%/y;
+
+/**
+ * Scan a template left to right for AMPscript delimiters. At a `%%` outside any
+ * region, `%%[` opens a block ending at the first following `]%%` and `%%=` opens
+ * an inline expression ending at the first following `=%%`; otherwise a
+ * personalisation string (`%%name%%` on one line) is skipped as a whole, so neither
+ * of its `%%` can form a delimiter; any other `%%` is literal text. Scanning
+ * resumes right after an opener that has no closing delimiter. Outside a region,
+ * the body of a `<script runat="server">` that is not `language="ampscript"` is
+ * skipped up to its `</script` (or the end of the text).
+ * @param text - Full document text.
+ * @returns Regions, personalisation strings and stray closers in document order.
+ */
+export function scanAmpscriptDelimiters(text: string): AmpscriptDelimiterRegion[] {
+    const regions: AmpscriptDelimiterRegion[] = [];
+    const scriptOpenPattern = /<script(?=[\s>])[^>]*>/gi;
+    const scriptClosePattern = /<\/script/gi;
+    let script = scriptOpenPattern.exec(text);
+    // Next `%%` at or after `from` that is not inside the body of a server-side
+    // JavaScript <script>: AMPscript is not evaluated there.
+    const nextDelimiter = (from: number): number => {
+        let index = text.indexOf('%%', from);
+        while (index !== -1) {
+            while (
+                script &&
+                (script.index < from || (script.index < index && !isServerJavascriptTag(script[0])))
+            ) {
+                script = scriptOpenPattern.exec(text);
+            }
+            if (!script || script.index >= index) break;
+            scriptClosePattern.lastIndex = script.index + script[0].length;
+            from = scriptClosePattern.exec(text)?.index ?? text.length;
+            index = text.indexOf('%%', from);
+        }
+        return index;
+    };
+    let index = nextDelimiter(0);
+    while (index !== -1) {
+        const next = text[index + 2];
+        let resume = index + 1;
+        if (next === '[' || next === '=') {
+            const kind = next === '[' ? 'block' : 'inline';
+            const close = text.indexOf(next === '[' ? ']%%' : '=%%', index + 3);
+            resume = (close === -1 ? index : close) + 3;
+            regions.push({ kind, start: index, end: resume, closed: close !== -1 });
+        } else {
+            personalizationPattern.lastIndex = index;
+            if (personalizationPattern.test(text)) {
+                resume = personalizationPattern.lastIndex;
+                regions.push({ kind: 'personalization', start: index, end: resume, closed: true });
+            } else if (text[index - 1] === ']' || text[index - 1] === '=') {
+                const kind = text[index - 1] === ']' ? 'block-close' : 'inline-close';
+                regions.push({ kind, start: index - 1, end: index + 2, closed: false });
+            }
+        }
+        index = nextDelimiter(resume);
+    }
+    return regions;
+}
+
+function isServerJavascriptTag(tag: string): boolean {
+    const attributes = parseScriptAttributes(tag.slice(7, -1));
+    return (
+        (attributes.runat ?? '').trim().toLowerCase() === 'server' &&
+        (attributes.language ?? '').trim().toLowerCase() !== 'ampscript'
+    );
+}
+
+/**
  * Returns true when the given character offset falls inside an AMPscript
  * region: a %%[...]%% block, a %%=...=%% inline expression, or a
  * <script language="ampscript"> ... </script> tag body.
@@ -199,16 +283,16 @@ export function extractScriptBodies(text: string, kinds: readonly ScriptKind[]):
 export function isInsideAmpscript(text: string, offset: number): boolean {
     const before = text.slice(0, Math.max(0, offset));
 
-    const lastBlockOpen = before.lastIndexOf('%%[');
-    const lastBlockClose = before.lastIndexOf(']%%');
-    if (lastBlockOpen !== -1 && lastBlockOpen > lastBlockClose) {
-        return true;
-    }
-
-    const lastInlineOpen = before.lastIndexOf('%%=');
-    const lastInlineClose = before.lastIndexOf('=%%');
-    if (lastInlineOpen !== -1 && lastInlineOpen > lastInlineClose) {
-        return true;
+    // An unclosed opener (code still being typed) keeps everything after it inside;
+    // a closed region covers the offset until its closing delimiter has passed.
+    for (const region of scanAmpscriptDelimiters(text)) {
+        if (region.start + 3 > offset) break;
+        if (
+            (region.kind === 'block' || region.kind === 'inline') &&
+            (!region.closed || offset < region.end)
+        ) {
+            return true;
+        }
     }
 
     const scriptOpenPattern = /<script\s[^>]*language\s*=\s*["']ampscript["'][^>]*>/gi;
@@ -274,16 +358,16 @@ export function getSanitizedHandlebarsText(text: string): string {
         }
     };
 
-    const patterns = [
-        /%%\[[\s\S]*?\]%%/g,
-        /%%=[\s\S]*?=%%/g,
-        /<script\s[^>]*language\s*=\s*["']ampscript["'][^>]*>[\s\S]*?<\/script>/gi,
-    ];
-    for (const pattern of patterns) {
-        let match: RegExpExecArray | null;
-        while ((match = pattern.exec(text)) !== null) {
-            blankRange(match.index, match.index + match[0].length);
+    for (const region of scanAmpscriptDelimiters(text)) {
+        if (region.closed && region.kind !== 'personalization') {
+            blankRange(region.start, region.end);
         }
+    }
+    const scriptPattern =
+        /<script\s[^>]*language\s*=\s*["']ampscript["'][^>]*>[\s\S]*?<\/script>/gi;
+    let match: RegExpExecArray | null;
+    while ((match = scriptPattern.exec(text)) !== null) {
+        blankRange(match.index, match.index + match[0].length);
     }
 
     return chars.join('');
@@ -300,13 +384,14 @@ export function getSanitizedHandlebarsText(text: string): string {
  */
 export function getSanitizedAmpscriptText(text: string): string {
     const sanitizedChars = Array.from(text, () => ' ');
-    const blockPattern = /%%\[[\s\S]*?\]%%/g;
-    const inlinePattern = /%%=[\s\S]*?=%%/g;
     const scriptPattern =
         /<script\s[^>]*language\s*=\s*["']ampscript["'][^>]*>[\s\S]*?<\/script>/gi;
 
-    copySanitizedRegions(text, sanitizedChars, blockPattern, 3, 3);
-    copySanitizedRegions(text, sanitizedChars, inlinePattern, 3, 3);
+    for (const region of scanAmpscriptDelimiters(text)) {
+        if (region.closed && region.kind !== 'personalization') {
+            sanitizeRegion(text, sanitizedChars, region.start + 3, region.end - 3);
+        }
+    }
 
     let scriptMatch: RegExpExecArray | null;
     while ((scriptMatch = scriptPattern.exec(text)) !== null) {
@@ -322,21 +407,6 @@ export function getSanitizedAmpscriptText(text: string): string {
     }
 
     return sanitizedChars.join('');
-}
-
-function copySanitizedRegions(
-    text: string,
-    sanitizedChars: string[],
-    pattern: RegExp,
-    openDelimiterLength: number,
-    closeDelimiterLength: number,
-): void {
-    let match: RegExpExecArray | null;
-    while ((match = pattern.exec(text)) !== null) {
-        const codeStart = match.index + openDelimiterLength;
-        const codeEnd = match.index + match[0].length - closeDelimiterLength;
-        sanitizeRegion(text, sanitizedChars, codeStart, codeEnd);
-    }
 }
 
 function sanitizeRegion(text: string, sanitizedChars: string[], start: number, end: number): void {

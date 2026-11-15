@@ -70,7 +70,7 @@ Some Core library members only exist up to a maximum `Platform.Load("Core", <ver
 
 ## Diagnostic identities and documentation
 
-The [diagnostic rule reference](docs/rules/README.md) covers all 37 public rules and their 48 internal variants. First-party diagnostics carry a canonical `Diagnostic.code` such as `sfmc/amp-arg-types` and a `codeDescription.href` pointing to this repository at `blob/v<LSP package version>/docs/rules/...`. The LSP owns these URLs, even when bundled in an extension with a different version. Versions are embedded at build time; diagnostic creation needs neither the filesystem nor Git.
+The [diagnostic rule reference](docs/rules/README.md) covers all 38 public rules and their 50 internal variants. First-party diagnostics carry a canonical `Diagnostic.code` such as `sfmc/amp-arg-types` and a `codeDescription.href` pointing to this repository at `blob/v<LSP package version>/docs/rules/...`. The LSP owns these URLs, even when bundled in an extension with a different version. Versions are embedded at build time; diagnostic creation needs neither the filesystem nor Git.
 
 **Migration / semver:** canonical `sfmc/...` codes replace legacy `ampscript/...`, `ssjs/...`, and `handlebars/...` codes and name previously uncoded checks. Consumers comparing codes or reading diagnostic data must migrate. This is a breaking public diagnostic-contract change. Version `4.0.0` introduces this contract as one major step from `3.17.1`. Consumers upgrading from `3.x` must migrate; the new contract and its documentation are not part of `3.17.1`.
 

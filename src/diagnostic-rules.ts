@@ -25,6 +25,18 @@ const definitions = [
     ['ampscript/unexpected-block-close', 'amp-balanced-delimiters', false, false],
     ['ampscript/unclosed-inline', 'amp-balanced-delimiters', false, false],
     ['ampscript/unexpected-inline-close', 'amp-balanced-delimiters', false, false],
+    [
+        'ampscript/system-personalization-before-delimiter',
+        'amp-no-ambiguous-personalization-delimiter',
+        true,
+        false,
+    ],
+    [
+        'ampscript/personalization-before-delimiter',
+        'amp-no-ambiguous-personalization-delimiter',
+        true,
+        false,
+    ],
     ['ampscript/unmatched-endif', 'amp-balanced-control-flow', false, false],
     ['ampscript/unmatched-next', 'amp-balanced-control-flow', false, false],
     ['ampscript/unclosed-if', 'amp-balanced-control-flow', false, false],

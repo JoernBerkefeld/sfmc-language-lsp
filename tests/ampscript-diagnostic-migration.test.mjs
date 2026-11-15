@@ -17,6 +17,8 @@ const fixtures = [
     ['unexpected-block-close', ']%%'],
     ['unclosed-inline', '%%='],
     ['unexpected-inline-close', '=%%'],
+    ['system-personalization-before-delimiter', '%%emailaddr%%=1'],
+    ['personalization-before-delimiter', '%%First Name%%[x]'],
     ['unmatched-endif', '%%[ endif ]%%'],
     ['unmatched-next', '%%[ next ]%%'],
     ['unclosed-if', '%%[ if @x then ]%%'],
@@ -112,7 +114,7 @@ describe('AMPscript canonical emission migration', () => {
         );
     });
 
-    it('wraps all 28 AMP emission sites, including the unreachable conditional variant', () => {
+    it('wraps all 25 AMP emission sites, including the unreachable conditional variant', () => {
         const source = ts.createSourceFile(
             'ampscript.ts',
             readFileSync(new URL('../src/validators/ampscript.ts', import.meta.url), 'utf8'),
@@ -139,7 +141,7 @@ describe('AMPscript canonical emission migration', () => {
             ts.forEachChild(node, visit);
         }
         visit(source);
-        assert.equal(emissions.length, 28);
+        assert.equal(emissions.length, 25);
         assert.ok(
             emissions.some((emission) =>
                 emission.arguments[0].getText(source).includes('DIAG_CODE_HTML_WRAPPED_COMMENT'),

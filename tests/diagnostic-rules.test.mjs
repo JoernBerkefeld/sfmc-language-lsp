@@ -246,7 +246,7 @@ describe('quick-fix transport compatibility', () => {
 const formats = Object.entries({ esm, cjs });
 for (const [format, api] of formats) {
     describe(`diagnostic registry (${format})`, () => {
-        it('enumerates every existing named variant and eleven reserved unnamed sites', () => {
+        it('enumerates every existing named variant and thirteen reserved unnamed sites', () => {
             const codes = [amp, ssjs, hbs].flatMap((module) =>
                 Object.entries(module)
                     .filter(([name]) => name.startsWith('DIAG_CODE_'))
@@ -258,17 +258,19 @@ for (const [format, api] of formats) {
                 legacy.map((rule) => rule.legacyCode).toSorted((a, b) => a.localeCompare(b)),
                 codes.toSorted((a, b) => a.localeCompare(b)),
             );
-            assert.equal(api.DIAGNOSTIC_RULES.length, 48);
-            assert.equal(new Set(api.DIAGNOSTIC_RULES.map((rule) => rule.variant)).size, 48);
+            assert.equal(api.DIAGNOSTIC_RULES.length, 50);
+            assert.equal(new Set(api.DIAGNOSTIC_RULES.map((rule) => rule.variant)).size, 50);
             assert.equal(api.getDiagnosticRule('toString'), undefined);
         });
 
-        it('preserves suppression classifications with only the planned attribute correction', () => {
+        it('preserves suppression classifications plus the attribute correction and the mirrored personalization rule', () => {
             const suppressed = new Set([
                 ...amp.ESLINT_DUPLICATE_DIAG_CODES,
                 ...ssjs.SSJS_ESLINT_DUPLICATE_DIAG_CODES,
                 ...hbs.HBS_ESLINT_DUPLICATE_DIAG_CODES,
                 'ampscript/prefer-attribute-value',
+                'ampscript/system-personalization-before-delimiter',
+                'ampscript/personalization-before-delimiter',
             ]);
             for (const rule of api.DIAGNOSTIC_RULES) {
                 assert.equal(rule.suppressWithEslint, suppressed.has(rule.variant), rule.variant);

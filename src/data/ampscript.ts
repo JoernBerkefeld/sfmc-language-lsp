@@ -17,6 +17,7 @@ export {
     functionNames,
     isEmailExcluded,
     isMcnSupported,
+    isSystemPersonalizationString,
     getMcnApiVersion,
     getMcnNotes,
     AMPSCRIPT_KEYWORDS as ampscriptKeywords,

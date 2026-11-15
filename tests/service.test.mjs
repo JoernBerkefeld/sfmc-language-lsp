@@ -14,6 +14,12 @@ import {
 } from '../dist/esm/index.js';
 
 import { buildFunctionMarkdown } from '../dist/esm/utils/markdown.js';
+import {
+    scanAmpscriptDelimiters,
+    isInsideAmpscript,
+    getSanitizedAmpscriptText,
+    getSanitizedHandlebarsText,
+} from '../dist/esm/utils/regions.js';
 
 const service = new SfmcLanguageService();
 
@@ -31,6 +37,23 @@ const ampSig = (textUpToCursor) =>
  * @returns {import('../dist/esm/index.js').Diagnostic[]} Diagnostics.
  */
 const ampValidate = (text) => service.validate({ text, languageId: 'ampscript' });
+
+/**
+ * Helper: delimiter-balance diagnostics of a one-line AMPscript snippet.
+ * @param {string} text - AMPscript source.
+ * @returns {Array<[string, number, number]>} Code, start column and end column.
+ */
+const delimiterDiags = (text) =>
+    ampValidate(text)
+        .map((d) => [d.data.sfmc.variant, d.range.start.character, d.range.end.character])
+        .filter(([variant]) => /^ampscript\/(unclosed|unexpected)-/.test(variant));
+
+/**
+ * Helper: diagnostic messages of an AMPscript snippet.
+ * @param {string} text - AMPscript source.
+ * @returns {string[]} Messages.
+ */
+const ampMessages = (text) => ampValidate(text).map((d) => d.message);
 
 /**
  * Helper: validate an SSJS snippet.
@@ -59,6 +82,206 @@ describe('AMPscript validation', () => {
         const doc = { text: ']%%', languageId: 'ampscript' };
         const diags = service.validate(doc);
         assert.ok(diags.some((d) => d.message.includes('Unexpected ]%%')));
+    });
+
+    describe('delimiters next to personalisation strings', () => {
+        for (const text of [
+            '<a href="x?e=%%emailaddr%%&a=1">go</a> %%=v(@a)=%%',
+            'x?e=%%emailaddr%%&k=%%_subscriberkey%% %%=v(@a)=%%',
+            '%%=v(@a)=%%%%=v(@b)=%%',
+            '50%% off and then %%=v(@a)=%% and 20%% more',
+            '<td width="100%%">%%=v(@a)=%%</td>',
+        ]) {
+            it(`reports nothing for ${JSON.stringify(text)}`, () => {
+                assert.deepEqual(ampValidate(text), []);
+            });
+        }
+
+        // No delimiter errors; only the ambiguity warning for the string that
+        // directly borders [ or =.
+        for (const text of [
+            '<a href="x?e=%%emailaddr%%=1">go</a>\n<p>plain text</p>\n%%=v(@a)=%%',
+            '<td>%%firstname%%[x]</td>',
+            '%%MSG(0).VERB%%=1 %%=v(@a)=%%',
+            '%%microsite_base_url[default]123[/default]%%[x]',
+        ]) {
+            it(`reports only the personalisation warning for ${JSON.stringify(text)}`, () => {
+                assert.deepEqual(
+                    ampValidate(text).map((d) => [d.code, d.severity]),
+                    [['sfmc/amp-no-ambiguous-personalization-delimiter', 2]],
+                );
+            });
+        }
+
+        it('still reports genuinely unmatched delimiters at their own position', () => {
+            assert.deepEqual(delimiterDiags('%%[ set @a = 1'), [
+                ['ampscript/unclosed-block', 0, 3],
+            ]);
+            assert.deepEqual(delimiterDiags('text ]%%'), [
+                ['ampscript/unexpected-block-close', 5, 8],
+            ]);
+            assert.deepEqual(delimiterDiags('%%=v(@a)'), [['ampscript/unclosed-inline', 0, 3]]);
+            assert.deepEqual(delimiterDiags('a =%% b'), [
+                ['ampscript/unexpected-inline-close', 2, 5],
+            ]);
+        });
+
+        it('still reports nested delimiters', () => {
+            assert.ok(
+                ampMessages('%%[ set @a = 1 %%[ set @b = 2 ]%%').includes(
+                    'Nested %%[ inside an already-open AMPscript block.',
+                ),
+            );
+            assert.ok(
+                ampMessages('%%=v(@a) %%=v(@b)=%%').includes(
+                    'Nested %%= inside an already-open AMPscript inline expression.',
+                ),
+            );
+            assert.ok(
+                ampMessages('%%[ set @a = 1 %%=v(@a)=%% ]%%').includes(
+                    'Nested %%= inside an already-open AMPscript block.',
+                ),
+            );
+        });
+
+        it('accepts an inline expression inside a string literal of a block', () => {
+            assert.deepEqual(
+                ampValidate("%%[\nset @r = TreatAsContent('%%=v(@a)=%%')\n]%%\n%%=v(@r)=%%"),
+                [],
+            );
+            assert.deepEqual(
+                ampValidate(
+                    '%%[ set @r = TreatAsContent("pre-%%=Add(2,3)=%%-post") ]%%%%=v(@r)=%%',
+                ),
+                [],
+            );
+            assert.deepEqual(
+                ampValidate(
+                    `%%[ set @s = TreatAsContent('<script runat="server">Write("x");</script>') ]%%%%=v(@s)=%%`,
+                ),
+                [],
+            );
+        });
+
+        it('still reports a nested %%[ inside a string literal of a block', () => {
+            assert.ok(
+                ampMessages("%%[ set @r = TreatAsContent('%%[ set @b = 1 ]%%') ]%%").includes(
+                    'Nested %%[ inside an already-open AMPscript block.',
+                ),
+            );
+        });
+
+        it('ignores quotes inside block comments when looking for string literals', () => {
+            assert.ok(
+                ampMessages("%%[ /* don't */ set @a = 1 %%=v(@a)=%% set @b = 'x' ]%%").includes(
+                    'Nested %%= inside an already-open AMPscript block.',
+                ),
+            );
+            assert.ok(
+                !ampMessages("%%[ /* don't */ set @r = TreatAsContent('%%=v(@a)=%%') ]%%").includes(
+                    'Nested %%= inside an already-open AMPscript block.',
+                ),
+            );
+        });
+
+        it('does not scan server-side JavaScript script bodies for delimiters', () => {
+            assert.deepEqual(
+                ampValidate(
+                    `<script runat="server">var a = "%%=v(@x)"; var b = '%%[ set @x = 1';</script>\n%%=v(@b)=%%`,
+                ),
+                [],
+            );
+            assert.deepEqual(
+                scanAmpscriptDelimiters(
+                    `<SCRIPT type="text/javascript"\n RunAt=Server>"%%[";</SCRIPT>%%=v(@b)=%%<script runat=server>%%=`,
+                ).map(({ kind, closed }) => [kind, closed]),
+                [['inline', true]],
+            );
+            assert.deepEqual(delimiterDiags('<script>var x = "%%=v(@a)";</script>'), [
+                ['ampscript/unclosed-inline', 17, 20],
+            ]);
+            assert.deepEqual(
+                scanAmpscriptDelimiters(
+                    '<script runat="server" language="ampscript">%%[ set @a = 1 ]%%</script>',
+                ).map(({ kind, closed }) => [kind, closed]),
+                [['block', true]],
+            );
+        });
+
+        it('warns when a personalisation string is directly followed by [ or =', () => {
+            const warnings = (text) =>
+                ampValidate(text).map((d) => [
+                    d.data.sfmc.variant,
+                    d.severity,
+                    text.slice(d.range.start.character, d.range.end.character),
+                ]);
+            const system = 'ampscript/system-personalization-before-delimiter';
+            const other = 'ampscript/personalization-before-delimiter';
+            assert.deepEqual(warnings('<a href="x?e=%%emailaddr%%=1">go</a>'), [
+                [system, 2, '%%emailaddr%%='],
+            ]);
+            assert.deepEqual(warnings('<td>%%First Name%%[x]</td>'), [
+                [other, 2, '%%First Name%%['],
+            ]);
+            assert.deepEqual(warnings('%%emailaddr%%=v(@a)=%%'), [[system, 2, '%%emailaddr%%=']]);
+            assert.deepEqual(warnings('50%%off%%[ set @x = 1 ]%%'), [[other, 2, '%%off%%[']]);
+            const [known] = ampValidate('%%emailaddr%%=1');
+            assert.equal(known.code, 'sfmc/amp-no-ambiguous-personalization-delimiter');
+            assert.match(known.message, /^%%emailaddr%% is a system personalization string/);
+            assert.match(known.message, /the %%= formed with the following = does not start/);
+            const [unknown] = ampValidate('%%First Name%%[x]');
+            assert.match(unknown.message, /can resolve 'First Name' where the content runs/);
+            assert.match(unknown.message, /personalization string and the \[ to make/);
+            assert.deepEqual(
+                service.validate(
+                    { text: '%%emailaddr%%=1 %%First Name%%[x]', languageId: 'ampscript' },
+                    { maxNumberOfProblems: 100, disableLspDiagnosticsForEslintRules: true },
+                ),
+                [],
+            );
+            // A second stray closer is still an error.
+            assert.deepEqual(
+                ampValidate('%%emailaddr%%=v(@a)=%% =%%').map((d) => d.data.sfmc.variant),
+                ['ampscript/unexpected-inline-close', system],
+            );
+            for (const text of [
+                'x?e=%%emailaddr%%&a=1',
+                '%%emailaddr%% = 1',
+                '%%=v(@a)=%%%%=v(@b)=%%',
+                '<script runat="server">var a = "%%emailaddr%%=1";</script>',
+                'x?e=%%emailaddr%%',
+            ]) {
+                assert.deepEqual(ampValidate(text), [], text);
+            }
+            // Inside a block the scanner sees no personalisation string at all.
+            assert.ok(
+                ampValidate("%%[ set @a = '%%emailaddr%%=1' ]%%%%=v(@a)=%%").every(
+                    (d) => d.code !== 'sfmc/amp-no-ambiguous-personalization-delimiter',
+                ),
+            );
+        });
+
+        it('scans regions, personalisation strings and recovery after an unclosed opener', () => {
+            const text = '%%name%% %%[ set @a = 1 %%=v(@a)=%% x';
+            assert.deepEqual(scanAmpscriptDelimiters(text), [
+                { kind: 'personalization', start: 0, end: 8, closed: true },
+                { kind: 'block', start: 9, end: 12, closed: false },
+                { kind: 'inline', start: 24, end: 35, closed: true },
+            ]);
+            assert.equal(isInsideAmpscript(text, text.indexOf('v(@a)')), true);
+            assert.equal(isInsideAmpscript(text, text.length), true);
+            assert.equal(isInsideAmpscript('a %%=v(@a)=%% x', 15), false);
+            const typing = "%%[ set @x = TreatAsContent('%%=v(@a)=%%')\nset @y = Lo";
+            assert.equal(isInsideAmpscript(typing, typing.length), true);
+            assert.equal(isInsideAmpscript(text, 4), false);
+            assert.equal(isInsideAmpscript('%%[ set @a = ', 13), true);
+            assert.equal(isInsideAmpscript('a=%%emailaddr%%=1 x', 18), false);
+            assert.equal(getSanitizedAmpscriptText(text).trim(), 'v(@a)');
+            assert.equal(
+                getSanitizedHandlebarsText('%%x%%=1 {{a}} %%=v(@a)=%%'),
+                '%%x%%=1 {{a}}            ',
+            );
+        });
     });
 
     it('reports unknown function', () => {

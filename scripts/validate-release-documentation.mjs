@@ -12,7 +12,7 @@ export function validateReleaseTag(tag, version, head, taggedCommit) {
 export function validateDocumentation(api, metadata, readDocument) {
     assert.equal(metadata.name, 'sfmc-language-lsp');
     assert.equal(api.LSP_PACKAGE_VERSION, metadata.version);
-    assert.equal(api.DIAGNOSTIC_RULES.length, 48, 'Review variant coverage when adding rules');
+    assert.equal(api.DIAGNOSTIC_RULES.length, 50, 'Review variant coverage when adding rules');
     const documents = new Set();
     const index = readDocument('docs/rules/README.md');
     for (const rule of api.DIAGNOSTIC_RULES) {
@@ -59,7 +59,7 @@ export function validateDocumentation(api, metadata, readDocument) {
         }
         documents.add(expectedPath);
     }
-    assert.equal(documents.size, 37, 'Review public rule coverage when adding rules');
+    assert.equal(documents.size, 38, 'Review public rule coverage when adding rules');
     return [...documents];
 }
 

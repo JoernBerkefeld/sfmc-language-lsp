@@ -3,9 +3,12 @@ import { DiagnosticSeverity } from '../types.js';
 import type { Diagnostic } from '../types.js';
 import type { SfmcSettings } from '../types.js';
 import { DEFAULT_SETTINGS } from '../types.js';
-import { getSanitizedAmpscriptText, isInsideAmpscript } from '../utils/regions.js';
 import {
-    findAllOccurrences,
+    getSanitizedAmpscriptText,
+    isInsideAmpscript,
+    scanAmpscriptDelimiters,
+} from '../utils/regions.js';
+import {
     countFunctionArguments,
     extractFunctionArguments,
     inferLiteralType,
@@ -17,6 +20,7 @@ import {
     ampscriptKeywords,
     canonicalFunctions,
     isMcnSupported,
+    isSystemPersonalizationString,
 } from '../data/ampscript.js';
 import type { AmpscriptDataRepeatGroup, AmpscriptFunctionParam } from '../data/ampscript.js';
 import { validateGtlBlocks } from './gtl.js';
@@ -402,6 +406,38 @@ function collectArgumentDiagnostics(
 }
 
 /**
+ * True when the `%%=` at `openIndex` and its `=%%` both lie inside one quoted
+ * AMPscript string literal of the block code, e.g. TreatAsContent('%%=v(@a)=%%').
+ * @param code - Block code between `%%[` and `]%%`.
+ * @param openIndex - Offset of the `%%=` within `code`.
+ * @returns Whether the inline pair is string content.
+ */
+function isInlinePairInsideStringLiteral(code: string, openIndex: number): boolean {
+    let index = 0;
+    while (index < openIndex) {
+        if (code.startsWith('/*', index)) {
+            const commentEnd = code.indexOf('*/', index + 2);
+            if (commentEnd === -1) return false;
+            index = commentEnd + 2;
+            continue;
+        }
+        const quote = code[index];
+        if (quote !== '"' && quote !== "'") {
+            index++;
+            continue;
+        }
+        const stringEnd = code.indexOf(quote, index + 1);
+        if (stringEnd === -1) return false;
+        if (stringEnd > openIndex) {
+            const close = code.indexOf('=%%', openIndex + 3);
+            return close !== -1 && close + 3 <= stringEnd;
+        }
+        index = stringEnd + 1;
+    }
+    return false;
+}
+
+/**
  * Validate an AMPscript document and return LSP Diagnostics.
  * @param text - Full document text.
  * @param settings - Validation settings.
@@ -416,74 +452,88 @@ export function validateAmpscript(
     let problems = 0;
     const max = settings.maxNumberOfProblems;
 
-    // 1. Unmatched %%[ ... ]%% block delimiters
-    const blockOpens = findAllOccurrences(text, '%%[');
-    const blockCloses = findAllOccurrences(text, ']%%');
-    if (blockOpens.length > blockCloses.length) {
-        for (let i = blockCloses.length; i < blockOpens.length && problems < max; i++) {
+    // 1. + 2. Unmatched %%[ ... ]%% block and %%= ... =%% inline delimiters
+    const delimiterRegions = scanAmpscriptDelimiters(text);
+    const unmatchedDelimiters = [
+        ['block', 'ampscript/unclosed-block', 'Unclosed AMPscript block. Expected a matching ]%%.'],
+        [
+            'block-close',
+            'ampscript/unexpected-block-close',
+            'Unexpected ]%% without a matching %%[ opener.',
+        ],
+        [
+            'inline',
+            'ampscript/unclosed-inline',
+            'Unclosed inline AMPscript expression. Expected a matching =%%.',
+        ],
+        [
+            'inline-close',
+            'ampscript/unexpected-inline-close',
+            'Unexpected =%% without a matching %%= opener.',
+        ],
+    ] as const;
+    // A personalization string directly followed by [ or = is ambiguous: only when
+    // its name does not resolve at runtime do the trailing %% and that character
+    // open AMPscript. The closer of that possible region is therefore not "stray".
+    const ambiguousPersonalizations = delimiterRegions.filter(
+        (region) =>
+            region.kind === 'personalization' &&
+            (text[region.end] === '[' || text[region.end] === '='),
+    );
+    const possibleClosers = new Set(
+        ambiguousPersonalizations.map((region) =>
+            text.indexOf(text[region.end] === '[' ? ']%%' : '=%%', region.end + 1),
+        ),
+    );
+    for (const [kind, code, message] of unmatchedDelimiters) {
+        for (const region of delimiterRegions) {
+            if (
+                problems >= max ||
+                region.kind !== kind ||
+                region.closed ||
+                (kind.endsWith('-close') && possibleClosers.has(region.start))
+            ) {
+                continue;
+            }
             problems++;
             diagnostics.push(
-                createDiagnostic('ampscript/unclosed-block', {
+                createDiagnostic(code, {
                     severity: DiagnosticSeverity.Error,
                     range: {
-                        start: offsetToPosition(text, blockOpens[i]),
-                        end: offsetToPosition(text, blockOpens[i] + 3),
+                        start: offsetToPosition(text, region.start),
+                        end: offsetToPosition(text, region.end),
                     },
-                    message: 'Unclosed AMPscript block. Expected a matching ]%%.',
-                    source: 'ampscript',
-                }),
-            );
-        }
-    } else if (blockCloses.length > blockOpens.length) {
-        for (let i = blockOpens.length; i < blockCloses.length && problems < max; i++) {
-            problems++;
-            diagnostics.push(
-                createDiagnostic('ampscript/unexpected-block-close', {
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: offsetToPosition(text, blockCloses[i]),
-                        end: offsetToPosition(text, blockCloses[i] + 3),
-                    },
-                    message: 'Unexpected ]%% without a matching %%[ opener.',
+                    message,
                     source: 'ampscript',
                 }),
             );
         }
     }
-
-    // 2. Unmatched %%= ... =%% inline delimiters
-    const inlineOpens = findAllOccurrences(text, '%%=');
-    const inlineCloses = findAllOccurrences(text, '=%%');
-    if (inlineOpens.length > inlineCloses.length) {
-        for (let i = inlineCloses.length; i < inlineOpens.length && problems < max; i++) {
-            problems++;
-            diagnostics.push(
-                createDiagnostic('ampscript/unclosed-inline', {
-                    severity: DiagnosticSeverity.Error,
+    for (const region of ambiguousPersonalizations) {
+        if (problems >= max) break;
+        problems++;
+        const personalization = text.slice(region.start, region.end);
+        const name = personalization.slice(2, -2);
+        const next = text[region.end];
+        const isSystem = isSystemPersonalizationString(name);
+        diagnostics.push(
+            createDiagnostic(
+                isSystem
+                    ? 'ampscript/system-personalization-before-delimiter'
+                    : 'ampscript/personalization-before-delimiter',
+                {
+                    severity: DiagnosticSeverity.Warning,
                     range: {
-                        start: offsetToPosition(text, inlineOpens[i]),
-                        end: offsetToPosition(text, inlineOpens[i] + 3),
+                        start: offsetToPosition(text, region.start),
+                        end: offsetToPosition(text, region.end + 1),
                     },
-                    message: 'Unclosed inline AMPscript expression. Expected a matching =%%.',
+                    message: isSystem
+                        ? `${personalization} is a system personalization string and is replaced before AMPscript is parsed, so the %%${next} formed with the following ${next} does not start AMPscript and the text after it is output as written. Add a space or another character before the ${next} if that is intended, or move the AMPscript away from the string.`
+                        : `Whether the %%${next} formed by ${personalization} and the following ${next} starts AMPscript depends on whether Marketing Cloud can resolve '${name}' where the content runs (an attribute or sendable data extension field in a send; often not on a CloudPage): if it resolves, the string is replaced and what follows is plain text. Add a space or another character between the personalization string and the ${next} to make the result predictable.`,
                     source: 'ampscript',
-                }),
-            );
-        }
-    } else if (inlineCloses.length > inlineOpens.length) {
-        for (let i = inlineOpens.length; i < inlineCloses.length && problems < max; i++) {
-            problems++;
-            diagnostics.push(
-                createDiagnostic('ampscript/unexpected-inline-close', {
-                    severity: DiagnosticSeverity.Error,
-                    range: {
-                        start: offsetToPosition(text, inlineCloses[i]),
-                        end: offsetToPosition(text, inlineCloses[i] + 3),
-                    },
-                    message: 'Unexpected =%% without a matching %%= opener.',
-                    source: 'ampscript',
-                }),
-            );
-        }
+                },
+            ),
+        );
     }
 
     // 3. IF/ENDIF and FOR/NEXT balance using a stack
@@ -918,56 +968,36 @@ export function validateAmpscript(
             }
         }
     }
-    {
-        const blockPattern = /%%\[([\s\S]*?)\]%%/g;
-        let bMatch: RegExpExecArray | null;
-        while ((bMatch = blockPattern.exec(text)) !== null && problems < max) {
-            const innerStart = bMatch.index + 3;
-            const inner = bMatch[1];
-            delimiterPattern.lastIndex = 0;
-            let dm: RegExpExecArray | null;
-            while ((dm = delimiterPattern.exec(inner)) !== null && problems < max) {
-                problems++;
-                const delimStart = innerStart + dm.index;
-                diagnostics.push(
-                    createDiagnostic(DIAG_CODE_NESTED_DELIMITER, {
-                        severity: DiagnosticSeverity.Error,
-                        range: {
-                            start: offsetToPosition(text, delimStart),
-                            end: offsetToPosition(text, delimStart + dm[0].length),
-                        },
-                        message: `Nested ${dm[0]} inside an already-open AMPscript block.`,
-                        source: 'ampscript',
-                        data: dm[0],
-                    }),
-                );
+    for (const region of delimiterRegions) {
+        if (problems >= max) break;
+        if (!region.closed || (region.kind !== 'block' && region.kind !== 'inline')) continue;
+        const innerStart = region.start + 3;
+        const inner = text.slice(innerStart, region.end - 3);
+        const where = region.kind === 'block' ? 'block' : 'inline expression';
+        delimiterPattern.lastIndex = 0;
+        let dm: RegExpExecArray | null;
+        while ((dm = delimiterPattern.exec(inner)) !== null && problems < max) {
+            if (
+                region.kind === 'block' &&
+                dm[0] === '%%=' &&
+                isInlinePairInsideStringLiteral(inner, dm.index)
+            ) {
+                continue;
             }
-        }
-    }
-    {
-        const inlinePattern = /%%=([\s\S]*?)=%%/g;
-        let iMatch: RegExpExecArray | null;
-        while ((iMatch = inlinePattern.exec(text)) !== null && problems < max) {
-            const innerStart = iMatch.index + 3;
-            const inner = iMatch[1];
-            delimiterPattern.lastIndex = 0;
-            let dm: RegExpExecArray | null;
-            while ((dm = delimiterPattern.exec(inner)) !== null && problems < max) {
-                problems++;
-                const delimStart = innerStart + dm.index;
-                diagnostics.push(
-                    createDiagnostic(DIAG_CODE_NESTED_DELIMITER, {
-                        severity: DiagnosticSeverity.Error,
-                        range: {
-                            start: offsetToPosition(text, delimStart),
-                            end: offsetToPosition(text, delimStart + dm[0].length),
-                        },
-                        message: `Nested ${dm[0]} inside an already-open AMPscript inline expression.`,
-                        source: 'ampscript',
-                        data: dm[0],
-                    }),
-                );
-            }
+            problems++;
+            const delimStart = innerStart + dm.index;
+            diagnostics.push(
+                createDiagnostic(DIAG_CODE_NESTED_DELIMITER, {
+                    severity: DiagnosticSeverity.Error,
+                    range: {
+                        start: offsetToPosition(text, delimStart),
+                        end: offsetToPosition(text, delimStart + dm[0].length),
+                    },
+                    message: `Nested ${dm[0]} inside an already-open AMPscript ${where}.`,
+                    source: 'ampscript',
+                    data: dm[0],
+                }),
+            );
         }
     }
 

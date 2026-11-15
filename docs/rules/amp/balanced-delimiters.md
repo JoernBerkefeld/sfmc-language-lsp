@@ -2,7 +2,7 @@
 
 ## Trigger and why it matters
 
-Reports an **error** when the document has unequal counts of AMPscript opening and closing delimiters. Block syntax pairs `%%[` with `]%%`; inline output syntax pairs `%%=` with `=%%`. A missing or extra delimiter can change which content is interpreted as AMPscript.
+Reports an **error** for an AMPscript opening delimiter without its closing delimiter, and for a closing delimiter outside any AMPscript region. Block syntax pairs `%%[` with `]%%`; inline output syntax pairs `%%=` with `=%%`. A missing or extra delimiter can change which content is interpreted as AMPscript.
 
 ## Examples and fix
 
@@ -41,12 +41,12 @@ For an unexpected closer, remove a redundant `]%%` or `=%%`, or restore the open
 
 ## Variants and limitations
 
-- `ampscript/unclosed-block`: more `%%[` openers than `]%%` closers.
-- `ampscript/unexpected-block-close`: more `]%%` closers than `%%[` openers.
-- `ampscript/unclosed-inline`: more `%%=` openers than `=%%` closers.
-- `ampscript/unexpected-inline-close`: more `=%%` closers than `%%=` openers.
+- `ampscript/unclosed-block`: a `%%[` opener with no following `]%%`.
+- `ampscript/unexpected-block-close`: a `]%%` outside any AMPscript region.
+- `ampscript/unclosed-inline`: a `%%=` opener with no following `=%%`.
+- `ampscript/unexpected-inline-close`: a `=%%` outside any AMPscript region.
 
-The check counts exact tokens across raw document text, including strings, comments, and surrounding markup. It is not a parser or an ordered pairing algorithm: equal counts can still be invalid, and the highlighted excess token is not necessarily where the actual omission occurred. It does not balance `<script>` tags. If the counts appear correct in the intended code, inspect literal delimiter text elsewhere in the document before adding a token.
+The check scans the raw document text from left to right. A `%%[` region ends at the first following `]%%` and a `%%=` region at the first following `=%%`, including delimiter text inside strings and comments. Personalization strings such as `%%emailaddr%%` are skipped as a whole, so neither of their `%%` pairs forms a delimiter, and the bodies of server-side JavaScript script elements are not scanned. After an unclosed opener the scan resumes right behind it, so later regions are still recognised. It is not a full parser and does not balance `<script>` tags. A closer that may belong to AMPscript opened by a [personalization string directly followed by `[` or `=`](no-ambiguous-personalization-delimiter.md) is not reported.
 
 ## Quick fixes
 
