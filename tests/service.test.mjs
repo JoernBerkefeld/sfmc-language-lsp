@@ -467,6 +467,45 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
         assert.strictEqual(mcnDiag.range.start.line, 5, 'diagnostic must be on line 5 (0-indexed)');
     });
 
+    it('IF and FOR balance diagnostics are on the line of the statement (regression)', () => {
+        // The sanitized text these checks split into lines used to lose every line break
+        // outside AMPscript and inside comments and strings, so the diagnostics moved up
+        // by the number of lines lost.
+        const code = [
+            '<html>',
+            '<body>',
+            '%%[ /* comment line 1',
+            '   comment line 2 */',
+            'set @a = "text',
+            'on two lines"',
+            'if @a == 1 then',
+            'set @b = 2',
+            ']%%',
+            '<p>text</p>',
+            '%%[ next @i ]%%',
+            '</body></html>',
+        ].join('\n');
+        const diags = service.validate(
+            { text: code, languageId: 'ampscript' },
+            { maxNumberOfProblems: 100 },
+        );
+        const unclosedIf = diags.find((d) => d.message === 'IF without a matching ENDIF.');
+        assert.ok(unclosedIf, 'expected a diagnostic for the IF');
+        assert.strictEqual(unclosedIf.range.start.line, 6);
+        assert.strictEqual(unclosedIf.range.end.character, 'if @a == 1 then'.length);
+        const unmatchedNext = diags.find((d) => d.message === 'NEXT without a matching FOR.');
+        assert.ok(unmatchedNext, 'expected a diagnostic for the NEXT');
+        assert.strictEqual(unmatchedNext.range.start.line, 10);
+    });
+
+    it('the sanitized AMPscript text keeps the lines and offsets of the document', () => {
+        const code = '<p>\u{1F600}</p>\r\n%%[ /* a\nb */ set @a = "c\nd" ]%%\n<p>x</p>';
+        const sanitized = getSanitizedAmpscriptText(code);
+        assert.strictEqual(sanitized.length, code.length);
+        assert.strictEqual(sanitized.split('\n').length, code.split('\n').length);
+        assert.strictEqual(sanitized.indexOf('set'), code.indexOf('set'));
+    });
+
     it('arity diagnostic line is correct after multi-line comment block (regression)', () => {
         // UpperCase is on line 4 (0-indexed) — after a 3-line block comment.
         // Before the fix, sanitizedText had 2 \n replaced with spaces inside the comment,

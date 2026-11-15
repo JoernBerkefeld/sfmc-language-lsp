@@ -378,12 +378,15 @@ export function getSanitizedHandlebarsText(text: string): string {
  * AMPscript regions is preserved (strings blanked, comments blanked).
  * Everything outside AMPscript regions is replaced with spaces.
  * This lets validators run regex safely without accidentally matching
- * HTML content outside AMPscript blocks.
+ * HTML content outside AMPscript blocks. Line breaks are kept everywhere, so
+ * that the result has the same lines as the document and a line number found
+ * in it is a line number of the document.
  * @param text - Full document text.
  * @returns Sanitized text with only AMPscript region content preserved.
  */
 export function getSanitizedAmpscriptText(text: string): string {
-    const sanitizedChars = Array.from(text, () => ' ');
+    // One entry per UTF-16 code unit, so that indexes are offsets of the document.
+    const sanitizedChars = Array.from({ length: text.length }, (_, index) => blank(text[index]));
     const scriptPattern =
         /<script\s[^>]*language\s*=\s*["']ampscript["'][^>]*>[\s\S]*?<\/script>/gi;
 
@@ -409,6 +412,15 @@ export function getSanitizedAmpscriptText(text: string): string {
     return sanitizedChars.join('');
 }
 
+/**
+ * Blanks a character, unless it is a line break.
+ * @param char - Character of the document.
+ * @returns The line break itself, or a space.
+ */
+function blank(char: string): string {
+    return char === '\n' || char === '\r' ? char : ' ';
+}
+
 function sanitizeRegion(text: string, sanitizedChars: string[], start: number, end: number): void {
     let index = start;
     while (index < end) {
@@ -416,7 +428,7 @@ function sanitizeRegion(text: string, sanitizedChars: string[], start: number, e
             const commentEnd = text.indexOf('*/', index + 2);
             const safeEnd = commentEnd === -1 || commentEnd > end ? end : commentEnd + 2;
             for (let i = index; i < safeEnd; i++) {
-                sanitizedChars[i] = ' ';
+                sanitizedChars[i] = blank(text[i]);
             }
             index = safeEnd;
             continue;
@@ -427,7 +439,7 @@ function sanitizeRegion(text: string, sanitizedChars: string[], start: number, e
             const stringEnd = findStringEnd(text, index + 1, end, quote);
             sanitizedChars[index] = quote;
             for (let i = index + 1; i < stringEnd; i++) {
-                sanitizedChars[i] = ' ';
+                sanitizedChars[i] = blank(text[i]);
             }
             if (stringEnd > index + 1 && text[stringEnd - 1] === quote) {
                 sanitizedChars[stringEnd - 1] = quote;
