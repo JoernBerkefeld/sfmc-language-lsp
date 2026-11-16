@@ -29,6 +29,11 @@
             "import": "./dist/esm/index.js",
             "require": "./dist/cjs/index.cjs",
             "types": "./dist/types/index.d.ts"
+        },
+        "./typescript": {
+            "import": "./dist/esm/typescript/index.js",
+            "require": "./dist/cjs/typescript/index.cjs",
+            "types": "./dist/types/typescript/index.d.ts"
         }
     },
     "main": "./dist/cjs/index.cjs",
@@ -61,6 +66,14 @@
         "sfmc-handlebars-parser": "^0.1.1",
         "ssjs-data": "^2.1.1",
         "vscode-languageserver-types": "^3.18.3"
+    },
+    "peerDependencies": {
+        "typescript": "^6"
+    },
+    "peerDependenciesMeta": {
+        "typescript": {
+            "optional": true
+        }
     },
     "engines": {
         "node": ">=22.0.0"

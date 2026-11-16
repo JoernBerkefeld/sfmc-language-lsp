@@ -59,6 +59,45 @@ Use the unchanged `validateSsjs(text, settings?)` entry point for raw SSJS. The 
 
 **Available since 4.3.0:** the script-region helpers and mixed-document SSJS validator are public APIs in `sfmc-language-lsp@4.3.0` and later. Consumers using these APIs must require at least version `4.3.0` and refresh their lockfiles from the npm registry.
 
+## TypeScript-based SSJS intelligence (`sfmc-language-lsp/typescript`)
+
+The subpath `sfmc-language-lsp/typescript` runs a TypeScript language service over SSJS, typed by the SSJS declarations that `ssjs-data` ships. It answers what the catalogue of the main entry cannot: the members of a value (`DataExtension.Init("x").Rows.`), type errors, hover and signature help for your own functions and polyfills, go to definition and find references. It is SSJS only and browser-compatible: it reads no files, and you hand it the declarations as text.
+
+`typescript` is an **optional peer dependency** (`^6`). Only this subpath needs it; the main entry never loads it, so consumers of the main entry alone do not have to install it.
+
+```js
+import { readFileSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { sfmcLanguageService } from 'sfmc-language-lsp';
+import { createSsjsTypeScriptService, memberCompletions } from 'sfmc-language-lsp/typescript';
+
+// In a bundle, inline this text at build time instead of reading it.
+const globalsDts = readFileSync(
+  createRequire(import.meta.url).resolve('ssjs-data/sfmc-globals.d.ts'),
+  'utf8',
+);
+const service = createSsjsTypeScriptService({ globalsDts });
+
+const uri = 'file:///example.ssjs';
+const text = 'Platform.Function.';
+const position = { line: 0, character: text.length };
+service.updateDocument(uri, text);
+
+const { items, isMemberCompletion } = service.getCompletionInfo(uri, position);
+const members = memberCompletions({
+  typescriptItems: items,
+  isMemberAccess: isMemberCompletion,
+  catalogueItems: sfmcLanguageService.getCompletions({ text, languageId: 'ssjs', uri }, position),
+  receiver: 'Platform.Function',
+});
+// members: Lookup, LookupRows, … each with the catalogue's documentation and an insert
+// text for the member alone; null where TypeScript does not know the receiver's type.
+```
+
+- `createSsjsTypeScriptService({ globalsDts, diagnosticUrl? })` returns an independent instance with `updateDocument`, `removeDocument`, `getCompletions`, `getCompletionInfo`, `getDiagnostics`, `getHover`, `getDefinition`, `getReferences` and `getSignatureHelp`. Results are LSP types. `diagnosticUrl(code)` may supply a documentation link per TypeScript diagnostic code.
+- For a mixed HTML document, pass `ssjsProjection(text)` to `updateDocument`: it keeps only the server-side script bodies, at their original offsets. `isInSsjsRegion(text, offset)` tells whether a position belongs to SSJS.
+- `memberCompletions(...)` is the shared rule for completions after a dot: TypeScript decides which members exist, and the catalogue describes those it knows. Pass `hasNew: true` when `new` precedes the receiver (`new Script.Util.`), so that a constructor is inserted as a call.
+
 ## Core-version-aware SSJS diagnostics
 
 Some Core library members only exist up to a maximum `Platform.Load("Core", <version>)` and are `undefined` beyond it. The SSJS validator reads the `maxCoreVersion` metadata from `ssjs-data`, compares it against the Core version the document actually loads, and escalates the diagnostic accordingly:

@@ -95,7 +95,7 @@ test('release workflow gates both tagged jobs and gates publishing after build',
     assert.ok(metadata.scripts.test.includes('tests/*.test.mjs'));
 });
 
-test('real offline npm tarball carries portable CJS, ESM and browser diagnostic metadata', async () => {
+test('real offline npm tarball carries portable CJS, ESM and browser diagnostic metadata and the TypeScript subpath', async () => {
     const temporary = mkdtempSync(path.join(os.tmpdir(), 'sfmc-lsp-packed-'));
     try {
         const npm =
@@ -202,6 +202,141 @@ test('real offline npm tarball carries portable CJS, ESM and browser diagnostic 
                 browserProbe,
                 path.join(relocated, 'dist/esm/diagnostic-rules.js'),
                 metadata.version,
+            ],
+            { cwd: temporary, encoding: 'utf8' },
+        );
+
+        // The TypeScript subpath: every target of its exports is packed, the main entry keeps
+        // its own, and both builds answer from the tarball.
+        assert.deepEqual(packedMetadata.exports, {
+            '.': {
+                import: './dist/esm/index.js',
+                require: './dist/cjs/index.cjs',
+                types: './dist/types/index.d.ts',
+            },
+            './typescript': {
+                import: './dist/esm/typescript/index.js',
+                require: './dist/cjs/typescript/index.cjs',
+                types: './dist/types/typescript/index.d.ts',
+            },
+        });
+        assert.deepEqual(packedMetadata.peerDependencies, { typescript: '^6' });
+        assert.deepEqual(packedMetadata.peerDependenciesMeta, { typescript: { optional: true } });
+        assert.equal(packedMetadata.dependencies.typescript, undefined);
+        const subpath = packedMetadata.exports['./typescript'];
+        const typesDirectory = path.dirname(path.join(relocated, subpath.types));
+        assert.match(
+            readFileSync(path.join(relocated, subpath.types), 'utf8'),
+            /export \{ createSsjsTypeScriptService \} from '\.\/service\.js';/,
+        );
+        assert.match(
+            readFileSync(path.join(typesDirectory, 'service.d.ts'), 'utf8'),
+            /export declare function createSsjsTypeScriptService\(/,
+        );
+        assert.match(
+            readFileSync(path.join(typesDirectory, 'orchestration.d.ts'), 'utf8'),
+            /export declare function memberCompletions\(/,
+        );
+        for (const entry of [packedMetadata.main, packedMetadata.module, packedMetadata.types]) {
+            assert.ok(!readFileSync(path.join(relocated, entry), 'utf8').includes('typescript'));
+        }
+
+        // The relocated package has no node_modules: its two packages come from this checkout.
+        const globals = require.resolve('ssjs-data/sfmc-globals.d.ts');
+        const marker = `${path.sep}node_modules${path.sep}`;
+        const packageRoots = ['typescript', 'vscode-languageserver-types'].map((name) => {
+            const resolved = require.resolve(name);
+            return resolved.slice(0, resolved.lastIndexOf(marker) + marker.length - 1);
+        });
+        // What both probes ask of the service, as source text for either module format.
+        const acceptance = String.raw`
+            const service = api.createSsjsTypeScriptService({ globalsDts });
+            service.updateDocument('u', 'var id = Platform.Function.GUID();\nPlatform.Function.');
+            const info = service.getCompletionInfo('u', { line: 1, character: 18 });
+            assert.equal(info.isMemberCompletion, true);
+            const members = api.memberCompletions({
+                typescriptItems: info.items,
+                isMemberAccess: true,
+                catalogueItems: [{ label: 'Platform.Function.Lookup', insertText: 'Platform.Function.Lookup()' }],
+                receiver: 'Platform.Function',
+            });
+            assert.equal(members.find((item) => item.label === 'Lookup').insertText, 'Lookup()');
+            assert.equal(service.getDiagnostics('u').length, 1);
+            assert.ok(service.getHover('u', { line: 0, character: 5 }).contents.value.includes('id'));
+            assert.equal(api.ssjsProjection('<b>x</b>'), '        ');
+            assert.equal(api.isInSsjsRegion('<script runat="server">x</script>', 23), true);
+        `;
+        const cjsProbe = `
+            const assert = require('node:assert/strict');
+            const api = require(process.argv[1]);
+            const globalsDts = require('node:fs').readFileSync(process.argv[2], 'utf8');
+            ${acceptance}
+        `;
+        execFileSync(
+            process.execPath,
+            ['-e', cjsProbe, path.join(relocated, subpath.require), globals],
+            {
+                cwd: temporary,
+                encoding: 'utf8',
+                env: { ...process.env, NODE_PATH: packageRoots.join(path.delimiter) },
+            },
+        );
+        // Browser-like again: no process, no require, and only relative imports besides the
+        // two packages, which are handed in.
+        const esmProbe = `
+            import assert from 'node:assert/strict';
+            import { readFileSync } from 'node:fs';
+            import vm from 'node:vm';
+            import { pathToFileURL } from 'node:url';
+            const [entryPath, globalsPath, ...packageUrls] = process.argv.slice(1);
+            const context = vm.createContext({});
+            const packages = new Map();
+            for (const [index, name] of ['typescript', 'vscode-languageserver-types'].entries()) {
+                const namespace = await import(packageUrls[index]);
+                const names = Object.keys(namespace);
+                packages.set(
+                    name,
+                    new vm.SyntheticModule(
+                        names,
+                        function () {
+                            for (const key of names) this.setExport(key, namespace[key]);
+                        },
+                        { context, identifier: name },
+                    ),
+                );
+            }
+            const modules = new Map();
+            async function load(url) {
+                if (modules.has(url.href)) return modules.get(url.href);
+                const source = readFileSync(url, 'utf8');
+                const module = new vm.SourceTextModule(source, { context, identifier: url.href });
+                modules.set(url.href, module);
+                await module.link((specifier, importer) => {
+                    if (packages.has(specifier)) return packages.get(specifier);
+                    assert.ok(specifier.startsWith('.'), 'Runtime dependency: ' + specifier);
+                    return load(new URL(specifier, importer.identifier));
+                });
+                return module;
+            }
+            const entry = await load(pathToFileURL(entryPath));
+            await entry.evaluate();
+            const api = entry.namespace;
+            const globalsDts = readFileSync(globalsPath, 'utf8');
+            ${acceptance}
+            assert.equal(modules.size, 5);
+            assert.equal(vm.runInContext('typeof process + ":" + typeof require', context), 'undefined:undefined');
+        `;
+        execFileSync(
+            process.execPath,
+            [
+                '--experimental-vm-modules',
+                '--input-type=module',
+                '-e',
+                esmProbe,
+                path.join(relocated, subpath.import),
+                globals,
+                import.meta.resolve('typescript'),
+                import.meta.resolve('vscode-languageserver-types'),
             ],
             { cwd: temporary, encoding: 'utf8' },
         );
