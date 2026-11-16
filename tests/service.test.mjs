@@ -506,6 +506,58 @@ describe('MCN AMPscript diagnostics (targetPlatform: next)', () => {
         assert.strictEqual(sanitized.indexOf('set'), code.indexOf('set'));
     });
 
+    it('a diagnostic about an argument covers the argument alone, also across lines (regression)', () => {
+        // The range used to start right after the previous comma, so it took in the line
+        // break and indentation before the argument, and the quick fix removed them.
+        const code = [
+            '%%[',
+            'set @out =',
+            '    HTTPPostWithRetry(',
+            '        @url,',
+            "        'application/json',",
+            "        '{}',",
+            '        1,',
+            "        'false',",
+            '        @body,',
+            '        @hdr',
+            '    )',
+            "set @x = RaiseError('stop',   'true')",
+            ']%%',
+        ].join('\n');
+        const doc = { text: code, languageId: 'ampscript', uri: 'file:///t.amp' };
+        const diags = service
+            .validate(doc, { maxNumberOfProblems: 100 })
+            .filter((d) => d.code === 'sfmc/amp-prefer-boolean-literal');
+        assert.strictEqual(diags.length, 2);
+        const lines = code.split('\n');
+        const covered = diags.map(({ range }) => {
+            assert.strictEqual(range.start.line, range.end.line);
+            return lines[range.start.line].slice(range.start.character, range.end.character);
+        });
+        assert.deepStrictEqual(covered, ["'false'", "'true'"]);
+        // applying the fixes changes the literals and nothing else
+        let fixed = code;
+        const edits = diags
+            .flatMap((d) => service.getCodeActions(doc, [d]))
+            .flatMap((action) => action.edit.changes[doc.uri])
+            .toSorted((a, b) => b.range.start.line - a.range.start.line);
+        for (const edit of edits) {
+            const all = fixed.split('\n');
+            const line = all[edit.range.start.line];
+            all[edit.range.start.line] =
+                line.slice(0, edit.range.start.character) +
+                edit.newText +
+                line.slice(edit.range.end.character);
+            fixed = all.join('\n');
+        }
+        assert.strictEqual(
+            fixed,
+            code
+                .replace("        'false',", '        false,')
+                .replace("'stop',   'true'", "'stop',   true"),
+        );
+    });
+
     it('arity diagnostic line is correct after multi-line comment block (regression)', () => {
         // UpperCase is on line 4 (0-indexed) — after a 3-line block comment.
         // Before the fix, sanitizedText had 2 \n replaced with spaces inside the comment,

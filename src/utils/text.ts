@@ -54,10 +54,33 @@ export function countFunctionArguments(text: string, openParenPos: number): numb
     return hasContent ? commas + 1 : 0;
 }
 
+/**
+ * One argument of a call: its text without surrounding white space, and where
+ * exactly that text stands. The white space and line breaks between the
+ * arguments belong to neither of them, so a range built from `start`/`end`
+ * marks, and a fix replaces, the argument alone.
+ */
 export interface ArgumentSpan {
     value: string;
     start: number;
     end: number;
+}
+
+/**
+ * Builds the span of the argument between two separators.
+ * @param text - Source text.
+ * @param from - Index after the opening parenthesis or the previous comma.
+ * @param to - Index of the next comma or the closing parenthesis.
+ * @returns The trimmed argument with its own start and end; an empty argument keeps the place between the separators.
+ */
+function argumentSpan(text: string, from: number, to: number): ArgumentSpan {
+    const raw = text.slice(from, to);
+    const value = raw.trim();
+    if (value.length === 0) {
+        return { value, start: from, end: to };
+    }
+    const start = from + (raw.length - raw.trimStart().length);
+    return { value, start, end: start + value.length };
 }
 
 /**
@@ -86,13 +109,12 @@ export function extractFunctionArguments(
             if (depth === 0) {
                 const raw = text.slice(argStart, index);
                 if (hasContent || raw.trim().length > 0) {
-                    args.push({ value: raw.trim(), start: argStart, end: index });
+                    args.push(argumentSpan(text, argStart, index));
                 }
                 return args;
             }
         } else if (ch === ',' && depth === 1) {
-            const raw = text.slice(argStart, index);
-            args.push({ value: raw.trim(), start: argStart, end: index });
+            args.push(argumentSpan(text, argStart, index));
             argStart = index + 1;
             hasContent = false;
         } else if (ch !== ' ' && ch !== '\n' && ch !== '\r' && ch !== '\t') {
