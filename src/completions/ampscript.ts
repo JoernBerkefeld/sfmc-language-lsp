@@ -10,6 +10,7 @@ import {
     ampscriptGlobals,
     ampscriptKeywords,
     functionLookup,
+    isMcnSupported,
     personalizationStrings,
 } from '../data/ampscript.js';
 
@@ -27,6 +28,12 @@ export const functionCompletionItems: CompletionItem[] = ampscriptFunctions.map(
     }),
     data: { type: 'function', index },
 }));
+
+// Marketing Cloud Next runs only part of the AMPscript function catalog. The
+// items keep their catalog index, so lazy documentation resolves unchanged.
+const mcnFunctionCompletionItems: CompletionItem[] = functionCompletionItems.filter((item) =>
+    isMcnSupported(item.label),
+);
 
 export const keywordCompletionItems: CompletionItem[] = ampscriptKeywords.map((kw, index) => ({
     label: kw.name,
@@ -123,7 +130,8 @@ function getEnumValueCompletions(textUpToCursor: string): CompletionItem[] | nul
  * Return AMPscript completions for the given document text and cursor position.
  * @param text - Full document text.
  * @param position - Cursor position.
- * @param settings - Service settings (gates GTL completions to Engagement).
+ * @param settings - Service settings (gates GTL completions to Engagement and
+ *   limits functions to the supported ones under Marketing Cloud Next).
  * @returns Array of completion items.
  */
 export function getAmpscriptCompletions(
@@ -158,8 +166,14 @@ export function getAmpscriptCompletions(
         return enumItems;
     }
 
+    // Under Marketing Cloud Next only the functions that platform supports are
+    // offered, matching the unsupported-function diagnostic. Keywords, globals
+    // and personalization strings carry no complete platform data, so they are
+    // offered on both platforms.
     return [
-        ...functionCompletionItems,
+        ...(settings.targetPlatform === 'next'
+            ? mcnFunctionCompletionItems
+            : functionCompletionItems),
         ...keywordCompletionItems,
         ...variableItems,
         ...globalCompletionItems,

@@ -2350,6 +2350,46 @@ describe('Completions', () => {
         );
     });
 
+    it('limits AMPscript function completions to Marketing Cloud Next under targetPlatform:next', () => {
+        const doc = { text: '%%[ \n ]%%', languageId: 'ampscript' };
+        const position = { line: 0, character: 4 };
+        const items = service.getCompletions(doc, position, {
+            maxNumberOfProblems: 100,
+            targetPlatform: 'next',
+        });
+        const functionLabels = items.filter((i) => i.data?.type === 'function').map((i) => i.label);
+        assert.ok(functionLabels.includes('MD5'), 'expected MD5 under Marketing Cloud Next');
+        assert.ok(!functionLabels.includes('HTTPGet'), 'HTTPGet is not available in MCN');
+        for (const label of functionLabels) {
+            assert.ok(isMcnSupported(label), `${label} must be MCN-supported`);
+        }
+        // Keywords, globals and lazy documentation stay available.
+        assert.ok(items.some((i) => i.data?.type === 'keyword' && i.label === 'set'));
+        assert.ok(items.some((i) => i.label === '@@ExecCtx'));
+        const md5 = service.resolveCompletion({ ...items.find((i) => i.label === 'MD5') });
+        assert.match(md5.documentation.value, /MD5/);
+    });
+
+    it('keeps the full AMPscript function catalog in completions for Engagement', () => {
+        const doc = { text: '%%[ \n ]%%', languageId: 'ampscript' };
+        const position = { line: 0, character: 4 };
+        for (const settings of [
+            undefined,
+            { maxNumberOfProblems: 100, targetPlatform: 'engagement' },
+        ]) {
+            const functionLabels = service
+                .getCompletions(doc, position, settings)
+                .filter((i) => i.data?.type === 'function')
+                .map((i) => i.label);
+            assert.deepEqual(
+                functionLabels,
+                service.getAmpscriptFunctionCompletionItems().map((i) => i.label),
+            );
+            assert.ok(functionLabels.includes('HTTPGet'));
+            assert.ok(functionLabels.includes('MD5'));
+        }
+    });
+
     it('offers @@ExecCtx as a read-only AMPscript global, not a personalization string', () => {
         const doc = { text: '%%[ \n ]%%', languageId: 'ampscript' };
         const items = service.getCompletions(doc, { line: 0, character: 4 });
@@ -3874,6 +3914,41 @@ describe('MCN Handlebars completions (targetPlatform: next)', () => {
                 : (resolved.documentation?.value ?? '');
         assert.ok(value.length > 0, 'expected resolved documentation markdown');
     });
+});
+
+// ── MCN Handlebars helpers added with API 68 ───────────────────────────────
+
+describe('MCN Handlebars API 68 helpers (targetPlatform: next)', () => {
+    for (const name of ['md5', 'base64Encode']) {
+        it(`knows ${name}: completion, hover and no unknown-helper diagnostic`, () => {
+            const helper = service.lookupHandlebarsHelper(name);
+            assert.ok(helper, `expected ${name} in the helper catalog`);
+            assert.strictEqual(helper.mcnSince, 68);
+
+            const completions = service.getCompletions(
+                { text: '{{ }}', languageId: 'ampscript' },
+                { line: 0, character: 3 },
+                nextSettings,
+            );
+            assert.ok(
+                completions.some((i) => i.label === name),
+                `expected a ${name} completion`,
+            );
+
+            const line = `{{${name} firstName}}`;
+            const doc = { text: line, languageId: 'ampscript' };
+            const hover = service.getHover(doc, line, { line: 0, character: 3 }, nextSettings);
+            assert.ok(hover, `expected hover for ${name}`);
+            assert.ok(hover.contents.value.includes(name));
+            assert.ok(hover.contents.value.includes('MCN API v68.0+'));
+
+            const diags = service.validate(doc, nextSettings);
+            assert.ok(
+                diags.every((x) => x.code !== 'sfmc/hbs-no-unknown-helper'),
+                `unexpected unknown-helper diagnostic: ${JSON.stringify(diags)}`,
+            );
+        });
+    }
 });
 
 // ── MCN Handlebars hover ───────────────────────────────────────────────────
