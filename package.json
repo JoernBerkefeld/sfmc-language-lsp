@@ -52,6 +52,8 @@
         "build:types": "node ./scripts/generate-package-version.mjs && tsc -p tsconfig.types.json",
         "clean": "node -e \"require('fs').rmSync('dist', { recursive: true, force: true })\"",
         "test": "node --test tests/*.test.mjs",
+        "verify:own-dependencies-latest": "node scripts/verify-own-dependencies-latest.mjs",
+        "preversion": "npm run verify:own-dependencies-latest",
         "test:release-safeguards": "node --test tests/release-safeguards.test.mjs",
         "validate:release-documentation": "node scripts/validate-release-documentation.mjs",
         "lint": "eslint .",
