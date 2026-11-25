@@ -90,6 +90,21 @@ declare module 'ampscript-data' {
          */
         mcnNotes: string | null;
         /**
+         * How the function behaved in a live Marketing Cloud Next email compared with
+         * Engagement; absent when it was not tested.
+         */
+        mcnBehavior?: 'same' | 'differs' | 'untested';
+        /**
+         * Return value description for Marketing Cloud Next, set only when the normal
+         * return value looks different there.
+         */
+        mcnReturnDescription?: string;
+        /**
+         * Example showing what Marketing Cloud Next renders; set together with
+         * `mcnReturnDescription`.
+         */
+        mcnExample?: string;
+        /**
          * Name of the MCN Handlebars helper that replaces this AMPscript function
          * when converting to Marketing Cloud Next, or null when there is no helper.
          */
@@ -467,6 +482,16 @@ declare module 'handlebars-data' {
          * URL to the helper's sfmc.guide page.
          */
         sfmcGuideUrl: string;
+        /**
+         * How the helper behaved in a live Marketing Cloud Next email; absent when it
+         * was not part of the test run.
+         */
+        mcnStatus?: 'matches-docs' | 'differs-from-docs' | 'unsupported' | 'untested';
+        /**
+         * What Marketing Cloud Next actually does; set for `differs-from-docs` and
+         * `unsupported`.
+         */
+        mcnNote?: string;
     }
     /**
      * A Salesforce-only `{!$namespace.Field}` built-in binding.

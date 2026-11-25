@@ -47,6 +47,9 @@ export interface LocalSsjsFunction {
  * @param links.guideLink.url - Link target.
  * @param links.mcnSince - API version from which MCN supports this function, or null if unsupported.
  * @param links.mcnNotes - Behavioral difference notes for MCN, or null if no differences.
+ * @param links.returnDescription - Platform-specific return description shown after the return
+ * type (Next mode), when the platform renders the value differently.
+ * @param links.example - Platform-specific example replacing the catalog example (Next mode).
  * @returns Markdown string with signature, description, params, MCN status, and example.
  */
 export function buildFunctionMarkdown(
@@ -55,6 +58,8 @@ export function buildFunctionMarkdown(
         guideLink?: { label: string; url: string };
         mcnSince?: number | null;
         mcnNotes?: string | null;
+        returnDescription?: string;
+        example?: string;
     },
 ): string {
     const lines: string[] = [];
@@ -111,11 +116,13 @@ export function buildFunctionMarkdown(
             fn.returnEnum && fn.returnEnum.length > 0
                 ? ` _(one of: ${fn.returnEnum.map((v) => `\`${formatAmpscriptEnumLiteral(v)}\``).join(', ')})_`
                 : '';
-        lines.push(`*@return* \`${fn.returnType}\`${returnEnum}`);
+        const returnDescription = links?.returnDescription ? ` — ${links.returnDescription}` : '';
+        lines.push(`*@return* \`${fn.returnType}\`${returnEnum}${returnDescription}`);
     }
 
-    if (fn.example) {
-        lines.push('', '**Example:**', '```ampscript', fn.example, '```');
+    const example = links?.example ?? fn.example;
+    if (example) {
+        lines.push('', '**Example:**', '```ampscript', example, '```');
     }
 
     return lines.join('\n');
@@ -315,6 +322,12 @@ export function buildHandlebarsHelperMarkdown(helper: HandlebarsHelper): string 
     }
     const meta = `*${HBS_ORIGIN_LABEL[helper.origin]} · ${helper.category} · ${typeLabel} helper · MCN API v${helper.mcnSince}.0+*`;
     lines.push('', meta);
+
+    if (helper.mcnStatus === 'unsupported' && helper.mcnNote) {
+        lines.push('', `> ⚠️ **Rejected by Marketing Cloud Next when saved.** ${helper.mcnNote}`);
+    } else if (helper.mcnStatus === 'differs-from-docs' && helper.mcnNote) {
+        lines.push('', `> **Differs from the documentation on Next:** ${helper.mcnNote}`);
+    }
 
     if (helper.subexpressionOnly) {
         lines.push('', '> Usable only as a subexpression, e.g. `(hash key=value)`.');

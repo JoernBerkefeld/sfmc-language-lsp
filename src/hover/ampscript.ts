@@ -101,6 +101,11 @@ export function getAmpscriptHover(
             guideLink: pickGuideLink(entry, targetPlatform),
             mcnSince: entry.mcnSince ?? null,
             mcnNotes: entry.mcnNotes ?? null,
+            // Next renders some return values differently; show what Next produces.
+            ...(targetPlatform === 'next' && {
+                returnDescription: entry.mcnReturnDescription,
+                example: entry.mcnExample,
+            }),
         };
         return {
             contents: { kind: MarkupKind.Markdown, value: buildFunctionMarkdown(fn, links) },

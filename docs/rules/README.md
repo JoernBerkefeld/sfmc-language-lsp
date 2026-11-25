@@ -1,6 +1,6 @@
 # Diagnostic rule reference
 
-These pages document the diagnostics owned by `sfmc-language-lsp`: 38 public rule IDs covering 50 internal variants. Follow the rule shown in `Diagnostic.code`; variants preserve distinct quick fixes when several checks share a public ID.
+These pages document the diagnostics owned by `sfmc-language-lsp`: 39 public rule IDs covering 51 internal variants. Follow the rule shown in `Diagnostic.code`; variants preserve distinct quick fixes when several checks share a public ID.
 
 Links within this index are relative so opening it at a release tag keeps navigation on that same release. Diagnostic URLs use the **LSP package version**, not the editor extension version, an installed language-data version, or a dependency range. Development URLs are prospective until the corresponding new release tag contains these pages. There is no fallback to `main`, and old tags must not be rewritten.
 
@@ -45,6 +45,7 @@ Links within this index are relative so opening it at a release tag keeps naviga
 
 ## Handlebars
 
+- [Helper name case](hbs/helper-name-case.md)
 - [Unknown bindings](hbs/no-unknown-binding.md)
 - [Unknown helpers](hbs/no-unknown-helper.md)
 - [Unsupported constructs](hbs/no-unsupported-construct.md)

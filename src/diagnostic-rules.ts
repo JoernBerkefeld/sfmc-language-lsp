@@ -63,6 +63,7 @@ const definitions = [
     ['handlebars/unsupported-construct', 'hbs-no-unsupported-construct', true, true],
     ['handlebars/unknown-helper', 'hbs-no-unknown-helper', true, true],
     ['handlebars/unknown-binding', 'hbs-no-unknown-binding', true, true],
+    ['handlebars/helper-name-case', 'hbs-helper-name-case', false, false],
     ['gtl/unexpected-close', 'gtl-balanced-blocks', false, false],
     ['gtl/unclosed-block', 'gtl-balanced-blocks', false, false],
 ] as const;

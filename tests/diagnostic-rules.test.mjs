@@ -258,8 +258,8 @@ for (const [format, api] of formats) {
                 legacy.map((rule) => rule.legacyCode).toSorted((a, b) => a.localeCompare(b)),
                 codes.toSorted((a, b) => a.localeCompare(b)),
             );
-            assert.equal(api.DIAGNOSTIC_RULES.length, 50);
-            assert.equal(new Set(api.DIAGNOSTIC_RULES.map((rule) => rule.variant)).size, 50);
+            assert.equal(api.DIAGNOSTIC_RULES.length, 51);
+            assert.equal(new Set(api.DIAGNOSTIC_RULES.map((rule) => rule.variant)).size, 51);
             assert.equal(api.getDiagnosticRule('toString'), undefined);
         });
 

@@ -13,6 +13,7 @@ import {
     extractAmpscriptFunctionCalls,
 } from '../dist/esm/index.js';
 
+import { FUNCTIONS as AMP_FUNCTIONS } from 'ampscript-data';
 import { buildFunctionMarkdown } from '../dist/esm/utils/markdown.js';
 import {
     scanAmpscriptDelimiters,
@@ -2855,6 +2856,26 @@ describe('MCN hover badges', () => {
         );
     });
 
+    it('Next-mode hover shows the Next return description and example; Engagement does not', () => {
+        const line = '%%=DateAdd(@d, 1, "D")=%%';
+        const doc = { text: line, languageId: 'ampscript' };
+        const pos = { line: 0, character: 5 };
+        const next = service.getHover(doc, line, pos, {
+            maxNumberOfProblems: 100,
+            targetPlatform: 'next',
+        });
+        const eng = service.getHover(doc, line, pos, {
+            maxNumberOfProblems: 100,
+            targetPlatform: 'engagement',
+        });
+        const dateAdd = AMP_FUNCTIONS.find((f) => f.name === 'DateAdd');
+        assert.ok(dateAdd.mcnReturnDescription && dateAdd.mcnExample);
+        assert.ok(next.contents.value.includes(dateAdd.mcnReturnDescription), next.contents.value);
+        assert.ok(next.contents.value.includes(dateAdd.mcnExample));
+        assert.ok(!eng.contents.value.includes(dateAdd.mcnReturnDescription));
+        assert.ok(!eng.contents.value.includes(dateAdd.mcnExample));
+    });
+
     it('hover for MCE-only function includes not-supported badge', () => {
         const line = '%%[ AttachFile("p","k","file.pdf","application/pdf") ]%%';
         const doc = { text: line, languageId: 'ampscript' };
@@ -3874,6 +3895,66 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
         assert.ok(d, `expected unknown-helper diagnostic, got: ${JSON.stringify(diags)}`);
         assert.strictEqual(d.severity, 2 /* Warning */);
         assert.ok(d.message.includes('each'), `expected suggestion of "each", got: ${d.message}`);
+    });
+
+    it('warns about a helper written in other letter case and offers the fix', () => {
+        const text = '{{properCase firstName}}';
+        const doc = { text, languageId: 'ampscript' };
+        const diags = service.validate(doc, nextSettings);
+        const d = diags.find((x) => x.code === 'sfmc/hbs-helper-name-case');
+        assert.ok(d, `expected helper-name-case diagnostic, got: ${JSON.stringify(diags)}`);
+        assert.strictEqual(d.severity, 2 /* Warning */);
+        assert.ok(d.message.includes("write 'propercase' instead of 'properCase'"), d.message);
+        assert.ok(
+            d.codeDescription.href.endsWith('/docs/rules/hbs/helper-name-case.md'),
+            d.codeDescription.href,
+        );
+        assert.ok(diags.every((x) => x.code !== 'sfmc/hbs-no-unknown-helper'));
+        const actions = service.getCodeActions({ ...doc, uri: 'file:///t.hbs' }, [d], nextSettings);
+        const fix = actions.find((a) => a.title === "Replace 'properCase' with 'propercase'");
+        assert.ok(fix, JSON.stringify(actions));
+        assert.deepStrictEqual(
+            fix.edit.changes['file:///t.hbs'].map((e) => e.newText),
+            ['propercase'],
+        );
+    });
+
+    it('fixes the closing tag of a block helper written in other letter case', () => {
+        const text = '{{#Each items}}x{{/Each}}';
+        const doc = { text, languageId: 'ampscript' };
+        const d = service
+            .validate(doc, nextSettings)
+            .find((x) => x.code === 'sfmc/hbs-helper-name-case');
+        assert.ok(d, 'expected helper-name-case diagnostic for Each');
+        const fix = service.getCodeActions({ ...doc, uri: 'file:///t.hbs' }, [d], nextSettings)[0];
+        const edits = fix.edit.changes['file:///t.hbs'];
+        assert.deepStrictEqual(
+            edits.map((e) => [e.range.start.character, e.newText]),
+            [
+                [3, 'each'],
+                [19, 'each'],
+            ],
+        );
+    });
+
+    it('does not flag a helper written in the catalog spelling', () => {
+        const doc = { text: '{{propercase firstName}}', languageId: 'ampscript' };
+        const diags = service.validate(doc, nextSettings);
+        assert.ok(diags.every((x) => x.code !== 'sfmc/hbs-helper-name-case'));
+    });
+
+    it('helper hover shows the Next status note', () => {
+        const differs = '{{#impressionRegion "Hero"}}x{{/impressionRegion}}';
+        const hover2 = service.getHover(
+            { text: differs, languageId: 'ampscript' },
+            differs,
+            { line: 0, character: 5 },
+            nextSettings,
+        );
+        assert.ok(
+            hover2?.contents.value.includes('Differs from the documentation on Next:'),
+            hover2?.contents.value,
+        );
     });
 
     it('flags an unknown {!$...} built-in binding', () => {

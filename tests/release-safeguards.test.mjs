@@ -34,8 +34,8 @@ test('release identity rejects missing/wrong tags and another checkout', () => {
     );
 });
 
-test('all 50 variants point to 38 substantive indexed local rule pages', () => {
-    assert.equal(validateDocumentation(api, metadata, readDocument).length, 38);
+test('all 51 variants point to 39 substantive indexed local rule pages', () => {
+    assert.equal(validateDocumentation(api, metadata, readDocument).length, 39);
     assert.throws(() =>
         validateDocumentation(api, { ...metadata, version: '0.0.0' }, readDocument),
     );
@@ -145,7 +145,7 @@ test('real offline npm tarball carries portable CJS, ESM and browser diagnostic 
             pathToFileURL(path.join(relocated, 'dist/esm/diagnostic-rules.js')).href
         );
         for (const artifact of [cjs, esm]) {
-            assert.equal(validateDocumentation(artifact, packedMetadata, readDocument).length, 38);
+            assert.equal(validateDocumentation(artifact, packedMetadata, readDocument).length, 39);
             for (const rule of artifact.DIAGNOSTIC_RULES) {
                 const diagnostic = artifact.createDiagnostic(rule.variant, {
                     message: 'Artifact acceptance',
@@ -184,7 +184,7 @@ test('real offline npm tarball carries portable CJS, ESM and browser diagnostic 
             await entry.evaluate();
             const api = entry.namespace;
             assert.equal(api.LSP_PACKAGE_VERSION, process.argv[2]);
-            assert.equal(api.DIAGNOSTIC_RULES.length, 50);
+            assert.equal(api.DIAGNOSTIC_RULES.length, 51);
             for (const rule of api.DIAGNOSTIC_RULES) {
                 const diagnostic = api.createDiagnostic(rule.variant, { message: 'Browser acceptance', data: 'opaque' });
                 assert.equal(diagnostic.codeDescription.href, 'https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v' + process.argv[2] + '/' + rule.documentationPath);

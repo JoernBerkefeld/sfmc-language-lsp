@@ -12,6 +12,7 @@ When `targetPlatform` is set to `'next'` in `SfmcSettings`, the language service
 - Offers only the AMPscript functions supported on MCN in completions
 - Flags all SSJS as **unsupported** (SSJS is not available on MCN)
 - Surfaces MCN API version and behavioral-difference notes in hover documentation. AMPscript support badges also show known Salesforce release names, for example `since Summer '26 / API v67.0+`; unknown versions retain the API-only badge.
+- Shows what Next actually renders: for functions whose return value looks different on Next (for example `DateAdd` or `FormatDate`), the hover adds the Next return description and replaces the example with a Next one. Engagement hovers keep the Engagement description and example.
 
 MCN helper functions re-exported from `ampscript-data`:
 
@@ -26,7 +27,7 @@ import {
 
 ## MCN Handlebars support
 
-The combined `sfmc` language embeds the locked-down **MCN Handlebars** templating layer. When `targetPlatform` is `'next'`, `{{…}}` regions are validated for helper names, arity, block balance, and unsupported constructs (partials, decorators, and built-in helpers absent from the MCN engine). Handlebars completions, hover, signature help, and code actions are layered into the standard LSP entry points automatically.
+The combined `sfmc` language embeds the locked-down **MCN Handlebars** templating layer. When `targetPlatform` is `'next'`, `{{…}}` regions are validated for helper names, arity, block balance, and unsupported constructs (partials, decorators, and built-in helpers absent from the MCN engine). Helper names are case-sensitive on Next, so a known helper written in other letter case (`properCase` instead of `propercase`) gets the `sfmc/hbs-helper-name-case` warning with a quick fix. Helper hovers note where a live Next test showed behaviour that differs from the Salesforce documentation. Handlebars completions, hover, signature help, and code actions are layered into the standard LSP entry points automatically.
 
 The catalog (sourced from [`handlebars-data`](https://www.npmjs.com/package/handlebars-data)) is also exposed via `sfmcLanguageService` accessors and the corresponding types:
 
@@ -110,7 +111,7 @@ Some Core library members only exist up to a maximum `Platform.Load("Core", <ver
 
 ## Diagnostic identities and documentation
 
-The [diagnostic rule reference](docs/rules/README.md) covers all 38 public rules and their 50 internal variants. First-party diagnostics carry a canonical `Diagnostic.code` such as `sfmc/amp-arg-types` and a `codeDescription.href` pointing to this repository at `blob/v<LSP package version>/docs/rules/...`. The LSP owns these URLs, even when bundled in an extension with a different version. Versions are embedded at build time; diagnostic creation needs neither the filesystem nor Git.
+The [diagnostic rule reference](docs/rules/README.md) covers all 39 public rules and their 51 internal variants. First-party diagnostics carry a canonical `Diagnostic.code` such as `sfmc/amp-arg-types` and a `codeDescription.href` pointing to this repository at `blob/v<LSP package version>/docs/rules/...`. The LSP owns these URLs, even when bundled in an extension with a different version. Versions are embedded at build time; diagnostic creation needs neither the filesystem nor Git.
 
 **Migration / semver:** canonical `sfmc/...` codes replace legacy `ampscript/...`, `ssjs/...`, and `handlebars/...` codes and name previously uncoded checks. Consumers comparing codes or reading diagnostic data must migrate. This is a breaking public diagnostic-contract change. Version `4.0.0` introduces this contract as one major step from `3.17.1`. Consumers upgrading from `3.x` must migrate; the new contract and its documentation are not part of `3.17.1`.
 

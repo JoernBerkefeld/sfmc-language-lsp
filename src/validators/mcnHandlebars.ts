@@ -9,6 +9,7 @@
  *   - `handlebars/unsupported-construct` (Error) partials, decorators, log, …
  *   - `handlebars/unknown-helper`      (Warning) helper not in the MCN catalog
  *   - `handlebars/unknown-binding`     (Warning) unknown `{!$...}` data binding
+ *   - `handlebars/helper-name-case`    (Warning) catalogued helper written in other letter case
  *
  * The MCN templating engine is based on Handlebars.Net and is locked down: you
  * cannot register helpers, partials, or decorators. Anything outside the fixed
@@ -28,6 +29,7 @@ import {
 } from '../utils/handlebarsAst.js';
 import {
     isHelper,
+    getHelper,
     isBuiltinBinding,
     unsupportedByNodeType,
     helperNames,
@@ -51,6 +53,9 @@ export const DIAG_CODE_HBS_SYNTAX = 'handlebars/syntax-error';
 export const DIAG_CODE_HBS_UNSUPPORTED_CONSTRUCT = 'handlebars/unsupported-construct';
 export const DIAG_CODE_HBS_UNKNOWN_HELPER = 'handlebars/unknown-helper';
 export const DIAG_CODE_HBS_UNKNOWN_BINDING = 'handlebars/unknown-binding';
+// Not a DIAG_CODE_ constant: those are the legacy wire codes; this newer check only
+// emits its public rule ID (`sfmc/hbs-helper-name-case`).
+export const HBS_HELPER_NAME_CASE_VARIANT = 'handlebars/helper-name-case';
 
 /**
  * Payload attached to unknown-helper / unknown-binding diagnostics for quick fixes.
@@ -178,6 +183,32 @@ function unknownHelperDiagnostic(
 }
 
 /**
+ * Build a Warning when a catalogued helper is written with different letter case.
+ * Marketing Cloud Next matches helper names case-sensitively and rejects the email at
+ * save otherwise (e.g. `properCase` instead of `propercase`).
+ * @param node - The helper invocation node.
+ * @param helperName - The helper name as typed.
+ * @param isBlock - True when the node is a block helper (`{{#name}}`).
+ * @returns The constructed diagnostic, or null when the case matches.
+ */
+function helperNameCaseDiagnostic(
+    node: HandlebarsAstNode,
+    helperName: string,
+    isBlock: boolean,
+): Diagnostic | null {
+    const helper = getHelper(helperName);
+    if (!helper || helper.name === helperName) return null;
+    const kind = isBlock ? 'Block helper' : 'Helper';
+    return createDiagnostic(HBS_HELPER_NAME_CASE_VARIANT, {
+        severity: DiagnosticSeverity.Warning,
+        range: astLocToRange(node.loc),
+        message: `${kind} names are case-sensitive in Marketing Cloud Next: write '${helper.name}' instead of '${helperName}'. Next rejects the email at save otherwise.`,
+        source: 'handlebars',
+        data: { typed: helperName, suggestion: helper.name } satisfies HandlebarsSuggestionData,
+    });
+}
+
+/**
  * Validate Handlebars for Marketing Cloud Next within a (possibly mixed)
  * document. AMPscript regions are blanked before parsing so the Handlebars
  * parser does not choke on `%%[...]%%` / `%%=...=%%` syntax. Diagnostics are
@@ -239,15 +270,25 @@ export function validateMcnHandlebars(
                 if (isInvocation && helperName && !isHelper(helperName)) {
                     problems++;
                     diagnostics.push(unknownHelperDiagnostic(node, helperName, false));
+                } else if (isInvocation && helperName) {
+                    const wrongCase = helperNameCaseDiagnostic(node, helperName, false);
+                    if (wrongCase) {
+                        problems++;
+                        diagnostics.push(wrongCase);
+                    }
                 }
-            } else if (
+            } else if (helperName && node.type === 'BlockStatement') {
                 // Block helpers must be known — MCN cannot register custom ones.
-                helperName &&
-                node.type === 'BlockStatement' &&
-                !isHelper(helperName)
-            ) {
-                problems++;
-                diagnostics.push(unknownHelperDiagnostic(node, helperName, true));
+                if (isHelper(helperName)) {
+                    const wrongCase = helperNameCaseDiagnostic(node, helperName, true);
+                    if (wrongCase) {
+                        problems++;
+                        diagnostics.push(wrongCase);
+                    }
+                } else {
+                    problems++;
+                    diagnostics.push(unknownHelperDiagnostic(node, helperName, true));
+                }
             }
         });
     }
