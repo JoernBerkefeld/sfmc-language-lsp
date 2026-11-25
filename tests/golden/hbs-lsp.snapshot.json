@@ -168,7 +168,7 @@
       {
         "code": "sfmc/hbs-no-unsupported-construct",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unsupported-construct.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unsupported-construct.md"
         },
         "data": {
           "sfmc": {
@@ -280,7 +280,7 @@
       {
         "code": "sfmc/hbs-no-unsupported-construct",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unsupported-construct.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unsupported-construct.md"
         },
         "data": {
           "sfmc": {
@@ -650,7 +650,7 @@
       {
         "code": "sfmc/hbs-syntax-error",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/syntax-error.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/syntax-error.md"
         },
         "data": {
           "sfmc": {
@@ -761,7 +761,7 @@
       {
         "code": "sfmc/hbs-syntax-error",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/syntax-error.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/syntax-error.md"
         },
         "data": {
           "sfmc": {
@@ -1256,7 +1256,7 @@
       {
         "code": "sfmc/hbs-no-unsupported-construct",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unsupported-construct.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unsupported-construct.md"
         },
         "data": {
           "sfmc": {
@@ -1368,7 +1368,7 @@
       {
         "code": "sfmc/hbs-no-unsupported-construct",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unsupported-construct.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unsupported-construct.md"
         },
         "data": {
           "sfmc": {
@@ -1480,7 +1480,7 @@
       {
         "code": "sfmc/hbs-no-unknown-helper",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unknown-helper.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unknown-helper.md"
         },
         "data": {
           "sfmc": {
@@ -1805,7 +1805,7 @@
       {
         "code": "sfmc/hbs-no-unknown-helper",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unknown-helper.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unknown-helper.md"
         },
         "data": {
           "sfmc": {
@@ -1832,7 +1832,7 @@
       {
         "code": "sfmc/hbs-no-unknown-helper",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unknown-helper.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unknown-helper.md"
         },
         "data": {
           "sfmc": {
@@ -1855,7 +1855,7 @@
       {
         "code": "sfmc/hbs-no-unsupported-construct",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unsupported-construct.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unsupported-construct.md"
         },
         "data": {
           "sfmc": {
@@ -1878,7 +1878,7 @@
       {
         "code": "sfmc/hbs-no-unsupported-construct",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unsupported-construct.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unsupported-construct.md"
         },
         "data": {
           "sfmc": {
@@ -1901,7 +1901,7 @@
       {
         "code": "sfmc/hbs-no-unknown-binding",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unknown-binding.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unknown-binding.md"
         },
         "data": {
           "sfmc": {
@@ -2118,7 +2118,7 @@
       {
         "code": "sfmc/hbs-no-unknown-helper",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unknown-helper.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unknown-helper.md"
         },
         "data": {
           "sfmc": {
@@ -2145,7 +2145,7 @@
       {
         "code": "sfmc/hbs-no-unsupported-construct",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unsupported-construct.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unsupported-construct.md"
         },
         "data": {
           "sfmc": {
@@ -2168,7 +2168,7 @@
       {
         "code": "sfmc/hbs-no-unknown-binding",
         "codeDescription": {
-          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.6.0/docs/rules/hbs/no-unknown-binding.md"
+          "href": "https://github.com/JoernBerkefeld/sfmc-language-lsp/blob/v4.7.0/docs/rules/hbs/no-unknown-binding.md"
         },
         "data": {
           "sfmc": {
