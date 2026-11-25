@@ -3132,6 +3132,28 @@ describe('AMPscript Update/UpsertData count-gated arity', () => {
 
 // ── Enum-typed arguments: validation + completion ──────────────────────────
 
+/**
+ * Hover text of a one-line AMPscript document.
+ * @param {string} line - document text
+ * @param {number} character - cursor column
+ * @param {object} [settings] - service settings
+ * @returns {string} Markdown of the hover, or ''
+ */
+const hoverTextAt = (line, character, settings) =>
+    service.getHover(
+        { text: line, languageId: 'ampscript' },
+        line,
+        { line: 0, character },
+        settings,
+    )?.contents?.value ?? '';
+
+/**
+ * Markdown links in a text.
+ * @param {string} text - Markdown
+ * @returns {string[]} every `[label](https://…)` in order
+ */
+const linksIn = (text) => [...text.matchAll(/\[[^\]]+\]\(https:\/\/[^)]+\)/g)].map((m) => m[0]);
+
 describe('AMPscript enum-typed arguments', () => {
     it('accepts a valid DatePart enum literal', () => {
         const diags = ampValidate("%%[ set @r = DatePart('2026-01-15','Y') ]%%");
@@ -3393,28 +3415,45 @@ describe('AMPscript enum-typed arguments', () => {
         );
     });
 
-    it('prefers sfmc.guide in RaiseError hover while preserving Salesforce Developers', () => {
-        const line = "%%=RaiseError('stop')=%%";
-        const hover = service.getHover({ text: line, languageId: 'ampscript' }, line, {
-            line: 0,
-            character: 5,
-        });
-        const hoverText = hover?.contents?.value ?? '';
-        assert.match(hoverText, /\[Salesforce Developers\]\(/);
-        assert.match(hoverText, /\[sfmc\.guide\]\(https:\/\/sfmc\.guide\//);
-        assert.doesNotMatch(hoverText, /\[ampscript\.guide\]/);
+    it('links only the sfmc.guide Engagement page in Engagement mode (default)', () => {
+        const hoverText = hoverTextAt("%%=RaiseError('stop')=%%", 5);
+        assert.deepEqual(linksIn(hoverText), [
+            '[sfmc.guide](https://sfmc.guide/engagement/ampscript/functions/raiseerror/)',
+        ]);
     });
 
-    it('falls back to ampscript.guide in AttachFile hover', () => {
-        const line = "%%=AttachFile('http', 'https://example.com/a.pdf')=%%";
-        const hover = service.getHover({ text: line, languageId: 'ampscript' }, line, {
-            line: 0,
-            character: 5,
+    it('links only the sfmc.guide Next page in Next mode', () => {
+        const hoverText = hoverTextAt("%%=RaiseError('stop')=%%", 5, {
+            maxNumberOfProblems: 100,
+            targetPlatform: 'next',
         });
-        const hoverText = hover?.contents?.value ?? '';
-        assert.match(hoverText, /\[Salesforce Developers\]\(/);
-        assert.match(hoverText, /\[ampscript\.guide\]\(https:\/\/ampscript\.guide\/attachfile\/\)/);
-        assert.doesNotMatch(hoverText, /\[sfmc\.guide\]/);
+        assert.deepEqual(linksIn(hoverText), [
+            '[sfmc.guide](https://sfmc.guide/next/ampscript/functions/raiseerror/)',
+        ]);
+    });
+
+    it('shows no hover in Next mode for a function Next does not support', () => {
+        const line = '%%=HTTPGet("https://example.com")=%%';
+        const next = { maxNumberOfProblems: 100, targetPlatform: 'next' };
+        const doc = { text: line, languageId: 'ampscript' };
+        assert.equal(service.getHover(doc, line, { line: 0, character: 5 }, next), null);
+        // the diagnostic still says why
+        assert.ok(
+            service.validate(doc, next).some((d) => d.code === 'sfmc/amp-no-mcn-unsupported'),
+            'expected the not-supported diagnostic',
+        );
+        // Engagement mode still explains it
+        assert.match(hoverTextAt(line, 5), /HTTPGet/);
+    });
+
+    it('falls back to ampscript.guide in Engagement mode when sfmc.guide has no page', () => {
+        const hoverText = hoverTextAt("%%=AttachFile('http', 'https://example.com/a.pdf')=%%", 5, {
+            maxNumberOfProblems: 100,
+            targetPlatform: 'engagement',
+        });
+        assert.deepEqual(linksIn(hoverText), [
+            '[ampscript.guide](https://ampscript.guide/attachfile/)',
+        ]);
     });
 });
 
@@ -3960,6 +3999,16 @@ describe('MCN Handlebars hover (targetPlatform: next)', () => {
         const hover = service.getHover(doc, line, { line: 0, character: 4 }, nextSettings);
         assert.ok(hover, 'expected hover for the each helper');
         assert.ok(hover.contents.value.toLowerCase().includes('each'));
+    });
+
+    it('links the sfmc.guide page first, then Salesforce Developers, in a helper hover', () => {
+        const line = '{{add 1 2}}';
+        const doc = { text: line, languageId: 'ampscript' };
+        const hover = service.getHover(doc, line, { line: 0, character: 3 }, nextSettings);
+        assert.match(
+            hover.contents.value,
+            /\[sfmc\.guide\]\(https:\/\/sfmc\.guide\/next\/handlebars\/helpers\/add\/\) \/ \[Salesforce Developers\]\(https:\/\/developer\.salesforce\.com\//,
+        );
     });
 
     it('returns hover for a {!$...} built-in binding', () => {

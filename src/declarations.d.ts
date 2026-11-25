@@ -78,6 +78,10 @@ declare module 'ampscript-data' {
          */
         sfmcGuideUrl?: string;
         /**
+         * URL to the sfmc.guide page for Marketing Cloud Next, when one exists.
+         */
+        sfmcGuideNextUrl?: string;
+        /**
          * API version in which MCN support was introduced (e.g. 67), or null if not supported in MCN.
          */
         mcnSince: number | null;
@@ -459,6 +463,10 @@ declare module 'handlebars-data' {
          * URL to the official Salesforce developer documentation page.
          */
         docUrl: string;
+        /**
+         * URL to the helper's sfmc.guide page.
+         */
+        sfmcGuideUrl: string;
     }
     /**
      * A Salesforce-only `{!$namespace.Field}` built-in binding.

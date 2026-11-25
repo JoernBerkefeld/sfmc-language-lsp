@@ -466,7 +466,7 @@
           "uppercase",
           "with"
         ],
-        "hover": "```typescript\n(helper) if(condition: any): string\n```\n\nConditionally renders a block based on whether a value evaluates to true.\n\n*Handlebars built-in · Comparison · block helper · MCN API v65.0+*\n\n*@param* `condition` — The value to evaluate.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-comparison-references/mcn-handlebars-reference-comparison-if.html)",
+        "hover": "```typescript\n(helper) if(condition: any): string\n```\n\nConditionally renders a block based on whether a value evaluates to true.\n\n*Handlebars built-in · Comparison · block helper · MCN API v65.0+*\n\n*@param* `condition` — The value to evaluate.\n\n*@return* `string`\n\n[sfmc.guide](https://sfmc.guide/next/handlebars/helpers/if/) / [Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-comparison-references/mcn-handlebars-reference-comparison-if.html)",
         "position": {
           "character": 4,
           "line": 0
@@ -548,7 +548,7 @@
           "uppercase",
           "with"
         ],
-        "hover": "```typescript\n(helper) if(condition: any): string\n```\n\nConditionally renders a block based on whether a value evaluates to true.\n\n*Handlebars built-in · Comparison · block helper · MCN API v65.0+*\n\n*@param* `condition` — The value to evaluate.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-comparison-references/mcn-handlebars-reference-comparison-if.html)",
+        "hover": "```typescript\n(helper) if(condition: any): string\n```\n\nConditionally renders a block based on whether a value evaluates to true.\n\n*Handlebars built-in · Comparison · block helper · MCN API v65.0+*\n\n*@param* `condition` — The value to evaluate.\n\n*@return* `string`\n\n[sfmc.guide](https://sfmc.guide/next/handlebars/helpers/if/) / [Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-comparison-references/mcn-handlebars-reference-comparison-if.html)",
         "position": {
           "character": 17,
           "line": 0
@@ -636,7 +636,7 @@
           "uppercase",
           "with"
         ],
-        "hover": "```typescript\n(helper) each(collection: array): string\n```\n\nIterates over arrays, lists, and objects, rendering a block for each element.\n\n*Handlebars built-in · Objects · block helper · MCN API v65.0+*\n\n*@param* `collection` — The array, list, or object to iterate over.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-objects-references/mcn-handlebars-reference-objects-each.html)",
+        "hover": "```typescript\n(helper) each(collection: array): string\n```\n\nIterates over arrays, lists, and objects, rendering a block for each element.\n\n*Handlebars built-in · Objects · block helper · MCN API v65.0+*\n\n*@param* `collection` — The array, list, or object to iterate over.\n\n*@return* `string`\n\n[sfmc.guide](https://sfmc.guide/next/handlebars/helpers/each/) / [Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-objects-references/mcn-handlebars-reference-objects-each.html)",
         "position": {
           "character": 6,
           "line": 0
@@ -946,7 +946,7 @@
           "uppercase",
           "with"
         ],
-        "hover": "```typescript\n(helper) add(value1: number, value2: number): number\n```\n\nReturns the sum of two numbers, rounded to 2 decimal places.\n\n*MCN helper · Math · inline helper · MCN API v65.0+*\n\n*@param* `value1` — First value to add.\n\n*@param* `value2` — Second value to add.\n\n*@return* `number`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-math-references/mcn-handlebars-reference-math-add.html)",
+        "hover": "```typescript\n(helper) add(value1: number, value2: number): number\n```\n\nReturns the sum of two numbers, rounded to 2 decimal places.\n\n*MCN helper · Math · inline helper · MCN API v65.0+*\n\n*@param* `value1` — First value to add.\n\n*@param* `value2` — Second value to add.\n\n*@return* `number`\n\n[sfmc.guide](https://sfmc.guide/next/handlebars/helpers/add/) / [Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-math-references/mcn-handlebars-reference-math-add.html)",
         "position": {
           "character": 3,
           "line": 0
@@ -1754,7 +1754,7 @@
           "uppercase",
           "with"
         ],
-        "hover": "```typescript\n(helper) lowercase(subject: string, culture?: string): string\n```\n\nConverts all letters in a string to lowercase.\n\n*MCN helper · String · inline helper · MCN API v65.0+*\n\n*@param* `subject` — The string to convert to lowercase.\n\n*@param* `culture` *(optional)* — POSIX locale code for culture-specific conversion.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-string-references/mcn-handlebars-reference-string-lowercase.html)",
+        "hover": "```typescript\n(helper) lowercase(subject: string, culture?: string): string\n```\n\nConverts all letters in a string to lowercase.\n\n*MCN helper · String · inline helper · MCN API v65.0+*\n\n*@param* `subject` — The string to convert to lowercase.\n\n*@param* `culture` *(optional)* — POSIX locale code for culture-specific conversion.\n\n*@return* `string`\n\n[sfmc.guide](https://sfmc.guide/next/handlebars/helpers/lowercase/) / [Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-string-references/mcn-handlebars-reference-string-lowercase.html)",
         "position": {
           "character": 14,
           "line": 0
@@ -1999,7 +1999,7 @@
           "uppercase",
           "with"
         ],
-        "hover": "```typescript\n(helper) add(value1: number, value2: number): number\n```\n\nReturns the sum of two numbers, rounded to 2 decimal places.\n\n*MCN helper · Math · inline helper · MCN API v65.0+*\n\n*@param* `value1` — First value to add.\n\n*@param* `value2` — Second value to add.\n\n*@return* `number`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-math-references/mcn-handlebars-reference-math-add.html)",
+        "hover": "```typescript\n(helper) add(value1: number, value2: number): number\n```\n\nReturns the sum of two numbers, rounded to 2 decimal places.\n\n*MCN helper · Math · inline helper · MCN API v65.0+*\n\n*@param* `value1` — First value to add.\n\n*@param* `value2` — Second value to add.\n\n*@return* `number`\n\n[sfmc.guide](https://sfmc.guide/next/handlebars/helpers/add/) / [Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-math-references/mcn-handlebars-reference-math-add.html)",
         "position": {
           "character": 9,
           "line": 18
@@ -2081,7 +2081,7 @@
           "uppercase",
           "with"
         ],
-        "hover": "```typescript\n(helper) each(collection: array): string\n```\n\nIterates over arrays, lists, and objects, rendering a block for each element.\n\n*Handlebars built-in · Objects · block helper · MCN API v65.0+*\n\n*@param* `collection` — The array, list, or object to iterate over.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-objects-references/mcn-handlebars-reference-objects-each.html)",
+        "hover": "```typescript\n(helper) each(collection: array): string\n```\n\nIterates over arrays, lists, and objects, rendering a block for each element.\n\n*Handlebars built-in · Objects · block helper · MCN API v65.0+*\n\n*@param* `collection` — The array, list, or object to iterate over.\n\n*@return* `string`\n\n[sfmc.guide](https://sfmc.guide/next/handlebars/helpers/each/) / [Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-objects-references/mcn-handlebars-reference-objects-each.html)",
         "position": {
           "character": 8,
           "line": 20
@@ -2266,7 +2266,7 @@
           "uppercase",
           "with"
         ],
-        "hover": "```typescript\n(helper) uppercase(subject: string, culture?: string): string\n```\n\nConverts all letters in a string to uppercase.\n\n*MCN helper · String · inline helper · MCN API v65.0+*\n\n*@param* `subject` — The string to convert to uppercase.\n\n*@param* `culture` *(optional)* — POSIX locale code for culture-specific conversion.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-string-references/mcn-handlebars-reference-string-uppercase.html)",
+        "hover": "```typescript\n(helper) uppercase(subject: string, culture?: string): string\n```\n\nConverts all letters in a string to uppercase.\n\n*MCN helper · String · inline helper · MCN API v65.0+*\n\n*@param* `subject` — The string to convert to uppercase.\n\n*@param* `culture` *(optional)* — POSIX locale code for culture-specific conversion.\n\n*@return* `string`\n\n[sfmc.guide](https://sfmc.guide/next/handlebars/helpers/uppercase/) / [Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-string-references/mcn-handlebars-reference-string-uppercase.html)",
         "position": {
           "character": 5,
           "line": 13
@@ -2348,7 +2348,7 @@
           "uppercase",
           "with"
         ],
-        "hover": "```typescript\n(helper) each(collection: array): string\n```\n\nIterates over arrays, lists, and objects, rendering a block for each element.\n\n*Handlebars built-in · Objects · block helper · MCN API v65.0+*\n\n*@param* `collection` — The array, list, or object to iterate over.\n\n*@return* `string`\n\n[Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-objects-references/mcn-handlebars-reference-objects-each.html)",
+        "hover": "```typescript\n(helper) each(collection: array): string\n```\n\nIterates over arrays, lists, and objects, rendering a block for each element.\n\n*Handlebars built-in · Objects · block helper · MCN API v65.0+*\n\n*@param* `collection` — The array, list, or object to iterate over.\n\n*@return* `string`\n\n[sfmc.guide](https://sfmc.guide/next/handlebars/helpers/each/) / [Salesforce Developers](https://developer.salesforce.com/docs/marketing/handlebars-for-marketing-cloud-next/references/mcn-handlebars-objects-references/mcn-handlebars-reference-objects-each.html)",
         "position": {
           "character": 6,
           "line": 16

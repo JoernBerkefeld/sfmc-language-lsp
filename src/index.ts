@@ -217,7 +217,7 @@ export class SfmcLanguageService {
             const hbsHover = getHandlebarsHover(line, position, doc.text);
             if (hbsHover) return hbsHover;
         }
-        return getAmpscriptHover(line, position, doc.text);
+        return getAmpscriptHover(line, position, doc.text, settings.targetPlatform);
     }
 
     // ── Signature Help ────────────────────────────────────────────────────────
