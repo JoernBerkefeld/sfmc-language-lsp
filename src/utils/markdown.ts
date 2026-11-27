@@ -347,11 +347,7 @@ export function buildHandlebarsHelperMarkdown(helper: HandlebarsHelper): string 
         lines.push('');
     }
 
-    lines.push(
-        `*@return* \`${helper.returnType}\``,
-        '',
-        `[sfmc.guide](${helper.sfmcGuideUrl}) / [Salesforce Developers](${helper.docUrl})`,
-    );
+    lines.push(`*@return* \`${helper.returnType}\``, '', `[sfmc.guide](${helper.sfmcGuideUrl})`);
 
     return lines.join('\n');
 }

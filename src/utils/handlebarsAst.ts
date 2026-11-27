@@ -8,6 +8,11 @@
 
 import { parse, type AST } from 'sfmc-handlebars-parser';
 import type { Position, Range } from 'vscode-languageserver-types';
+import {
+    findHandlebarsBlockIssue,
+    findUnclosedMustache,
+    scanHandlebarsBlockTags,
+} from './handlebarsBlocks.js';
 
 /**
  * A node in the Handlebars AST (re-exported for validator consumers).
@@ -87,14 +92,58 @@ export function parseHandlebars(text: string): HandlebarsParseResult {
  * @returns A structured syntax error.
  */
 function toSyntaxError(ex: unknown, text: string): HandlebarsSyntaxError {
-    const error = ex as { message?: string; hash?: { loc?: JisonLocation } };
+    const error = ex as {
+        message?: string;
+        hash?: { loc?: JisonLocation };
+        lineNumber?: number;
+        column?: number;
+    };
     const rawMessage = error.message ?? 'Handlebars syntax error.';
     // The parser's multi-line "Parse error on line N:\n<src>\n---^" message is
     // noisy for an editor; keep only the final, human-readable explanation.
     const lines = rawMessage.split('\n').filter((l) => l.trim().length > 0);
-    const message = lines.at(-1) ?? rawMessage;
-
+    let message = lines.at(-1) ?? rawMessage;
     const loc = error.hash?.loc;
+
+    // An empty `{{ }}` only yields a generic parse error; say what is wrong.
+    if (loc) {
+        const offset = offsetAt(text, loc.first_line - 1, loc.first_column);
+        if (/^\{\{~?\s*~?\}\}/.test(text.slice(offset))) {
+            message = 'Empty Handlebars expression. Write a helper or a value between the braces.';
+            return { message, range: rangeOf(text, offset, text.indexOf('}}', offset) + 2) };
+        }
+    }
+
+    // An expression still being typed (`{{upp` without `}}`): point at it.
+    const unclosed = findUnclosedMustache(text);
+    if (unclosed) {
+        const typed = /^\{\{[^\s{}]*/.exec(text.slice(unclosed.start))?.[0] ?? '{{';
+        return {
+            message: `Unclosed Handlebars expression '${typed}'. Expected '}}'.`,
+            range: rangeOf(text, unclosed.start, unclosed.start + typed.length),
+        };
+    }
+
+    // Block-structure errors (mismatched, stray or unclosed tags) get a plain
+    // explanation on the tag that causes them.
+    const issue = findHandlebarsBlockIssue(scanHandlebarsBlockTags(text), (offset) =>
+        lineAt(text, offset),
+    );
+    if (issue) {
+        const { tag } = issue;
+        const nameEnd = tag.name ? tag.nameStart + tag.name.length : tag.end;
+        return { message: issue.message, range: rangeOf(text, tag.nameStart, nameEnd) };
+    }
+
+    // Some parser errors carry only a 1-based line and 0-based column.
+    if (!loc && typeof error.lineNumber === 'number' && typeof error.column === 'number') {
+        const offset = offsetAt(text, error.lineNumber - 1, error.column);
+        const word = /^[^\s{}()~]+/.exec(text.slice(offset))?.[0] ?? '';
+        return { message, range: rangeOf(text, offset, offset + Math.max(1, word.length)) };
+    }
+
+    if (message === 'Parse error') message = 'Handlebars syntax error.';
+
     if (loc) {
         const start: Position = {
             line: Math.max(0, loc.first_line - 1),
@@ -107,12 +156,54 @@ function toSyntaxError(ex: unknown, text: string): HandlebarsSyntaxError {
         return { message, range: { start, end } };
     }
 
-    // Fallback: point at the start of the document.
-    const lastLine = text.split('\n').length - 1;
-    return {
-        message,
-        range: { start: { line: 0, character: 0 }, end: { line: lastLine, character: 0 } },
+    // Fallback without a location: mark the last Handlebars expression rather
+    // than the whole document.
+    const last = Math.max(0, text.lastIndexOf('{{'));
+    const lastEnd = text.indexOf('}}', last);
+    return { message, range: rangeOf(text, last, lastEnd === -1 ? text.length : lastEnd + 2) };
+}
+
+/**
+ * Offset of a 0-based line and column in the text.
+ * @param text - Source text.
+ * @param line - 0-based line.
+ * @param column - 0-based column.
+ * @returns The string offset (clamped to the text length).
+ */
+function offsetAt(text: string, line: number, column: number): number {
+    let offset = 0;
+    for (let l = 0; l < line; l++) {
+        const next = text.indexOf('\n', offset);
+        if (next === -1) return text.length;
+        offset = next + 1;
+    }
+    return Math.min(text.length, offset + Math.max(0, column));
+}
+
+/**
+ * 1-based line number of an offset.
+ * @param text - Source text.
+ * @param offset - String offset.
+ * @returns The 1-based line.
+ */
+function lineAt(text: string, offset: number): number {
+    return text.slice(0, offset).split('\n').length;
+}
+
+/**
+ * LSP range between two offsets.
+ * @param text - Source text.
+ * @param start - Start offset.
+ * @param end - End offset.
+ * @returns The range.
+ */
+function rangeOf(text: string, start: number, end: number): Range {
+    const toPosition = (offset: number): Position => {
+        const before = text.slice(0, offset);
+        const line = before.split('\n').length - 1;
+        return { line, character: offset - (before.lastIndexOf('\n') + 1) };
     };
+    return { start: toPosition(start), end: toPosition(Math.max(start, end)) };
 }
 
 /**

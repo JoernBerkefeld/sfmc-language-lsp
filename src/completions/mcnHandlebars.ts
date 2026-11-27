@@ -23,6 +23,7 @@ import {
 } from '../utils/markdown.js';
 import { handlebarsHelperList, handlebarsBindingList } from '../data/handlebars.js';
 import { getHandlebarsLocalsAtOffset } from '../utils/handlebarsScopeTracker.js';
+import { handlebarsWordPosition } from '../utils/handlebarsBlocks.js';
 
 /**
  * Human-readable label for a helper's origin, used in completion detail text.
@@ -87,10 +88,17 @@ export function getHandlebarsCompletions(text: string, position: Position): Comp
     }
 
     if (isInsideHandlebars(text, offset)) {
+        // Helpers only where a helper name can stand (first word after `{{`,
+        // `{{#` or `(`); later words are values. Nothing in strings, after `.`,
+        // or in `{{/`, `{{>`, `{{!` tags.
+        const wordStart = offset - (/[\w@$-]*$/.exec(before)?.[0].length ?? 0);
+        const place = handlebarsWordPosition(text.slice(0, wordStart));
+        if (place === 'none') return [];
         // Block params (`as |item index|`) and loop vars (`@index`, `@key`, …)
         // are only valid inside the block that declares them, so they are added
         // ahead of the global helper catalog when in scope.
         const localItems = buildLocalCompletionItems(text, offset);
+        if (place === 'argument') return localItems;
         return localItems.length > 0
             ? [...localItems, ...handlebarsHelperCompletionItems]
             : handlebarsHelperCompletionItems;

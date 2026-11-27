@@ -3875,6 +3875,20 @@ describe('SSJS ECMAScript builtin completions', () => {
 // ── MCN Handlebars — settings & helpers ────────────────────────────────────
 
 const nextSettings = { maxNumberOfProblems: 100, targetPlatform: 'next' };
+const hoverWord = (text, word, nth = 0) => {
+    let index = -1;
+    for (let k = 0; k <= nth; k++) index = text.indexOf(word, index + 1);
+    const hover = service.getHover(
+        { text, languageId: 'ampscript' },
+        text,
+        { line: 0, character: index + 1 },
+        nextSettings,
+    );
+    return hover ? (/\(helper\) (\w+)/.exec(hover.contents.value)?.[1] ?? 'other') : null;
+};
+const hbsDiags = (text) => service.validate({ text, languageId: 'ampscript' }, nextSettings);
+const at = (d) =>
+    `${d.range.start.line}:${d.range.start.character}-${d.range.end.line}:${d.range.end.character}`;
 
 // ── MCN Handlebars validation ──────────────────────────────────────────────
 
@@ -3935,6 +3949,85 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
                 [19, 'each'],
             ],
         );
+    });
+
+    it('reports a mismatched closing tag on the closing tag, in plain words', () => {
+        const [d] = hbsDiags('<p>a</p>\n<p>{{#if a}}x{{/each}}</p>');
+        assert.equal(d.code, 'sfmc/hbs-syntax-error');
+        assert.equal(
+            d.message,
+            '{{/each}} does not close {{#if}} (opened on line 2). Expected {{/if}}.',
+        );
+        assert.equal(at(d), '1:16-1:20');
+    });
+
+    it('names an unclosed block and an empty expression', () => {
+        const [unclosed] = hbsDiags('<p>{{#if a}}x');
+        assert.equal(unclosed.message, 'Unclosed {{#if}} block. Expected a matching closing tag.');
+        assert.equal(at(unclosed), '0:6-0:8');
+        const [empty] = hbsDiags('{{ }}');
+        assert.match(empty.message, /^Empty Handlebars expression/);
+        assert.equal(at(empty), '0:0-0:5');
+        const [stray] = hbsDiags('x {{/if}}');
+        assert.equal(stray.message, '{{/if}} has no matching {{#if}} before it.');
+    });
+
+    it('keeps checking helper names after a syntax error', () => {
+        const codes = hbsDiags('{{properCase a}}\n<p>{{#If a}}x').map((d) => d.code);
+        assert.deepEqual(codes, [
+            'sfmc/hbs-syntax-error',
+            'sfmc/hbs-helper-name-case',
+            'sfmc/hbs-helper-name-case',
+        ]);
+    });
+
+    it('hovers a helper only where a helper name stands', () => {
+        assert.equal(hoverWord('{{uppercase add}}', 'uppercase'), 'uppercase');
+        assert.equal(hoverWord('{{uppercase add}}', 'add'), null);
+        assert.equal(hoverWord('{{#if now}}x{{/if}}', 'now'), null);
+        assert.equal(hoverWord('{{Contact.length}}', 'length'), null);
+        assert.equal(hoverWord('{{concat Lookup "uppercase x"}}', 'uppercase'), null);
+        assert.equal(hoverWord('{{concat (lowercase a) b}}', 'lowercase'), 'lowercase');
+        assert.equal(hoverWord('{{#if a}}{{else if b}}{{/if}}', 'if', 1), 'if');
+    });
+
+    it('offers helpers only where a helper name can stand', () => {
+        const count = (text, character = text.length) =>
+            service.getCompletions(
+                { text, languageId: 'ampscript' },
+                { line: 0, character },
+                nextSettings,
+            ).length;
+        assert.ok(count('{{') > 50);
+        assert.ok(count('{{#') > 50);
+        assert.ok(count('{{concat (') > 50);
+        for (const text of ['{{#if a', '{{/', '{{> ', '{{! ', '{{concat "x', '{{Contact.']) {
+            assert.equal(count(text), 0, text);
+        }
+        const withLocals = '{{#each items as |item|}}{{uppercase i}}{{/each}}';
+        const labels = new Set(
+            service
+                .getCompletions(
+                    { text: withLocals, languageId: 'ampscript' },
+                    { line: 0, character: withLocals.indexOf(' i}') + 2 },
+                    nextSettings,
+                )
+                .map((c) => c.label),
+        );
+        assert.ok(labels.has('item'));
+        assert.ok(!labels.has('uppercase'));
+    });
+
+    it('marks an unfinished expression and keeps the other findings', () => {
+        const diags = hbsDiags('<p>a</p>\n{{properCase b}}\n{{upp');
+        assert.equal(diags[0].message, "Unclosed Handlebars expression '{{upp'. Expected '}}'.");
+        assert.equal(at(diags[0]), '2:0-2:5');
+        assert.equal(diags[1].code, 'sfmc/hbs-helper-name-case');
+        assert.equal(at(hbsDiags('{{#if a}}{{upp{{/if}}')[0]), '0:9-0:14');
+    });
+
+    it('ignores block tags inside Handlebars comments', () => {
+        assert.deepEqual(hbsDiags('{{#if a}}{{else}}b{{/if}} {{!-- {{#each}} --}}'), []);
     });
 
     it('does not flag a helper written in the catalog spelling', () => {
@@ -4082,13 +4175,13 @@ describe('MCN Handlebars hover (targetPlatform: next)', () => {
         assert.ok(hover.contents.value.toLowerCase().includes('each'));
     });
 
-    it('links the sfmc.guide page first, then Salesforce Developers, in a helper hover', () => {
+    it('links only the sfmc.guide page in a helper hover', () => {
         const line = '{{add 1 2}}';
         const doc = { text: line, languageId: 'ampscript' };
         const hover = service.getHover(doc, line, { line: 0, character: 3 }, nextSettings);
         assert.match(
             hover.contents.value,
-            /\[sfmc\.guide\]\(https:\/\/sfmc\.guide\/next\/handlebars\/helpers\/add\/\) \/ \[Salesforce Developers\]\(https:\/\/developer\.salesforce\.com\//,
+            /\[sfmc\.guide\]\(https:\/\/sfmc\.guide\/next\/handlebars\/helpers\/add\/\)$/,
         );
     });
 

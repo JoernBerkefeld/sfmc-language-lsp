@@ -36,6 +36,11 @@ import {
     handlebarsBindingList,
 } from '../data/handlebars.js';
 import { closestMatch } from '../utils/closestMatch.js';
+import {
+    blankSpan,
+    findUnclosedMustache,
+    scanHandlebarsBlockTags,
+} from '../utils/handlebarsBlocks.js';
 
 /**
  * Proper-cased built-in binding names, used for "did you mean" suggestions.
@@ -232,7 +237,7 @@ export function validateMcnHandlebars(
         return;
     }
 
-    // 1. Parse. A syntax error is terminal — we cannot walk a null AST.
+    // 1. Parse. On a syntax error the template is checked without its block tags.
     const { ast, error } = parseHandlebars(sanitized);
     if (error) {
         diagnostics.push(
@@ -243,13 +248,92 @@ export function validateMcnHandlebars(
                 source: 'handlebars',
             }),
         );
+        checkAfterSyntaxError(sanitized, diagnostics, remainingBudget - 1);
         return;
     }
 
-    let problems = 0;
+    const problems = ast ? checkHelperCalls(ast, diagnostics, remainingBudget) : 0;
 
-    // 2. Walk the AST: unsupported constructs (Error) and unknown helpers (Warning).
-    if (ast) {
+    // 3. Built-in `{!$...}` bindings. The Handlebars parser treats these as
+    //    literal content, so they are validated with a regex pass over the
+    //    sanitized text (offsets are preserved, AMPscript regions are blanked).
+    checkBindings(text, sanitized, diagnostics, remainingBudget - problems);
+}
+
+/**
+ * Keep checking a template the parser rejected: parse it again with every block
+ * tag (and every empty `{{ }}`) blanked, check the helper calls that remain, and
+ * check the block helper names from a text scan.
+ * @param sanitized - Sanitized Handlebars text.
+ * @param diagnostics - Diagnostics sink.
+ * @param budget - Maximum number of additional problems to report.
+ */
+function checkAfterSyntaxError(sanitized: string, diagnostics: Diagnostic[], budget: number): void {
+    if (budget <= 0) return;
+    const tags = scanHandlebarsBlockTags(sanitized);
+    let blanked = sanitized.replaceAll(/\{\{~?\s*~?\}\}/g, (m) => ' '.repeat(m.length));
+    for (const tag of tags) blanked = blankSpan(blanked, tag.start, tag.end);
+    // Expressions still being typed (`{{upp` without `}}`) are dropped as well.
+    for (let open = findUnclosedMustache(blanked); open; open = findUnclosedMustache(blanked)) {
+        blanked = blankSpan(blanked, open.start, open.end);
+    }
+    const { ast } = parseHandlebars(blanked);
+    let problems = ast ? checkHelperCalls(ast, diagnostics, budget) : 0;
+
+    for (const tag of tags) {
+        if (problems >= budget) return;
+        if (tag.kind !== 'open' || !/^[A-Za-z_]\w*$/.test(tag.name)) continue;
+        const node = { type: 'BlockStatement', loc: offsetsToLoc(sanitized, tag.start, tag.end) };
+        const diagnostic = isHelper(tag.name)
+            ? helperNameCaseDiagnostic(node as HandlebarsAstNode, tag.name, true)
+            : unknownHelperDiagnostic(node as HandlebarsAstNode, tag.name, true);
+        if (!diagnostic) {
+            continue;
+        }
+
+        problems++;
+        diagnostics.push(diagnostic);
+    }
+    checkBindings(sanitized, sanitized, diagnostics, budget - problems);
+}
+
+/**
+ * Parser-style source location (1-based line, 0-based column) between two offsets.
+ * @param text - Source text.
+ * @param start - Start offset.
+ * @param end - End offset.
+ * @returns The location.
+ */
+function offsetsToLoc(
+    text: string,
+    start: number,
+    end: number,
+): { start: { line: number; column: number }; end: { line: number; column: number } } {
+    const at = (offset: number) => {
+        const before = text.slice(0, offset);
+        return {
+            line: before.split('\n').length,
+            column: offset - (before.lastIndexOf('\n') + 1),
+        };
+    };
+    return { start: at(start), end: at(end) };
+}
+
+/**
+ * Walk the AST: unsupported constructs (Error), unknown helpers and helper names
+ * in the wrong letter case (Warning).
+ * @param ast - Parsed template.
+ * @param diagnostics - Diagnostics sink.
+ * @param remainingBudget - Maximum number of problems to report.
+ * @returns The number of problems reported.
+ */
+function checkHelperCalls(
+    ast: NonNullable<ReturnType<typeof parseHandlebars>['ast']>,
+    diagnostics: Diagnostic[],
+    remainingBudget: number,
+): number {
+    let problems = 0;
+    {
         walkHandlebars(ast, (rawNode) => {
             if (problems >= remainingBudget) return;
             const node = rawNode as CallNode;
@@ -292,10 +376,24 @@ export function validateMcnHandlebars(
             }
         });
     }
+    return problems;
+}
 
-    // 3. Built-in `{!$...}` bindings. The Handlebars parser treats these as
-    //    literal content, so they are validated with a regex pass over the
-    //    sanitized text (offsets are preserved, AMPscript regions are blanked).
+/**
+ * Check built-in `{!$...}` bindings against the catalog.
+ * @param text - Full document text (for positions).
+ * @param sanitized - Sanitized Handlebars text with the same offsets.
+ * @param diagnostics - Diagnostics sink.
+ * @param remainingBudget - Maximum number of problems to report.
+ * @returns The number of problems reported.
+ */
+function checkBindings(
+    text: string,
+    sanitized: string,
+    diagnostics: Diagnostic[],
+    remainingBudget: number,
+): number {
+    let problems = 0;
     BINDING_PATTERN.lastIndex = 0;
     let match: RegExpExecArray | null;
     while ((match = BINDING_PATTERN.exec(sanitized)) !== null && problems < remainingBudget) {
@@ -325,4 +423,5 @@ export function validateMcnHandlebars(
             }),
         );
     }
+    return problems;
 }

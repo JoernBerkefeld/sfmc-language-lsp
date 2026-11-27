@@ -30,7 +30,7 @@ For more complex templates, restructure the content using supported MCN features
 
 ## Platform and scope
 
-This check runs in the shared service for `targetPlatform: 'next'`, not Engagement. It runs after a successful Handlebars parse, with AMPscript regions blanked before parsing, and respects the shared problem budget. A [syntax error](syntax-error.md) stops this validator before construct checks can run.
+This check runs in the shared service for `targetPlatform: 'next'`, not Engagement. It runs after a successful Handlebars parse, with AMPscript regions blanked before parsing, and respects the shared problem budget. After a [syntax error](syntax-error.md), constructs outside block tags are still checked on a second parse without the block tags.
 
 ## Quick fixes and suppression
 

@@ -42,6 +42,6 @@ No suggestion means no replacement action. For a misspelled block helper, the cu
 
 ## Platform and suppression
 
-This check runs for `targetPlatform: 'next'` in the shared service, not Engagement. AMPscript regions are blanked before parsing, parser errors stop the later checks, and the shared problem budget limits reports.
+This check runs for `targetPlatform: 'next'` in the shared service, not Engagement. AMPscript regions are blanked before parsing, after a syntax error the template is checked again without its block tags (block helper names are still checked), and the shared problem budget limits reports.
 
 `SfmcLanguageService.validate` suppresses this overlapping diagnostic when `disableLspDiagnosticsForEslintRules: true`. The low-level validator does not apply that filter. Configure the matching ESLint rule separately if ESLint should report the problem. ESLint disable comments are not LSP suppression directives, and suppressing a warning does not register the helper in MCN.

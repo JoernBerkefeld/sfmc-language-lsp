@@ -2,7 +2,7 @@
 
 ## Trigger and why it matters
 
-Reports an **error** when the Marketing Cloud Next (MCN) Handlebars parser cannot parse the template. Examples include missing block endings, mismatched opening and closing names, or malformed expressions. The parser supplies the diagnostic message and location; that location can be where parsing stopped rather than where the mistake began.
+Reports an **error** when the Marketing Cloud Next (MCN) Handlebars parser cannot parse the template. Examples include missing block endings, mismatched opening and closing names, or malformed expressions. Block-structure mistakes are explained in plain words on the tag that causes them: a closing tag that does not match the open block (for example `{{/each}} does not close {{#if}} (opened on line 2). Expected {{/if}}.`), a closing tag without an open block, and an unclosed block (`Unclosed {{#if}} block. Expected a matching closing tag.`). An empty `{{ }}` is reported as an empty expression. For other mistakes the parser supplies the location, which can be where parsing stopped rather than where the mistake began.
 
 The internal variant and legacy code are `handlebars/syntax-error`. This is a parser-level LSP diagnostic, not an ESLint rule.
 
@@ -22,7 +22,7 @@ Close the conditional with the same helper name:
 {{#if true}}Ready{{/if}}
 ```
 
-Check nearby delimiters, quotes, and enclosing block names before editing the reported token. Repair the earliest syntax problem first: after a parse failure this validator returns without checking helpers, unsupported constructs, or built-in bindings. Additional diagnostics can therefore appear after the syntax is repaired.
+Check nearby delimiters, quotes, and enclosing block names before editing the reported token. Repair the syntax problem first. After a parse failure the validator still checks what it can: it parses the template again without its block tags and empty expressions, checks the remaining helper calls and the block helper names, and scans built-in bindings. Arguments inside block tags are only checked once the syntax is repaired, so more diagnostics can appear then.
 
 A successful parse is not a guarantee of platform support. For example, a partial can parse successfully but still trigger [no-unsupported-construct](no-unsupported-construct.md).
 

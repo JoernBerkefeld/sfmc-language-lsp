@@ -28,7 +28,7 @@ The catalog also includes `{!$link.EmailAddressOptOutUrl}` and `{!$link.Preferen
 
 All unknown built-in tokens use the same diagnostic variant. The validator matches a complete `{!$...}` token whose name contains only ASCII letters, digits, underscores, or dots. A malformed token outside that pattern may not be reported by this rule. Ordinary mustache data references and custom field availability are outside its scope.
 
-The scan runs over sanitized text after a successful Handlebars parse. The parser treats these binding tokens as literal content, so the validator checks them separately with a regular expression. AMPscript regions are blanked before this scan; this is not an HTML-aware attribute or comment filter. A [syntax error](syntax-error.md) prevents the binding scan from running. Reports respect the shared problem budget.
+The scan runs over sanitized text. The parser treats these binding tokens as literal content, so the validator checks them separately with a regular expression. AMPscript regions are blanked before this scan; this is not an HTML-aware attribute or comment filter. The scan also runs after a [syntax error](syntax-error.md). Reports respect the shared problem budget.
 
 ## Quick fixes
 

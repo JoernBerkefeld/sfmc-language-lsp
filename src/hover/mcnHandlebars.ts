@@ -20,6 +20,7 @@ import {
 } from '../utils/markdown.js';
 import { getHelper, bindingLookup } from '../data/handlebars.js';
 import { getHandlebarsLocalsAtOffset } from '../utils/handlebarsScopeTracker.js';
+import { handlebarsWordPosition } from '../utils/handlebarsBlocks.js';
 
 /**
  * Matches a full `{!$namespace.Field}` binding token.
@@ -100,6 +101,18 @@ export function getHandlebarsHover(
             range: hoverRange,
         };
     }
+
+    // Only a word in helper position names a helper; elsewhere (an argument, a
+    // path segment such as `Contact.length`, a string) it is a field or text.
+    const wordStart = positionToOffset(fullText, {
+        line: position.line,
+        character: wordRange.start,
+    });
+    if (
+        handlebarsWordPosition(fullText.slice(0, wordStart)) !== 'helper' ||
+        fullText[wordStart + word.length] === '.'
+    )
+        return null;
 
     const helper = getHelper(word);
     if (!helper) return null;

@@ -35,6 +35,8 @@ import {
     handlebarsHelperCompletionItems,
 } from './completions/mcnHandlebars.js';
 
+import { isInsideHandlebars } from './utils/regions.js';
+import { positionToOffset } from './utils/positions.js';
 import { getAmpscriptHover } from './hover/ampscript.js';
 import { getSsjsHover } from './hover/ssjs.js';
 import { getHandlebarsHover } from './hover/mcnHandlebars.js';
@@ -171,7 +173,11 @@ export class SfmcLanguageService {
         // binding, return Handlebars items instead of AMPscript ones.
         if (settings.targetPlatform === 'next') {
             const hbsItems = getHandlebarsCompletions(doc.text, position);
-            if (hbsItems.length > 0) {
+            // Inside `{{ }}` only Handlebars applies, even when nothing fits here.
+            if (
+                hbsItems.length > 0 ||
+                isInsideHandlebars(doc.text, positionToOffset(doc.text, position))
+            ) {
                 return hbsItems;
             }
         }
@@ -211,11 +217,12 @@ export class SfmcLanguageService {
             return getSsjsHover(line, position, localFns);
         }
         // MCN Handlebars hover is exclusive to Marketing Cloud Next and mutually
-        // exclusive with GTL. Try it first; fall back to AMPscript hover when the
-        // cursor is not on a Handlebars helper or binding.
+        // exclusive with GTL. Try it first; fall back to AMPscript hover only
+        // outside `{{ }}`, where a word like `add` is a field, not AMPscript.
         if (settings.targetPlatform === 'next') {
             const hbsHover = getHandlebarsHover(line, position, doc.text);
             if (hbsHover) return hbsHover;
+            if (isInsideHandlebars(doc.text, positionToOffset(doc.text, position))) return null;
         }
         return getAmpscriptHover(line, position, doc.text, settings.targetPlatform);
     }

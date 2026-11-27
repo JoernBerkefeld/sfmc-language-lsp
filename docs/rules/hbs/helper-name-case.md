@@ -30,4 +30,4 @@ The provider offers a preferred quick fix such as **Replace 'properCase' with 'p
 
 ## Platform and suppression
 
-This check runs for `targetPlatform: 'next'` in the shared service, not Engagement, after a successful parse, and shares the problem budget with the other Handlebars checks. It is LSP-only, so `disableLspDiagnosticsForEslintRules` does not suppress it.
+This check runs for `targetPlatform: 'next'` in the shared service, not Engagement, also after a [syntax error](syntax-error.md) (block helper names are then checked from a text scan), and shares the problem budget with the other Handlebars checks. It is LSP-only, so `disableLspDiagnosticsForEslintRules` does not suppress it.
