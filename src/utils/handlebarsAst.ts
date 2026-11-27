@@ -8,11 +8,7 @@
 
 import { parse, type AST } from 'sfmc-handlebars-parser';
 import type { Position, Range } from 'vscode-languageserver-types';
-import {
-    findHandlebarsBlockIssue,
-    findUnclosedMustache,
-    scanHandlebarsBlockTags,
-} from './handlebarsBlocks.js';
+import { findHandlebarsBlockIssue, scanHandlebarsBlockTags } from './handlebarsBlocks.js';
 
 /**
  * Parser messages about block structure (sfmc-handlebars-parser >= 0.2.0).
@@ -121,16 +117,6 @@ function toSyntaxError(ex: unknown, text: string): HandlebarsSyntaxError {
             const { tag } = issue;
             const nameEnd = tag.name ? tag.nameStart + tag.name.length : tag.end;
             return { message: issue.message, range: rangeOf(text, tag.nameStart, nameEnd) };
-        }
-        // Balanced tags, yet the parser lost a closing tag: an expression without
-        // `}}` swallowed it (`{{#if a}}{{upp{{/if}}`). Point at that expression.
-        const unclosed = findUnclosedMustache(text);
-        if (unclosed) {
-            const typed = /^\{\{\{?[^\s{}]*/.exec(text.slice(unclosed.start))?.[0] ?? '{{';
-            return {
-                message: `Unclosed expression ${typed}: expected '}}'.`,
-                range: rangeOf(text, unclosed.start, unclosed.start + 2),
-            };
         }
     }
 

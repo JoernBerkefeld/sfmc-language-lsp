@@ -4027,6 +4027,11 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
         assert.equal(at(diags[0]), '2:0-2:2');
         assert.equal(diags[1].code, 'sfmc/hbs-helper-name-case');
         assert.equal(at(hbsDiags('{{#if a}}{{upp{{/if}}')[0]), '0:9-0:11');
+        assert.equal(
+            hbsDiags('{{upp {{x}}')[0].message,
+            "Unclosed expression {{upp: expected '}}'.",
+        );
+        assert.equal(hbsDiags('{{foo bar=}}')[0].message, 'Missing value after bar=.');
     });
 
     it('ignores block tags inside Handlebars comments', () => {
