@@ -15,6 +15,11 @@ import {
 } from './handlebarsBlocks.js';
 
 /**
+ * Parser messages about block structure (sfmc-handlebars-parser >= 0.2.0).
+ */
+const BLOCK_ERROR_PATTERN = /^Unclosed block |does not close |has no matching /;
+
+/**
  * A node in the Handlebars AST (re-exported for validator consumers).
  */
 export type HandlebarsAstNode = AST.Node;
@@ -102,47 +107,39 @@ function toSyntaxError(ex: unknown, text: string): HandlebarsSyntaxError {
     // The parser's multi-line "Parse error on line N:\n<src>\n---^" message is
     // noisy for an editor; keep only the final, human-readable explanation.
     const lines = rawMessage.split('\n').filter((l) => l.trim().length > 0);
-    let message = lines.at(-1) ?? rawMessage;
+    const message = lines.at(-1) ?? rawMessage;
     const loc = error.hash?.loc;
 
-    // An empty `{{ }}` only yields a generic parse error; say what is wrong.
-    if (loc) {
-        const offset = offsetAt(text, loc.first_line - 1, loc.first_column);
-        if (/^\{\{~?\s*~?\}\}/.test(text.slice(offset))) {
-            message = 'Empty Handlebars expression. Write a helper or a value between the braces.';
-            return { message, range: rangeOf(text, offset, text.indexOf('}}', offset) + 2) };
+    // Block-structure errors (unclosed, mismatched or stray tags): the parser
+    // reports them where upstream does (the opener, or the end of the document);
+    // the editor marks the tag that causes them and names the line it opened on.
+    if (BLOCK_ERROR_PATTERN.test(message)) {
+        const issue = findHandlebarsBlockIssue(scanHandlebarsBlockTags(text), (offset) =>
+            lineAt(text, offset),
+        );
+        if (issue) {
+            const { tag } = issue;
+            const nameEnd = tag.name ? tag.nameStart + tag.name.length : tag.end;
+            return { message: issue.message, range: rangeOf(text, tag.nameStart, nameEnd) };
+        }
+        // Balanced tags, yet the parser lost a closing tag: an expression without
+        // `}}` swallowed it (`{{#if a}}{{upp{{/if}}`). Point at that expression.
+        const unclosed = findUnclosedMustache(text);
+        if (unclosed) {
+            const typed = /^\{\{\{?[^\s{}]*/.exec(text.slice(unclosed.start))?.[0] ?? '{{';
+            return {
+                message: `Unclosed expression ${typed}: expected '}}'.`,
+                range: rangeOf(text, unclosed.start, unclosed.start + 2),
+            };
         }
     }
 
-    // An expression still being typed (`{{upp` without `}}`): point at it.
-    const unclosed = findUnclosedMustache(text);
-    if (unclosed) {
-        const typed = /^\{\{[^\s{}]*/.exec(text.slice(unclosed.start))?.[0] ?? '{{';
-        return {
-            message: `Unclosed Handlebars expression '${typed}'. Expected '}}'.`,
-            range: rangeOf(text, unclosed.start, unclosed.start + typed.length),
-        };
-    }
-
-    // Block-structure errors (mismatched, stray or unclosed tags) get a plain
-    // explanation on the tag that causes them.
-    const issue = findHandlebarsBlockIssue(scanHandlebarsBlockTags(text), (offset) =>
-        lineAt(text, offset),
-    );
-    if (issue) {
-        const { tag } = issue;
-        const nameEnd = tag.name ? tag.nameStart + tag.name.length : tag.end;
-        return { message: issue.message, range: rangeOf(text, tag.nameStart, nameEnd) };
-    }
-
-    // Some parser errors carry only a 1-based line and 0-based column.
+    // Exception-class parser errors carry a 1-based line and 0-based column.
     if (!loc && typeof error.lineNumber === 'number' && typeof error.column === 'number') {
         const offset = offsetAt(text, error.lineNumber - 1, error.column);
         const word = /^[^\s{}()~]+/.exec(text.slice(offset))?.[0] ?? '';
         return { message, range: rangeOf(text, offset, offset + Math.max(1, word.length)) };
     }
-
-    if (message === 'Parse error') message = 'Handlebars syntax error.';
 
     if (loc) {
         const start: Position = {

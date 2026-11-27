@@ -3966,8 +3966,11 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
         assert.equal(unclosed.message, 'Unclosed {{#if}} block. Expected a matching closing tag.');
         assert.equal(at(unclosed), '0:6-0:8');
         const [empty] = hbsDiags('{{ }}');
-        assert.match(empty.message, /^Empty Handlebars expression/);
-        assert.equal(at(empty), '0:0-0:5');
+        assert.equal(
+            empty.message,
+            'Empty expression: write a helper or a value between the braces.',
+        );
+        assert.equal(at(empty), '0:0-0:2');
         const [stray] = hbsDiags('x {{/if}}');
         assert.equal(stray.message, '{{/if}} has no matching {{#if}} before it.');
     });
@@ -4020,10 +4023,10 @@ describe('MCN Handlebars validation (targetPlatform: next)', () => {
 
     it('marks an unfinished expression and keeps the other findings', () => {
         const diags = hbsDiags('<p>a</p>\n{{properCase b}}\n{{upp');
-        assert.equal(diags[0].message, "Unclosed Handlebars expression '{{upp'. Expected '}}'.");
-        assert.equal(at(diags[0]), '2:0-2:5');
+        assert.equal(diags[0].message, "Unclosed expression {{upp: expected '}}'.");
+        assert.equal(at(diags[0]), '2:0-2:2');
         assert.equal(diags[1].code, 'sfmc/hbs-helper-name-case');
-        assert.equal(at(hbsDiags('{{#if a}}{{upp{{/if}}')[0]), '0:9-0:14');
+        assert.equal(at(hbsDiags('{{#if a}}{{upp{{/if}}')[0]), '0:9-0:11');
     });
 
     it('ignores block tags inside Handlebars comments', () => {

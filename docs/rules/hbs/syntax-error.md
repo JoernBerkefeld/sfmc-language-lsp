@@ -2,7 +2,7 @@
 
 ## Trigger and why it matters
 
-Reports an **error** when the Marketing Cloud Next (MCN) Handlebars parser cannot parse the template. Examples include missing block endings, mismatched opening and closing names, or malformed expressions. Block-structure mistakes are explained in plain words on the tag that causes them: a closing tag that does not match the open block (for example `{{/each}} does not close {{#if}} (opened on line 2). Expected {{/if}}.`), a closing tag without an open block, and an unclosed block (`Unclosed {{#if}} block. Expected a matching closing tag.`). An empty `{{ }}` is reported as an empty expression. For other mistakes the parser supplies the location, which can be where parsing stopped rather than where the mistake began.
+Reports an **error** when the Marketing Cloud Next (MCN) Handlebars parser cannot parse the template. Examples include missing block endings, mismatched opening and closing names, or malformed expressions. Block-structure mistakes are explained in plain words on the tag that causes them: a closing tag that does not match the open block (for example `{{/each}} does not close {{#if}} (opened on line 2). Expected {{/if}}.`), a closing tag without an open block, and an unclosed block (`Unclosed {{#if}} block. Expected a matching closing tag.`). For other mistakes the parser explains what is wrong in one line, for example `Empty expression: write a helper or a value between the braces.` or `Unclosed expression {{upp: expected '}}'.`, at the place where parsing stopped, which can come after the mistake.
 
 The internal variant and legacy code are `handlebars/syntax-error`. This is a parser-level LSP diagnostic, not an ESLint rule.
 
